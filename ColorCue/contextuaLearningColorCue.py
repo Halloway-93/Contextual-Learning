@@ -1,8 +1,14 @@
+
+
+
+#|%%--%%| <AMST68WNMN|75QGi3fir4>
+
 import io
 import json
 import re
 import warnings
 from collections import defaultdict
+import os
 from datetime import datetime
 from os import listdir
 
@@ -20,6 +26,9 @@ from scipy.stats import linregress, normaltest, pearsonr
 
 set_mpl_style()
 
+
+
+#|%%--%%| <75QGi3fir4|YRTMdbuSUv>
 
 def process_events(rows, blocks, colnames):
     # If no data, create empty dataframe w/ all cols and types
@@ -70,7 +79,7 @@ def process_blinks(blinks, blocks):
 def process_messages(msgs, blocks):
     # Process messages from tracker
     msg_mat = [msg.split(" ", 1) for msg in msgs]
-    msg_mat = [[msg[0][4:], msg[1]] for msg in msg_mat]
+    msg_mat = [[msg[0][4:], msg[1].rstrip()] for msg in msg_mat]
     msg_df = pd.DataFrame(msg_mat, columns=["time", "text"])
     msg_df["time"] = pd.to_numeric(msg_df["time"])
 
@@ -374,7 +383,7 @@ def process_raw(raw, blocks, info):
 
 
 def read_asc(fname, samples=True, events=True, parse_all=False):
-    with open(fname, "r") as f:
+    with open(fname, "r", encoding="ISO-8859-1", errors="ignore") as f:
         inp = f.readlines()
 
     # Convert to ASCII
@@ -473,19 +482,105 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     return out
 
 
-path = "./data/sub-01/sub-01_col50-dir25_eyeData.asc"
 
-data = read_asc(path)
-df = data["raw"]
-df.head()
-event_path = "./data/sub-01/sub-01_col50-dir25_events.tsv"
-events = pd.read_csv(event_path, sep="\t")
-events.head()
-events
-data['info']
+# event_path = "./ColorCue/data/sub-01/sub-01_col50-dir25_events.tsv"
+# events = pd.read_csv(event_path, sep="\t")
+# events.head()
+# events
+# data['info']
+#
+# MSG=data["msg"]
+# Zero=MSG.loc[MSG.text=='TargetOn',["trial","time"]]
+#
+# Zero
+# MSG.text.unique()
 
-MSG=data["msg"]
-Zero=MSG.loc[MSG.text=='TargetOn\n',["trial","time"]]
+#|%%--%%| <YRTMdbuSUv|oV69eIU6Nz>
 
-Zero
-MSG
+def read_all_asc_files(data_dir):
+    for root, _, files in sorted (os.walk(data_dir)):
+        for filename in files:
+            if filename.endswith('.asc'):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                data = read_asc(filepath)
+                df=pd.DataFrame(data["raw"])
+                # k=1
+                # df['sub']=[k]*len(df)
+                # k=k+1
+                msg=pd.DataFrame(data["msg"])
+                sacc=pd.DataFrame(data["sacc"])
+                allDFs.append(df)
+                allMSG.append(msg)
+                allSacc.append(sacc)
+            elif filename.endswith('.tsv'):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                events=pd.read_csv(filepath, sep="\t")
+                allEvents.append(events)
+
+
+#|%%--%%| <oV69eIU6Nz|yTds9aaU1i>
+allDFs=[]
+allSacc=[]
+allMSG=[]
+allEvents=[]
+data_dir = "./ColorCue/data"
+read_all_asc_files(data_dir)
+df_sub01=allDFs[0]
+df_sub01.head()
+
+
+
+
+
+#|%%--%%| <yTds9aaU1i|wpX6aIV20I>
+
+allMSG[0].head()
+allMSG[0].text.unique()
+#|%%--%%| <wpX6aIV20I|2dWp9K9QCo>
+
+allSacc[0].head()
+#|%%--%%| <2dWp9K9QCo|pCKlIhyjVf>
+
+allEvents[0].head()
+
+
+#|%%--%%| <pCKlIhyjVf|gLaLgT9MHu>
+
+
+
+allEvents[0].columns
+#|%%--%%| <gLaLgT9MHu|SCa0S3JEBh>
+
+allDFs[0].columns
+
+#|%%--%%| <SCa0S3JEBh|OtNXoVbV2a>
+
+allDFs[0].trial.unique()
+
+#|%%--%%| <OtNXoVbV2a|77tujPJ2kC>
+
+allSacc[0].trial.unique()
+
+#|%%--%%| <77tujPJ2kC|Pkhz9tTxfP>
+
+[len(df_sub01[df_sub01.trial==i] ) for i in df_sub01.trial.unique()]
+
+#|%%--%%| <Pkhz9tTxfP|qxoaOMyKmP>
+
+df_sub02=allDFs[1]  #sub-02
+
+[len(df_sub02[df_sub02.trial==i] ) for i in df_sub02.trial.unique()]
+
+#|%%--%%| <qxoaOMyKmP|ggZBkEYLZR>
+
+df_sub02.head()
+#|%%--%%| <ggZBkEYLZR|BnMRtUpg2c>
+
+plt.plot(df_sub02[df_sub02.trial==1].time,df_sub02[df_sub02.trial==1].xp)
+
+#|%%--%%| <BnMRtUpg2c|JMB3Rcqgal>
+
+
+
