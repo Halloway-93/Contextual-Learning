@@ -1,14 +1,14 @@
 
 
 
-#|%%--%%| <AMST68WNMN|75QGi3fir4>
+# |%%--%%| <AMST68WNMN|75QGi3fir4>
 
 import io
 import json
+import os
 import re
 import warnings
 from collections import defaultdict
-import os
 from datetime import datetime
 from os import listdir
 
@@ -26,9 +26,7 @@ from scipy.stats import linregress, normaltest, pearsonr
 
 set_mpl_style()
 
-
-
-#|%%--%%| <75QGi3fir4|YRTMdbuSUv>
+# |%%--%%| <75QGi3fir4|YRTMdbuSUv>
 
 def process_events(rows, blocks, colnames):
     # If no data, create empty dataframe w/ all cols and types
@@ -482,7 +480,6 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     return out
 
 
-
 # event_path = "./ColorCue/data/sub-01/sub-01_col50-dir25_events.tsv"
 # events = pd.read_csv(event_path, sep="\t")
 # events.head()
@@ -495,92 +492,297 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 # Zero
 # MSG.text.unique()
 
-#|%%--%%| <YRTMdbuSUv|oV69eIU6Nz>
+# |%%--%%| <YRTMdbuSUv|zxDbdj42MS>
 
-def read_all_asc_files(data_dir):
-    for root, _, files in sorted (os.walk(data_dir)):
-        for filename in files:
-            if filename.endswith('.asc'):
+def process_data_file(f):
+    # Read data from file
+    data = read_asc(f)
+
+    # Extract relevant data from the DataFrame
+    df = data["raw"]
+    mono = data["info"]["mono"]
+
+    # Convert columns to numeric
+    numeric_columns = ["trial", "time", "input"]
+    if not mono:
+        numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
+    else:
+        numeric_columns.extend(["xp", "yp", "ps"])
+
+    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
+
+    # Drop rows where trial is equal to 1
+    df = df[df["trial"] != 1]
+
+    # Decrement the values in the 'trial' column by 1
+    df.loc[:, "trial"] = df["trial"] - 1
+
+    # Reset index after dropping rows and modifying the 'trial' column
+    # df = df.reset_index(drop=True)
+
+    # Extract messages from eyelink
+    MSG = data["msg"]
+    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
+    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
+    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
+
+    # Reset time based on 'Zero' time
+    for i in range(len(Zero)):
+        df.loc[df["trial"] == i + 1, "time"] = (
+            df.loc[df["trial"] == i + 1, "time"] - Zero.time.values[i]
+        )
+
+    # Drop bad trials
+    # badTrials = get_bad_trials(df)
+    # df = drop_bad_trials(df, badTrials)
+    # Zero = drop_bad_trials(Zero, badTrials)
+    # tON = drop_bad_trials(tON, badTrials)
+    # t0 = drop_bad_trials(t0, badTrials)
+
+    # common_trials = Zero["trial"].values
+    # t0 = t0[t0["trial"].isin(common_trials)]
+    # tON = tON[tON["trial"].isin(common_trials)]
+
+    SON = tON.time.values - Zero.time.values
+    SOFF = t0.time.values - Zero.time.values
+    # ZEROS = Zero.time.values
+
+    # Extract saccades data
+    Sacc = data["sacc"]
+
+    # Drop rows where trial is equal to 1
+    Sacc = Sacc[Sacc["trial"] != 1]
+
+    # Decrement the values in the 'trial' column by 1
+    Sacc.loc[:, "trial"] = Sacc["trial"] - 1
+
+    # Reset saccade times
+    for t in Zero.trial:
+        Sacc.loc[Sacc.trial == t, ["stime", "etime"]] = (
+            Sacc.loc[Sacc.trial == t, ["stime", "etime"]].values
+            - Zero.loc[Zero.trial == t, "time"].values
+        )
+
+    # Sacc = drop_bad_trials(Sacc, badTrials)
+
+    # Extract trials with saccades within the time window [0, 80ms]
+    trialSacc = Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")][
+        "trial"
+    ].values
+
+    saccDir = np.sign(
+        (
+            Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].exp
+            - Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].sxp
+        ).values
+    )
+
+    for t in Sacc.trial.unique():
+        start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
+        end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
+
+        for i in range(len(start)):
+            if not mono:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 20)
+                    & (df.time <= end.iloc[i] + 20),
+                    "xpr",
+                ] = np.nan
+            else:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 20)
+                    & (df.time <= end.iloc[i] + 20),
+                    "xp",
+                ] = np.nan
+
+    # Extract first bias
+    # first_bias = np.where(bias == 1)[0][0]
+
+    # Extract position and velocity data
+    selected_values = (
+        df.xpr[(df.time >= 80) & (df.time <= 120)]
+        if not mono
+        else df.xp[(df.time >= 80) & (df.time <= 120)]
+    )
+    posSteadyState = (
+        df.xpr[(df.time >= 300) & (df.time <= 340)]
+        if not mono
+        else df.xp[(df.time >= 300) & (df.time <= 340)]
+    )
+    veloSteadyState = np.gradient(posSteadyState.values) * 1000 / 30
+    # Rescale position
+    pos_before = (
+        df.xpr[(df.time >= -40) & (df.time <= 0)]
+        if not mono
+        else df.xp[(df.time >= -40) & (df.time <= 0)]
+    )
+
+    time_dim = 41
+    trial_dim = len(selected_values) // time_dim
+
+    pos = np.array(selected_values[: time_dim * trial_dim]).reshape(trial_dim, time_dim)
+    stdPos = np.std(pos, axis=1) / 30
+
+    pos_before_reshaped = np.array(pos_before[: time_dim * trial_dim]).reshape(
+        trial_dim, time_dim
+    )
+    pos_before_mean = np.nanmean(pos_before_reshaped, axis=1)
+    # Reshaping veloSteadyState
+    veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
+        trial_dim, time_dim
+    )
+    velo = np.gradient(pos, axis=1) * 1000 / 30
+    velo[(velo > 20) | (velo < -20)] = np.nan
+
+    for i, pp in enumerate(pos_before_mean):
+        if pd.notna(pp):
+            pos[i] = (pos[i] - pp) / 30
+
+    # pos[(pos > 3) | (pos < -3)] = np.nan
+
+    meanPos = np.mean(pos, axis=1)
+    meanVelo = np.mean(velo, axis=1)
+    stdVelo = np.std(velo, axis=1)
+    meanVSS = np.mean(veloSteadyState, axis=1)
+    TS = trialSacc
+    SaccD = saccDir
+    SACC = Sacc
+
+    return pd.DataFrame(
+        {
+            "SON": SON,
+            "SOFF": SOFF,
+            "meanPos": meanPos,
+            "stdPos": stdPos,
+            "meanVelo": meanVelo,
+            "stdVelo": stdVelo,
+            "meanVSS": meanVSS,
+            # "TS": TS,
+            # "SaccD": SaccD,
+            # "SACC": SACC
+        }
+    )
+
+# |%%--%%| <zxDbdj42MS|cEO3tWTyaO>
+
+def process_all_asc_files(data_dir):
+    allDFs = []
+    allEvents = []
+
+    for root, _, files in sorted(os.walk(data_dir)):
+        for filename in sorted(files):
+            if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                data = read_asc(filepath)
-                df=pd.DataFrame(data["raw"])
-                # k=1
-                # df['sub']=[k]*len(df)
-                # k=k+1
-                msg=pd.DataFrame(data["msg"])
-                sacc=pd.DataFrame(data["sacc"])
-                allDFs.append(df)
-                allMSG.append(msg)
-                allSacc.append(sacc)
-            elif filename.endswith('.tsv'):
+                data = process_data_file(filepath)
+                # Extract proba from filename
+                proba = int(re.search(r"dir(\d+)", filename).group(1))
+                data["proba"] = proba
+
+                allDFs.append(data)
+                print(len(data))
+
+            if filename.endswith(".tsv"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                events=pd.read_csv(filepath, sep="\t")
+                events = pd.read_csv(filepath, sep="\t")
+                # Extract proba from filename
+                # proba = int(re.search(r"dir(\d+)", filename).group(1))
+                # events['proba'] = proba
+                # print(len(events))
                 allEvents.append(events)
 
+    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
+    # print(len(bigDF))
+    bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
+    # print(len(bigEvents))
+    # Merge DataFrames based on 'proba'
+    merged_data = pd.concat([bigEvents, bigDF], axis=1)
+    # print(len(merged_data))
 
-#|%%--%%| <oV69eIU6Nz|yTds9aaU1i>
-allDFs=[]
-allSacc=[]
-allMSG=[]
-allEvents=[]
-data_dir = "./ColorCue/data"
-read_all_asc_files(data_dir)
-df_sub01=allDFs[0]
-df_sub01.head()
+    return merged_data
 
+# |%%--%%| <cEO3tWTyaO|udllPlyLvX>
 
+path = "/Volumes/work/brainets/oueld.h/Contextual Learning/ColorCue/data/"
 
+# |%%--%%| <udllPlyLvX|JMB3Rcqgal>
 
+df = process_all_asc_files(path)
 
-#|%%--%%| <yTds9aaU1i|wpX6aIV20I>
+# |%%--%%| <JMB3Rcqgal|Hg0YhV9JLb>
 
-allMSG[0].head()
-allMSG[0].text.unique()
-#|%%--%%| <wpX6aIV20I|2dWp9K9QCo>
+df.to_csv("data.csv")
 
-allSacc[0].head()
-#|%%--%%| <2dWp9K9QCo|pCKlIhyjVf>
+# |%%--%%| <Hg0YhV9JLb|3i52FtWJSQ>
 
-allEvents[0].head()
+df=pd.read_csv('data.csv')
 
+# |%%--%%| <3i52FtWJSQ|5oDmrK9hbj>
 
-#|%%--%%| <pCKlIhyjVf|gLaLgT9MHu>
+sns.lmplot(
+    x="proba",
+    y="meanVelo",
+    data=df,
+    hue="trial_color_chosen",
+    scatter_kws={"alpha": 0.5},
+)
 
+# |%%--%%| <5oDmrK9hbj|sYJrrqA0ya>
 
+lateTrials = df[df["trial_number"] > 220]
 
-allEvents[0].columns
-#|%%--%%| <gLaLgT9MHu|SCa0S3JEBh>
+# |%%--%%| <sYJrrqA0ya|EVUFT6GUxS>
 
-allDFs[0].columns
+# Set style to whitegrid
 
-#|%%--%%| <SCa0S3JEBh|OtNXoVbV2a>
+# Set font size for labels
+sns.set(rc={'axes.labelsize': 25, 'xtick.labelsize': 20, 'ytick.labelsize': 20, 'axes.titlesize': 20})
 
-allDFs[0].trial.unique()
+sns.set_style("whitegrid")
+# Set style to whitegrid
 
-#|%%--%%| <OtNXoVbV2a|77tujPJ2kC>
+sns.lmplot(
+    x="proba",
+    y="meanVelo",
+    data=lateTrials,
+    hue="trial_color_chosen",
+    scatter_kws={"alpha": 0.5},
+)
+plt.title("Late Trials")
 
-allSacc[0].trial.unique()
+# |%%--%%| <EVUFT6GUxS|C3txxQQbIG>
 
-#|%%--%%| <77tujPJ2kC|Pkhz9tTxfP>
+sns.boxplot(x="proba", y="meanVelo",hue='trial_color_chosen', data=lateTrials)
 
-[len(df_sub01[df_sub01.trial==i] ) for i in df_sub01.trial.unique()]
+# |%%--%%| <C3txxQQbIG|KAY5hFhbuz>
 
-#|%%--%%| <Pkhz9tTxfP|qxoaOMyKmP>
+lateTrials.columns
 
-df_sub02=allDFs[1]  #sub-02
+# |%%--%%| <KAY5hFhbuz|Eur5T9cko4>
 
-[len(df_sub02[df_sub02.trial==i] ) for i in df_sub02.trial.unique()]
+l=df.groupby(['sub_number','trial_color_chosen','proba']).meanVelo.mean().reset_index()
+l
 
-#|%%--%%| <qxoaOMyKmP|ggZBkEYLZR>
+# |%%--%%| <Eur5T9cko4|uAQ9iaoizi>
 
-df_sub02.head()
-#|%%--%%| <ggZBkEYLZR|BnMRtUpg2c>
+colors = ["green","red" ]
+bp=sns.boxplot(x="proba", y="meanVelo",hue='trial_color_chosen', data=l,palette=colors)
+bp.legend(fontsize='larger')
+plt.xlabel('P(R|Red)', fontsize=30)
+plt.ylabel("Anticipatory Velocity", fontsize=30)
+plt.savefig('clccbp.png')
 
-plt.plot(df_sub02[df_sub02.trial==1].time,df_sub02[df_sub02.trial==1].xp)
+# |%%--%%| <uAQ9iaoizi|3Dehis9z4T>
 
-#|%%--%%| <BnMRtUpg2c|JMB3Rcqgal>
+lm=sns.lmplot(x="proba", y="meanVelo",hue='trial_color_chosen', data=l,palette=colors)
+# Adjust font size for axis labels
+lm.set_axis_labels('P(R|Red)', 'Anticipatory Velocity', fontsize=20)
+# lm.ax.legend(fontsize='large')
+plt.savefig('clcclp.png')
 
+# |%%--%%| <3Dehis9z4T|XfcZX9rPbt>
 
-
+l[l.sub_number==1].meanVelo
