@@ -1,8 +1,4 @@
 
-
-
-# |%%--%%| <AMST68WNMN|75QGi3fir4>
-
 import io
 import json
 import os
@@ -719,7 +715,7 @@ df.to_csv("data.csv")
 # |%%--%%| <Hg0YhV9JLb|3i52FtWJSQ>
 
 df=pd.read_csv('data.csv')
-
+df.dropna(inplace=True)
 # |%%--%%| <3i52FtWJSQ|5oDmrK9hbj>
 
 sns.lmplot(
@@ -732,7 +728,7 @@ sns.lmplot(
 
 # |%%--%%| <5oDmrK9hbj|sYJrrqA0ya>
 
-lateTrials = df[df["trial_number"] > 220]
+lateTrials = df[df["trial_number"] > 200]
 
 # |%%--%%| <sYJrrqA0ya|EVUFT6GUxS>
 
@@ -786,3 +782,61 @@ plt.savefig('clcclp.png')
 # |%%--%%| <3Dehis9z4T|XfcZX9rPbt>
 
 l[l.sub_number==1].meanVelo
+
+#|%%--%%| <XfcZX9rPbt|3eDgswFa9k>
+
+print([len(l[l.sub_number==i].meanVelo
+)for i in range(1,13)])
+
+#|%%--%%| <3eDgswFa9k|wof1vL3SKt>
+
+l.sub_number.unique()
+
+# |%%--%%| <wof1vL3SKt|mHmPSwy3tt>
+
+import statsmodels.api as sm
+
+model = sm.OLS.from_formula("meanVelo ~ proba + C(trial_color_chosen)", data=l)
+result = model.fit()
+
+print(result.summary())
+
+# |%%--%%| <mHmPSwy3tt|gHJgT14rWA>
+
+from statsmodels.formula.api import ols
+
+model = ols('meanVelo ~ proba + C(trial_color_chosen)', data=l).fit()
+anova_table = sm.stats.anova_lm(model, typ=2)
+
+print(anova_table)
+
+# |%%--%%| <gHJgT14rWA|GMjI3EsGG3>
+
+import researchpy as rp
+
+# |%%--%%| <GMjI3EsGG3|KSk6SyH5Qx>
+
+rp.summary_cont(df.groupby(['sub_number','trial_color_chosen','proba'])['meanVelo'])
+
+# |%%--%%| <KSk6SyH5Qx|NcL5QtSuQu>
+
+import statsmodels.formula.api as smf
+
+
+model=smf.mixedlm('meanVelo ~ proba + C(trial_color_chosen)', data=df,groups=df['sub_number']).fit()
+
+# |%%--%%| <NcL5QtSuQu|opA7M4FDGs>
+
+model.summary()
+
+# |%%--%%| <opA7M4FDGs|t7mT3arVYE>
+
+lateTrials.dropna
+
+# |%%--%%| <t7mT3arVYE|eZzrhhXxMm>
+
+
+
+# |%%--%%| <eZzrhhXxMm|25TLqU3Ffh>
+
+
