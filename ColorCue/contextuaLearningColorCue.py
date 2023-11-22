@@ -1,4 +1,3 @@
-
 import io
 import json
 import os
@@ -11,18 +10,22 @@ from os import listdir
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import researchpy as rp
 import seaborn as sns
 import statsmodels.api as sm
+import statsmodels.formula.api as smf
 import xarray as xr
 from frites import set_mpl_style
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from scipy import stats
 from scipy.stats import linregress, normaltest, pearsonr
+from statsmodels.formula.api import ols
 
 set_mpl_style()
 
 # |%%--%%| <75QGi3fir4|YRTMdbuSUv>
+
 
 def process_events(rows, blocks, colnames):
     # If no data, create empty dataframe w/ all cols and types
@@ -490,6 +493,7 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
 # |%%--%%| <YRTMdbuSUv|zxDbdj42MS>
 
+
 def process_data_file(f):
     # Read data from file
     data = read_asc(f)
@@ -642,9 +646,9 @@ def process_data_file(f):
     meanVelo = np.mean(velo, axis=1)
     stdVelo = np.std(velo, axis=1)
     meanVSS = np.mean(veloSteadyState, axis=1)
-    TS = trialSacc
-    SaccD = saccDir
-    SACC = Sacc
+    # TS = trialSacc
+    # SaccD = saccDir
+    # SACC = Sacc
 
     return pd.DataFrame(
         {
@@ -661,7 +665,9 @@ def process_data_file(f):
         }
     )
 
+
 # |%%--%%| <zxDbdj42MS|cEO3tWTyaO>
+
 
 def process_all_asc_files(data_dir):
     allDFs = []
@@ -700,7 +706,9 @@ def process_all_asc_files(data_dir):
 
     return merged_data
 
+
 # |%%--%%| <cEO3tWTyaO|udllPlyLvX>
+
 
 path = "/Volumes/work/brainets/oueld.h/Contextual Learning/ColorCue/data/"
 
@@ -710,48 +718,71 @@ df = process_all_asc_files(path)
 
 # |%%--%%| <JMB3Rcqgal|Hg0YhV9JLb>
 
-df.to_csv("data.csv")
+df.to_csv("data.csv", index=False)
 
 # |%%--%%| <Hg0YhV9JLb|3i52FtWJSQ>
 
-df=pd.read_csv('data.csv')
+df = pd.read_csv("data.csv")
+print(df["meanVelo"].isna().sum())
 df.dropna(inplace=True)
-# |%%--%%| <3i52FtWJSQ|5oDmrK9hbj>
+
+df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
+
+
+# Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
+# df.rename(columns={'old_column': 'new_column'}, inplace=True)
+# |%%--%%| <3i52FtWJSQ|3Gq7a3CaeL>
+
+
+colors = ["green", "red"]
+# Set style to whitegrid
+
+# Set font size for labels
+sns.set(
+    rc={
+        "axes.labelsize": 25,
+        "xtick.labelsize": 20,
+        "ytick.labelsize": 20,
+        "axes.titlesize": 20,
+    }
+)
+
+sns.set_style("whitegrid")
+
+# |%%--%%| <3Gq7a3CaeL|5oDmrK9hbj>
 
 sns.lmplot(
     x="proba",
     y="meanVelo",
     data=df,
-    hue="trial_color_chosen",
-    scatter_kws={"alpha": 0.5},
+    hue="color",
+    scatter_kws={"alpha": 0.2},
+    palette=colors,
 )
 
 # |%%--%%| <5oDmrK9hbj|sYJrrqA0ya>
 
-lateTrials = df[df["trial_number"] > 200]
+lateTrials = df[df["trial_number"] > 120]
 
 # |%%--%%| <sYJrrqA0ya|EVUFT6GUxS>
 
-# Set style to whitegrid
-
-# Set font size for labels
-sns.set(rc={'axes.labelsize': 25, 'xtick.labelsize': 20, 'ytick.labelsize': 20, 'axes.titlesize': 20})
-
-sns.set_style("whitegrid")
 # Set style to whitegrid
 
 sns.lmplot(
     x="proba",
     y="meanVelo",
     data=lateTrials,
-    hue="trial_color_chosen",
+    hue="color",
     scatter_kws={"alpha": 0.5},
+    palette=colors,
 )
 plt.title("Late Trials")
 
 # |%%--%%| <EVUFT6GUxS|C3txxQQbIG>
 
-sns.boxplot(x="proba", y="meanVelo",hue='trial_color_chosen', data=lateTrials)
+sns.boxplot(
+    x="proba", y="meanVelo", hue="trial_color_chosen", data=lateTrials, palette=colors
+)
 
 # |%%--%%| <C3txxQQbIG|KAY5hFhbuz>
 
@@ -759,84 +790,216 @@ lateTrials.columns
 
 # |%%--%%| <KAY5hFhbuz|Eur5T9cko4>
 
-l=df.groupby(['sub_number','trial_color_chosen','proba']).meanVelo.mean().reset_index()
+l = (
+    df.groupby(["sub_number", "trial_color_chosen", "proba"])
+    .meanVelo.mean()
+    .reset_index()
+)
 l
 
 # |%%--%%| <Eur5T9cko4|uAQ9iaoizi>
 
-colors = ["green","red" ]
-bp=sns.boxplot(x="proba", y="meanVelo",hue='trial_color_chosen', data=l,palette=colors)
-bp.legend(fontsize='larger')
-plt.xlabel('P(R|Red)', fontsize=30)
+bp = sns.boxplot(
+    x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors
+)
+bp.legend(fontsize="larger")
+plt.xlabel("P(R|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
-plt.savefig('clccbp.png')
+plt.savefig("clccbp.png")
 
 # |%%--%%| <uAQ9iaoizi|3Dehis9z4T>
 
-lm=sns.lmplot(x="proba", y="meanVelo",hue='trial_color_chosen', data=l,palette=colors)
+lm = sns.lmplot(
+    x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors, height=8
+)
 # Adjust font size for axis labels
-lm.set_axis_labels('P(R|Red)', 'Anticipatory Velocity', fontsize=20)
+lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity", fontsize=20)
 # lm.ax.legend(fontsize='large')
-plt.savefig('clcclp.png')
+plt.savefig("clcclp.png")
 
-# |%%--%%| <3Dehis9z4T|XfcZX9rPbt>
+# |%%--%%| <3Dehis9z4T|vYWDmNPJzF>
 
-l[l.sub_number==1].meanVelo
+lm = sns.lmplot(x="trial_color_chosen", y="meanVelo", hue="proba", data=l, height=8)
+# Adjust font size for axis labels
+lm.set_axis_labels("Color Chosen", "Anticipatory Velocity", fontsize=20)
 
-#|%%--%%| <XfcZX9rPbt|3eDgswFa9k>
 
-print([len(l[l.sub_number==i].meanVelo
-)for i in range(1,13)])
+# |%%--%%| <vYWDmNPJzF|j4gIYm7cNG>
 
-#|%%--%%| <3eDgswFa9k|wof1vL3SKt>
+df[(df.sub_number == 8)].trial_color_chosen
 
-l.sub_number.unique()
+# |%%--%%| <j4gIYm7cNG|mHmPSwy3tt>
 
-# |%%--%%| <wof1vL3SKt|mHmPSwy3tt>
 
-import statsmodels.api as sm
-
-model = sm.OLS.from_formula("meanVelo ~ proba + C(trial_color_chosen)", data=l)
+model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "red"])
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <mHmPSwy3tt|gHJgT14rWA>
+# |%%--%%| <mHmPSwy3tt|W079IjXLEt>
 
-from statsmodels.formula.api import ols
+model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "green"])
+result = model.fit()
 
-model = ols('meanVelo ~ proba + C(trial_color_chosen)', data=l).fit()
-anova_table = sm.stats.anova_lm(model, typ=2)
+print(result.summary())
+
+
+# |%%--%%| <W079IjXLEt|F41ctrwqmO>
+
+
+model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 25])
+result = model.fit()
+
+print(result.summary())
+
+
+# |%%--%%| <F41ctrwqmO|rBfpoY7fA0>
+
+
+model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 75])
+result = model.fit()
+
+print(result.summary())
+
+# |%%--%%| <rBfpoY7fA0|HrAfkXEm6J>
+
+
+model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 50])
+result = model.fit()
+
+print(result.summary())
+
+# |%%--%%| <HrAfkXEm6J|gHJgT14rWA>
+
+
+model = ols("meanVelo ~ C(proba) ", data=df[df.trial_color_chosen == 1]).fit()
+anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
 
 # |%%--%%| <gHJgT14rWA|GMjI3EsGG3>
-
-import researchpy as rp
+dfColor = df[df.trial_color_chosen == 0]
 
 # |%%--%%| <GMjI3EsGG3|KSk6SyH5Qx>
 
-rp.summary_cont(df.groupby(['sub_number','trial_color_chosen','proba'])['meanVelo'])
+rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
 # |%%--%%| <KSk6SyH5Qx|NcL5QtSuQu>
 
-import statsmodels.formula.api as smf
 
-
-model=smf.mixedlm('meanVelo ~ proba + C(trial_color_chosen)', data=df,groups=df['sub_number']).fit()
-
-# |%%--%%| <NcL5QtSuQu|opA7M4FDGs>
+model = smf.mixedlm(
+    "meanVelo ~ C(proba) ",
+    data=dfColor,
+    groups=dfColor["sub_number"],
+).fit()
 
 model.summary()
-
-# |%%--%%| <opA7M4FDGs|t7mT3arVYE>
-
-lateTrials.dropna
-
-# |%%--%%| <t7mT3arVYE|eZzrhhXxMm>
+#|%%--%%| <NcL5QtSuQu|Kff2OUFdNo>
 
 
+model = ols("meanVelo ~ C(proba)*C(color) ", data=df).fit()
+anova_table = sm.stats.anova_lm(model, typ=3)
 
-# |%%--%%| <eZzrhhXxMm|25TLqU3Ffh>
+print(anova_table)
 
+# |%%--%%| <Kff2OUFdNo|25TLqU3Ffh>
+
+
+model = smf.mixedlm(
+    "meanVelo ~ C(color)*C(proba)",
+    data=df,
+    groups=df["sub_number"],
+).fit()
+model.summary()
+#|%%--%%| <25TLqU3Ffh|O5W1mDptee>
+# Create a KDE plot of residuals
+sns.displot(model.resid, kind="kde", fill=True, lw=1)
+
+# Overlay normal distribution on the same plot
+xmin, xmax = plt.xlim()
+x = np.linspace(xmin, xmax, 1000)
+p = stats.norm.pdf(x, np.mean(model.resid), np.std(model.resid))
+plt.plot(x, p, 'k', linewidth=1)
+
+# Set title and labels
+plt.title("KDE Plot of Model Residuals (Red) and Normal Distribution (Black)")
+plt.xlabel("Residuals")
+
+
+# |%%--%%| <O5W1mDptee|AxGXf1axFL>
+
+
+fig = plt.figure(figsize = (16, 9))
+ax = fig.add_subplot(111)
+
+sm.qqplot(model.resid, dist = stats.norm, line = 's', ax = ax)
+
+ax.set_title("Q-Q Plot")
+
+#|%%--%%| <AxGXf1axFL|Jpl7HunDxN>
+
+labels = ["Statistic", "p-value"]
+
+norm_res = stats.shapiro(model.resid)
+
+for key, val in dict(zip(labels, norm_res)).items():
+    print(key, val)
+
+#|%%--%%| <Jpl7HunDxN|zQIeHV1DXu>
+
+fig = plt.figure(figsize = (16, 9))
+
+ax = sns.boxplot(x = model.model.groups, y = model.resid)
+
+ax.set_title("Distribution of Residuals for Anticipatory Velocity by Subject")
+ax.set_ylabel("Residuals")
+ax.set_xlabel("Subject")
+
+#|%%--%%| <zQIeHV1DXu|txSp7GI86s>
+from statsmodels.stats.diagnostic import het_white
+
+het_white_res = het_white(model.resid, model.model.exog)
+
+labels = ["LM Statistic", "LM-Test p-value", "F-Statistic", "F-Test p-value"]
+
+for key, val in dict(zip(labels, het_white_res)).items():
+    print(key, val)
+
+
+# |%%--%%| <txSp7GI86s|0IbD46YHQY>
+
+# t test to comprare proba 25/red and proba75/green
+stats.ttest_ind(
+    df[(df.proba == 25) & (df.color == "red")].meanVelo,
+    df[(df.proba == 75) & (df.color == "green")].meanVelo,
+)
+#|%%--%%| <0IbD46YHQY|7Pnq20YKvY>
+
+
+from scipy.stats import kruskal
+
+# Example assuming 'proba' and 'color' are categorical variables in your DataFrame
+colors = df['color'].unique()
+
+for color in colors:
+    # Filter data for the current color
+    color_data = df[df['color'] == color]
+
+    # Group data by 'proba' and get meanVelo for each group
+    grouped_data = [group['meanVelo'] for proba, group in color_data.groupby('proba')]
+
+    # Perform Kruskal-Wallis test
+    statistic, p_value = kruskal(*grouped_data)
+
+    # Print results for each color
+    print(f"Color: {color}")
+    print(f"Kruskal-Wallis Statistic: {statistic}")
+    print(f"P-value: {p_value}")
+
+    # Check if the result is statistically significant
+    if p_value < 0.05:
+        print("The probabilities within this color have significantly different distributions.")
+    else:
+        print("There is not enough evidence to suggest significant differences between probabilities within this color.")
+    print("\n")
 
