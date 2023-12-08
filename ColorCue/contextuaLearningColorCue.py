@@ -19,8 +19,9 @@ from frites import set_mpl_style
 from IPython.display import HTML
 from matplotlib.animation import FuncAnimation
 from scipy import stats
-from scipy.stats import linregress, normaltest, pearsonr
+from scipy.stats import kruskal, linregress, normaltest, pearsonr
 from statsmodels.formula.api import ols
+from statsmodels.stats.diagnostic import het_white
 
 set_mpl_style()
 
@@ -99,19 +100,6 @@ def from_header(header, field):
     matches = [re.findall(pattern, line) for line in header]
     matches = [match for match in matches if match]
     return matches[0][0] if matches else None
-
-
-def get_resolution(nonsample):
-    res = [None, None]
-    for pattern in ["DISPLAY_COORDS", "GAZE_COORDS", "RESOLUTION"]:
-        display_xy = [x for x in nonsample if pattern in x]
-        if len(display_xy) == 0:
-            continue
-        display_xy = re.sub(f".* {pattern}\\D+(.*)", "\\1", display_xy[0])
-        display_xy = [int(x) for x in re.split("\\s+", display_xy)]
-        res = [display_xy[2] - display_xy[0] + 1, display_xy[3] - display_xy[1] + 1]
-        break
-    return res
 
 
 def get_resolution(nonsample):
@@ -642,10 +630,10 @@ def process_data_file(f):
 
     # pos[(pos > 3) | (pos < -3)] = np.nan
 
-    meanPos = np.mean(pos, axis=1)
-    meanVelo = np.mean(velo, axis=1)
+    meanPos = np.nanmean(pos, axis=1)
+    meanVelo = np.nanmean(velo, axis=1)
     stdVelo = np.std(velo, axis=1)
-    meanVSS = np.mean(veloSteadyState, axis=1)
+    meanVSS = np.nanmean(veloSteadyState, axis=1)
     # TS = trialSacc
     # SaccD = saccDir
     # SACC = Sacc
@@ -710,7 +698,7 @@ def process_all_asc_files(data_dir):
 # |%%--%%| <cEO3tWTyaO|udllPlyLvX>
 
 
-path = "/Volumes/work/brainets/oueld.h/Contextual Learning/ColorCue/data/"
+path = "/Volumes/work/brainets/oueld.h/Contextual Learning/data/"
 
 # |%%--%%| <udllPlyLvX|JMB3Rcqgal>
 
@@ -723,7 +711,7 @@ df.to_csv("data.csv", index=False)
 # |%%--%%| <Hg0YhV9JLb|3i52FtWJSQ>
 
 df = pd.read_csv("data.csv")
-print(df["meanVelo"].isna().sum())
+# [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 df.dropna(inplace=True)
 
 df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
@@ -731,8 +719,8 @@ df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "r
 
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
-# |%%--%%| <3i52FtWJSQ|3Gq7a3CaeL>
 
+# |%%--%%| <3i52FtWJSQ|3Gq7a3CaeL>
 
 colors = ["green", "red"]
 # Set style to whitegrid
@@ -780,9 +768,7 @@ plt.title("Late Trials")
 
 # |%%--%%| <EVUFT6GUxS|C3txxQQbIG>
 
-sns.boxplot(
-    x="proba", y="meanVelo", hue="trial_color_chosen", data=lateTrials, palette=colors
-)
+sns.boxplot(x="proba", y="meanVelo", hue="color", data=lateTrials, palette=colors)
 
 # |%%--%%| <C3txxQQbIG|KAY5hFhbuz>
 
@@ -813,23 +799,42 @@ lm = sns.lmplot(
     x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors, height=8
 )
 # Adjust font size for axis labels
-lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity", fontsize=20)
+lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity")
 # lm.ax.legend(fontsize='large')
 plt.savefig("clcclp.png")
 
 # |%%--%%| <3Dehis9z4T|vYWDmNPJzF>
 
-lm = sns.lmplot(x="trial_color_chosen", y="meanVelo", hue="proba", data=l, height=8)
+lm = sns.lmplot(
+    x="trial_color_chosen",
+    y="meanVelo",
+    hue="proba",
+    data=l,
+    height=8,
+    palette="viridis",
+)
 # Adjust font size for axis labels
 lm.set_axis_labels("Color Chosen", "Anticipatory Velocity", fontsize=20)
 
+# |%%--%%| <vYWDmNPJzF|9G9RNagTmD>
 
-# |%%--%%| <vYWDmNPJzF|j4gIYm7cNG>
+bp = sns.boxplot(
+    x="trial_color_chosen",
+    y="meanVelo",
+    hue="proba",
+    data=l,
+    palette="viridis",
+)
+
+bp.legend(fontsize="larger")
+plt.xlabel("Color Chosen", fontsize=30)
+plt.ylabel("Anticipatory Velocity", fontsize=30)
+
+# |%%--%%| <9G9RNagTmD|j4gIYm7cNG>
 
 df[(df.sub_number == 8)].trial_color_chosen
 
 # |%%--%%| <j4gIYm7cNG|mHmPSwy3tt>
-
 
 model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "red"])
 result = model.fit()
@@ -843,18 +848,14 @@ result = model.fit()
 
 print(result.summary())
 
-
 # |%%--%%| <W079IjXLEt|F41ctrwqmO>
-
 
 model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 25])
 result = model.fit()
 
 print(result.summary())
 
-
 # |%%--%%| <F41ctrwqmO|rBfpoY7fA0>
-
 
 model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 75])
 result = model.fit()
@@ -863,7 +864,6 @@ print(result.summary())
 
 # |%%--%%| <rBfpoY7fA0|HrAfkXEm6J>
 
-
 model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 50])
 result = model.fit()
 
@@ -871,39 +871,23 @@ print(result.summary())
 
 # |%%--%%| <HrAfkXEm6J|gHJgT14rWA>
 
-
 model = ols("meanVelo ~ C(proba) ", data=df[df.trial_color_chosen == 1]).fit()
 anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
 
-# |%%--%%| <gHJgT14rWA|GMjI3EsGG3>
-dfColor = df[df.trial_color_chosen == 0]
-
-# |%%--%%| <GMjI3EsGG3|KSk6SyH5Qx>
+# |%%--%%| <gHJgT14rWA|NcL5QtSuQu>
 
 rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
-# |%%--%%| <KSk6SyH5Qx|NcL5QtSuQu>
+# |%%--%%| <NcL5QtSuQu|Kff2OUFdNo>
 
-
-model = smf.mixedlm(
-    "meanVelo ~ C(proba) ",
-    data=dfColor,
-    groups=dfColor["sub_number"],
-).fit()
-
-model.summary()
-#|%%--%%| <NcL5QtSuQu|Kff2OUFdNo>
-
-
-model = ols("meanVelo ~ C(proba)*C(color) ", data=df).fit()
+model = ols("meanVelo ~ C(proba):C(color) ", data=df).fit()
 anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
 
 # |%%--%%| <Kff2OUFdNo|25TLqU3Ffh>
-
 
 model = smf.mixedlm(
     "meanVelo ~ C(color)*C(proba)",
@@ -911,7 +895,9 @@ model = smf.mixedlm(
     groups=df["sub_number"],
 ).fit()
 model.summary()
-#|%%--%%| <25TLqU3Ffh|O5W1mDptee>
+
+# |%%--%%| <25TLqU3Ffh|O5W1mDptee>
+
 # Create a KDE plot of residuals
 sns.displot(model.resid, kind="kde", fill=True, lw=1)
 
@@ -919,44 +905,41 @@ sns.displot(model.resid, kind="kde", fill=True, lw=1)
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 1000)
 p = stats.norm.pdf(x, np.mean(model.resid), np.std(model.resid))
-plt.plot(x, p, 'k', linewidth=1)
+plt.plot(x, p, "k", linewidth=1)
 
 # Set title and labels
-plt.title("KDE Plot of Model Residuals (Red) and Normal Distribution (Black)")
+plt.title("KDE Plot of Model Residuals (Blue) and Normal Distribution (Black)")
 plt.xlabel("Residuals")
-
 
 # |%%--%%| <O5W1mDptee|AxGXf1axFL>
 
-
-fig = plt.figure(figsize = (16, 9))
+fig = plt.figure(figsize=(16, 9))
 ax = fig.add_subplot(111)
 
-sm.qqplot(model.resid, dist = stats.norm, line = 's', ax = ax)
+sm.qqplot(model.resid, dist=stats.norm, line="s", ax=ax)
 
 ax.set_title("Q-Q Plot")
 
-#|%%--%%| <AxGXf1axFL|Jpl7HunDxN>
+# |%%--%%| <AxGXf1axFL|Jpl7HunDxN>
 
 labels = ["Statistic", "p-value"]
 
-norm_res = stats.shapiro(model.resid)
+norm_res = stats.normaltest(model.resid)
 
 for key, val in dict(zip(labels, norm_res)).items():
     print(key, val)
 
-#|%%--%%| <Jpl7HunDxN|zQIeHV1DXu>
+# |%%--%%| <Jpl7HunDxN|zQIeHV1DXu>
 
-fig = plt.figure(figsize = (16, 9))
+fig = plt.figure(figsize=(16, 9))
 
-ax = sns.boxplot(x = model.model.groups, y = model.resid)
+ax = sns.boxplot(x=model.model.groups, y=model.resid)
 
 ax.set_title("Distribution of Residuals for Anticipatory Velocity by Subject")
 ax.set_ylabel("Residuals")
 ax.set_xlabel("Subject")
 
-#|%%--%%| <zQIeHV1DXu|txSp7GI86s>
-from statsmodels.stats.diagnostic import het_white
+# |%%--%%| <zQIeHV1DXu|txSp7GI86s>
 
 het_white_res = het_white(model.resid, model.model.exog)
 
@@ -965,7 +948,6 @@ labels = ["LM Statistic", "LM-Test p-value", "F-Statistic", "F-Test p-value"]
 for key, val in dict(zip(labels, het_white_res)).items():
     print(key, val)
 
-
 # |%%--%%| <txSp7GI86s|0IbD46YHQY>
 
 # t test to comprare proba 25/red and proba75/green
@@ -973,20 +955,18 @@ stats.ttest_ind(
     df[(df.proba == 25) & (df.color == "red")].meanVelo,
     df[(df.proba == 75) & (df.color == "green")].meanVelo,
 )
-#|%%--%%| <0IbD46YHQY|7Pnq20YKvY>
 
-
-from scipy.stats import kruskal
+# |%%--%%| <0IbD46YHQY|7Pnq20YKvY>
 
 # Example assuming 'proba' and 'color' are categorical variables in your DataFrame
-colors = df['color'].unique()
+colors = df["color"].unique()
 
 for color in colors:
     # Filter data for the current color
-    color_data = df[df['color'] == color]
+    color_data = df[df["color"] == color]
 
     # Group data by 'proba' and get meanVelo for each group
-    grouped_data = [group['meanVelo'] for proba, group in color_data.groupby('proba')]
+    grouped_data = [group["meanVelo"] for proba, group in color_data.groupby("proba")]
 
     # Perform Kruskal-Wallis test
     statistic, p_value = kruskal(*grouped_data)
@@ -997,9 +977,43 @@ for color in colors:
     print(f"P-value: {p_value}")
 
     # Check if the result is statistically significant
-    if p_value < 0.05:
-        print("The probabilities within this color have significantly different distributions.")
+    if p_value < 0.01:
+        print(
+            "The probabilities within this color have significantly different distributions."
+        )
     else:
-        print("There is not enough evidence to suggest significant differences between probabilities within this color.")
+        print(
+            "There is not enough evidence to suggest significant differences between probabilities within this color."
+        )
     print("\n")
 
+# |%%--%%| <7Pnq20YKvY|9e6bJW7zSd>
+# Analsis of subject who did Vanessa's task
+df_prime = df[df.sub_number > 12]
+
+# |%%--%%| <9e6bJW7zSd|aAEDXXm0yJ>
+l_prime = (
+    df_prime.groupby(["sub_number", "trial_color_chosen", "proba"])
+    .meanVelo.mean()
+    .reset_index()
+)
+l_prime
+
+
+# |%%--%%| <aAEDXXm0yJ|QXsRE0iCWU>
+
+
+bp = sns.boxplot(
+    x="proba", y="meanVelo", hue="trial_color_chosen", data=l_prime, palette=colors
+)
+bp.legend(fontsize="larger")
+plt.xlabel("P(R|Red)", fontsize=30)
+plt.ylabel("Anticipatory Velocity", fontsize=30)
+plt.savefig("clccbp.png")
+# |%%--%%| <QXsRE0iCWU|5EX22XRGSK>
+
+lm = sns.lmplot(
+    x="proba", y="meanVelo", hue="trial_color_chosen", data=l_prime, palette=colors, height=8
+)
+# Adjust font size for axis labels
+lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity")
