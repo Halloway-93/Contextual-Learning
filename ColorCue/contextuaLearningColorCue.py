@@ -1,3 +1,4 @@
+
 import io
 import json
 import os
@@ -14,19 +15,15 @@ import researchpy as rp
 import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-import xarray as xr
-from frites import set_mpl_style
-from IPython.display import HTML
-from matplotlib.animation import FuncAnimation
+#from frites import set_mpl_style
 from scipy import stats
 from scipy.stats import kruskal, linregress, normaltest, pearsonr
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
 
-set_mpl_style()
+#set_mpl_style()
 
 # |%%--%%| <75QGi3fir4|YRTMdbuSUv>
-
 
 def process_events(rows, blocks, colnames):
     # If no data, create empty dataframe w/ all cols and types
@@ -481,7 +478,6 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
 # |%%--%%| <YRTMdbuSUv|zxDbdj42MS>
 
-
 def process_data_file(f):
     # Read data from file
     data = read_asc(f)
@@ -653,9 +649,7 @@ def process_data_file(f):
         }
     )
 
-
 # |%%--%%| <zxDbdj42MS|cEO3tWTyaO>
-
 
 def process_all_asc_files(data_dir):
     allDFs = []
@@ -694,9 +688,7 @@ def process_all_asc_files(data_dir):
 
     return merged_data
 
-
 # |%%--%%| <cEO3tWTyaO|udllPlyLvX>
-
 
 path = "/Volumes/work/brainets/oueld.h/Contextual Learning/data/"
 
@@ -708,9 +700,13 @@ df = process_all_asc_files(path)
 
 df.to_csv("data.csv", index=False)
 
-# |%%--%%| <Hg0YhV9JLb|3i52FtWJSQ>
+# |%%--%%| <Hg0YhV9JLb|XxCJLSyOZs>
+r"""°°°
+# Start Running the code from Here
+°°°"""
+# |%%--%%| <XxCJLSyOZs|3i52FtWJSQ>
 
-df = pd.read_csv("data.csv")
+df = pd.read_csv("../data.csv")
 # [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 df.dropna(inplace=True)
 
@@ -719,6 +715,7 @@ df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "r
 
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
+df.head()
 
 # |%%--%%| <3i52FtWJSQ|3Gq7a3CaeL>
 
@@ -988,10 +985,12 @@ for color in colors:
     print("\n")
 
 # |%%--%%| <7Pnq20YKvY|9e6bJW7zSd>
+
 # Analsis of subject who did Vanessa's task
-df_prime = df[df.sub_number > 12]
+df_prime = df[(df.sub_number > 12) ]
 
 # |%%--%%| <9e6bJW7zSd|aAEDXXm0yJ>
+
 l_prime = (
     df_prime.groupby(["sub_number", "trial_color_chosen", "proba"])
     .meanVelo.mean()
@@ -999,9 +998,7 @@ l_prime = (
 )
 l_prime
 
-
 # |%%--%%| <aAEDXXm0yJ|QXsRE0iCWU>
-
 
 bp = sns.boxplot(
     x="proba", y="meanVelo", hue="trial_color_chosen", data=l_prime, palette=colors
@@ -1009,7 +1006,7 @@ bp = sns.boxplot(
 bp.legend(fontsize="larger")
 plt.xlabel("P(R|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
-plt.savefig("clccbp.png")
+
 # |%%--%%| <QXsRE0iCWU|5EX22XRGSK>
 
 lm = sns.lmplot(
@@ -1017,3 +1014,16 @@ lm = sns.lmplot(
 )
 # Adjust font size for axis labels
 lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity")
+
+# |%%--%%| <5EX22XRGSK|Rbba3tSiDe>
+
+model = smf.mixedlm(
+    "meanVelo ~ C(color)*C(proba)",
+    data=df_prime,
+    groups=df_prime["sub_number"],
+).fit()
+model.summary()
+
+# |%%--%%| <Rbba3tSiDe|vBE60zXOf4>
+
+
