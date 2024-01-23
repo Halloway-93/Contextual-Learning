@@ -700,11 +700,11 @@ df = process_all_asc_files(path)
 
 df.to_csv("data.csv", index=False)
 
-# |%%--%%| <Hg0YhV9JLb|XxCJLSyOZs>
+# |%%--%%| <Hg0YhV9JLb|Bl5azLXPAj>
 r"""°°°
 # Start Running the code from Here
 °°°"""
-# |%%--%%| <XxCJLSyOZs|3i52FtWJSQ>
+# |%%--%%| <Bl5azLXPAj|3i52FtWJSQ>
 
 df = pd.read_csv("../data.csv")
 # [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
@@ -786,7 +786,7 @@ bp = sns.boxplot(
     x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors
 )
 bp.legend(fontsize="larger")
-plt.xlabel("P(R|Red)", fontsize=30)
+plt.xlabel("P(Right|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
 plt.savefig("clccbp.png")
 
@@ -1004,7 +1004,7 @@ bp = sns.boxplot(
     x="proba", y="meanVelo", hue="trial_color_chosen", data=l_prime, palette=colors
 )
 bp.legend(fontsize="larger")
-plt.xlabel("P(R|Red)", fontsize=30)
+plt.xlabel("P(Dir=Right|Color=Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
 
 # |%%--%%| <QXsRE0iCWU|5EX22XRGSK>
@@ -1024,6 +1024,460 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 
-# |%%--%%| <Rbba3tSiDe|vBE60zXOf4>
+# |%%--%%| <Rbba3tSiDe|qxewuIGTnt>
 
+# Participants balanced their choices
+print(df.trial_color_chosen.value_counts())
+#|%%--%%| <qxewuIGTnt|ZwGowoTUlq>
+
+
+from collections import Counter
+def compute_probability_distribution_tplus1_given_t(df, subject_col, condition_col, choice_col):
+    # df is your DataFrame
+    # subject_col is the column name for the subjects
+    # condition_col is the column name for the conditions
+    # choice_col is the column name for the choices
+
+    # Create a dictionary to store probability distributions for each subject and condition group
+    probability_distributions = {}
+
+    # Iterate over unique subject-condition pairs
+    for (subject, condition), group_df in df.groupby([subject_col, condition_col]):
+        choices = group_df[choice_col].tolist()
+
+        # Count occurrences of each pair (C_t, C_{t+1})
+        transition_counts = Counter(zip(choices[:-1], choices[1:]))
+
+        # Compute total counts for each choice at time t
+        total_counts_t = Counter(choices[:-1])
+
+        # Calculate the conditional probabilities
+        probability_distribution = {}
+        for (choice_t, choice_tplus1), count in transition_counts.items():
+            probability_distribution[(choice_tplus1, choice_t)] = count / total_counts_t[choice_t]
+
+        # Store the probability distribution in the dictionary
+        probability_distributions[(subject, condition)] = probability_distribution
+
+    return probability_distributions
+
+
+#|%%--%%| <ZwGowoTUlq|FFNJnok4kS>
+
+
+
+#|%%--%%| <FFNJnok4kS|xhpGhcUYO3>
+
+
+
+# Example usage:
+# Assuming you have a DataFrame called df
+# with columns "subject", "condition", and "choice"
+probability_distributions_by_group = compute_probability_distribution_tplus1_given_t(df, 'sub_number', 'proba', 'trial_color_chosen')
+for i in df['sub_number'].unique():
+    for p in df['proba'].unique():
+        print(f"Probability Distribution for subject {i} and condition {p}:")
+        for key, probability in probability_distributions_by_group[(i, p)].items():
+            print(f'P(C_{key[0]} | C_{key[1]}) = {probability:.2f}')
+
+#|%%--%%| <xhpGhcUYO3|5oKxlGF93G>
+
+
+
+
+def compute_mean_probability_distribution_tplus1_given_t(dictionary):
+    # Create a dictionary to store the mean probability distribution for each condition
+    mean_probability_distribution = {}
+
+    # Iterate over unique conditions
+    for (subject, condition), distribution in dictionary.items():
+        if condition not in mean_probability_distribution:
+            mean_probability_distribution[condition] = Counter()
+
+        mean_probability_distribution[condition].update(distribution)
+
+    # Calculate the mean probability distribution over all subjects for each condition
+    for condition, distribution in mean_probability_distribution.items():
+        total_subjects = len(dictionary) // len(mean_probability_distribution)
+        mean_probability_distribution[condition] = {key: count / total_subjects for key, count in distribution.items()}
+
+    return mean_probability_distribution
+
+# Assuming you already have the probability_distributions_by_group_tplus1_given_t dictionary
+probability_distributions_by_group_tplus1_given_t = compute_probability_distribution_tplus1_given_t(df, 'sub_number', 'proba', 'trial_color_chosen')
+mean_probability_distribution_tplus1_given_t = compute_mean_probability_distribution_tplus1_given_t(probability_distributions_by_group_tplus1_given_t)
+
+# Extract unique pairs (C_t, C_{t+1}) from the first condition (assuming all conditions have the same pairs)
+unique_pairs_t_tplus1 = list(mean_probability_distribution_tplus1_given_t.values())[0].keys()
+
+# Prepare data for plotting
+num_conditions = len(mean_probability_distribution_tplus1_given_t)
+num_pairs = len(unique_pairs_t_tplus1)
+
+# Create subplots
+fig, axes = plt.subplots(1, num_conditions, figsize=(15, 5), sharey=True)
+
+bar_width = 0.2
+bar_offsets = np.arange(num_pairs)
+
+# Plotting
+for idx, (condition, mean_distribution) in enumerate(mean_probability_distribution_tplus1_given_t.items()):
+    probabilities = [mean_distribution[pair] for pair in unique_pairs_t_tplus1]
+
+    axes[idx].bar(bar_offsets, probabilities bar_width, label=f'Condition {condition}')
+    axes[idx].set_xticks(bar_offsets)
+    axes[idx].set_xticklabels(unique_pairs_t_tplus1)
+    # axes[idx].set_xlabel('Pairs (C_t, C_{t+1})')
+    axes[idx].set_title(f'Probability:  {condition}')
+
+# Set common labels and legend
+fig.text(0.5, 0.04, 'Pairs (C_t, C_{t+1})', ha='center', va='center')
+fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
+fig.suptitle('Mean Probability Distribution for Each Condition and Pair (C_t, C_{t+1})')
+# plt.legend()
+
+plt.show()
+
+
+#|%%--%%| <5oKxlGF93G|4SSNV0ixKb>
+r"""°°°
+Computing P(C_{t+2} | C_{t+1}, C_t)
+°°°"""
+#|%%--%%| <4SSNV0ixKb|7AfY2O0mA0>
+
+
+from collections import Counter
+
+def compute_probability_distribution_tplus2_given_tplus1_and_t(df, subject_col, condition_col, choice_col):
+    # df is your DataFrame
+    # subject_col is the column name for the subjects
+    # condition_col is the column name for the conditions
+    # choice_col is the column name for the choices
+
+    # Create a dictionary to store probability distributions for each subject and condition group
+    probability_distributions_tplus2_given_tplus1_and_t = {}
+
+    # Iterate over unique subject-condition pairs
+    for (subject, condition), group_df in df.groupby([subject_col, condition_col]):
+        choices = group_df[choice_col].tolist()
+
+        # Count occurrences of each triplet (C_t, C_{t+1}, C_{t+2})
+        transition_counts_t_tplus1_tplus2 = Counter(zip(choices[:-2], choices[1:-1], choices[2:]))
+
+        # Compute total counts for each pair (C_{t+1}, C_t)
+        total_counts_tplus1_t = Counter(zip(choices[:-1], choices[1:]))
+
+        # Calculate the conditional probabilities for P(C_{t+2} | C_{t+1} & C_t)
+        probability_distribution_tplus2_given_tplus1_and_t = {}
+        for (choice_t, choice_tplus1, choice_tplus2), count in transition_counts_t_tplus1_tplus2.items():
+            probability_distribution_tplus2_given_tplus1_and_t[(choice_tplus2, choice_tplus1, choice_t)] = count / total_counts_tplus1_t[choice_t, choice_tplus1]
+
+        # Store the probability distribution in the dictionary
+        probability_distributions_tplus2_given_tplus1_and_t[(subject, condition)] = probability_distribution_tplus2_given_tplus1_and_t
+
+    return probability_distributions_tplus2_given_tplus1_and_t
+
+#|%%--%%| <7AfY2O0mA0|JIDuF3osMK>
+
+
+probability_distributions_by_group = compute_probability_distribution_tplus2_given_tplus1_and_t(df, 'sub_number', 'proba', 'trial_color_chosen')
+probability_distributions_by_group
+#|%%--%%| <JIDuF3osMK|ZfiNVKwozc>
+
+for i in df['sub_number'].unique():
+    for p in df['proba'].unique():
+        print(f"Probability Distribution for subject {i} and condition {p}:")
+        for key, probability in probability_distributions_by_group[(i, p)].items():
+            print(f'P(C_{key[0]} | C_{key[1]},C_{key[2]}) = {probability:.2f}')
+
+#|%%--%%| <ZfiNVKwozc|B6f78cRdCl>
+
+
+unique_triplets = list(probability_distributions_by_group.values())[0].keys()
+unique_triplets
+#|%%--%%| <B6f78cRdCl|4uikRnrdl5>
+
+probability_distributions_by_group.items()
+
+#|%%--%%| <4uikRnrdl5|37XUO5s80z>
+
+# Extract unique triplets from the first condition (assuming all conditions have the same triplets)
+
+# Prepare data for plotting
+num_conditions = len(probability_distributions_by_group)
+num_triplets = len(unique_triplets)
+
+# Create subplots
+fig, axes = plt.subplots(1, num_conditions, figsize=(15, 5), sharey=True)
+
+bar_width = 0.2
+bar_offsets = np.arange(num_triplets)
+
+
+# Plotting
+for idx, (condition, mean_distribution) in enumerate(probability_distributions_by_group.items()):
+    subject = condition[0]
+    condition_value = condition[1]
+
+    print(f"Subject: {subject}, Condition: {condition_value}")
+    print(f"Keys in mean_distribution: {mean_distribution.keys()}")
+
+    probabilities = [mean_distribution[triplet] for triplet in unique_triplets]
+
+    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f'Subject {subject}, Condition {condition_value}')
+    axes[idx].set_xticks(bar_offsets)
+    axes[idx].set_xticklabels(unique_triplets, fontsize=8)
+    axes[idx].set_title(f'Subject {subject}, Condition {condition_value}')
+
+# Set common labels
+fig.text(0.5, 0.04, 'Triplets (C_{t+2}, C_{t+1}, C_t))', ha='center', va='center', fontsize=20)
+fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
+fig.suptitle('Mean Probability Distribution for P(C_t+2 | C_t+1, C_t)', fontsize=30)
+
+plt.show()
+
+
+#|%%--%%| <37XUO5s80z|jfgTiohOAU>
+
+
+
+def compute_mean_probability_distribution(dictionary):
+    # Create a dictionary to store the mean probability distribution for each condition
+    mean_probability_distribution = {}
+
+    # Iterate over unique conditions
+    for condition in set(key[1] for key in dictionary.keys()):
+        mean_distribution = Counter()
+        num_participants = 0
+
+        # Aggregate distributions for the same condition
+        for (subject, cond) in dictionary.keys():
+            if cond == condition:
+                distribution = dictionary[(subject, cond)]
+                mean_distribution.update(distribution)
+                num_participants += 1
+
+        # Calculate the mean by dividing each count by the number of participants
+        mean_distribution = {key: count / num_participants for key, count in mean_distribution.items()}
+
+        # Store the mean distribution for the condition
+        mean_probability_distribution[condition] = mean_distribution
+
+    return mean_probability_distribution
+
+#|%%--%%| <jfgTiohOAU|ki3x5jpfAR>
+
+meanOverSubjects=compute_mean_probability_distribution(probability_distributions_by_group)
+meanOverSubjects
+
+#|%%--%%| <ki3x5jpfAR|4ol2GdpoqJ>
+
+
+for p in df['proba'].unique():
+    print(f"Probability Distribution for proba {p}:")
+    for key, probability in meanOverSubjects[(p)].items():
+        print(f'P(C_{key[0]} | C_{key[1]},C_{key[2]}) = {probability:.2f}')
+
+
+#|%%--%%| <4ol2GdpoqJ|RAx7oDpABa>
+
+
+# Extract unique triplets from the first condition (assuming all conditions have the same triplets)
+unique_triplets = list(meanOverSubjects.values())[0].keys()
+
+# Prepare data for plotting
+num_conditions = len(meanOverSubjects)
+num_triplets = len(unique_triplets)
+
+# Create subplots
+fig, axes = plt.subplots(1, num_conditions, figsize=(15, 5), sharey=True)
+
+bar_width = 0.2
+bar_offsets = np.arange(num_triplets)
+
+# Plotting
+for idx, (condition, mean_distribution) in enumerate(meanOverSubjects.items()):
+    probabilities = [mean_distribution[triplet] for triplet in unique_triplets]
+
+    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f'Condition {condition}')
+    axes[idx].set_xticks(bar_offsets)
+    axes[idx].set_xticklabels(unique_triplets, fontsize=8)
+    # axes[idx].set_xlabel('Triplets (C_t, C_{t+1}, C_{t+2})')
+    axes[idx].set_title(f'Condition {condition}')
+
+# Set common labels and legend
+fig.text(0.5, 0.04, 'Triplets (C_{t+2}, C_{t+1}, C_t))', ha='center', va='center',fontsize=20)
+fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
+fig.suptitle('Mean Probability Distribution for P(C_t+2 | C_t+1, C_t)',fontsize=30)
+plt.legend()
+
+plt.show()
+#|%%--%%| <RAx7oDpABa|LESNe8JT5H>
+
+df_prime.columns 
+#|%%--%%| <LESNe8JT5H|TZoxB1yusy>
+
+unique_probas = df_prime['proba'].unique()
+
+# Set up subplots
+fig, axes = plt.subplots(nrows=1, ncols=len(unique_probas), figsize=(15, 5), sharey=True)
+
+# Plot each subplot
+for i, proba_value in enumerate(unique_probas):
+    subset_df = df_prime[df_prime['proba'] == proba_value]
+    ax = axes[i]
+    sns.lineplot(x="trial_number", y="meanVelo", hue="sub_number", data=subset_df, ax=ax, palette="tab10")
+    ax.set_title(f'proba = {proba_value}')
+    ax.set_xlabel('Trial Number')
+    ax.set_ylabel('Mean Velocity')
+    ax.legend(title='Subject Number', loc='upper right')
+
+# Adjust layout
+plt.tight_layout()
+plt.show()
+
+
+#|%%--%%| <TZoxB1yusy|eR9vs3TaJj>
+
+
+
+unique_sub_numbers = df_prime['sub_number'].unique()
+
+# Set up subplots
+fig, axes = plt.subplots(nrows=1, ncols=len(unique_sub_numbers), figsize=(15, 5), sharey=True)
+
+# Plot each subplot
+for i, sub_number_value in enumerate(unique_sub_numbers):
+    subset_df = df_prime[df_prime['sub_number'] == sub_number_value]
+    ax = axes[i]
+    sns.lineplot(x="trial_number", y="meanVelo", hue="proba", data=subset_df, ax=ax, palette="tab10")
+    ax.set_title(f'sub_number = {sub_number_value}')
+    ax.set_xlabel('Trial Number')
+    ax.set_ylabel('Mean Velocity')
+    ax.legend(title='Proba', loc='upper right')
+
+# Adjust layout
+plt.tight_layout()
+plt.show()
+#|%%--%%| <eR9vs3TaJj|OGalKjvytA>
+
+
+unique_sub_numbers = df_prime['sub_number'].unique()
+
+# Set up subplots
+fig, axes = plt.subplots(nrows=1, ncols=len(unique_sub_numbers), figsize=(15, 5), sharey=True)
+
+# Plot each subplot
+for i, sub_number_value in enumerate(unique_sub_numbers):
+    subset_df = df_prime[df_prime['sub_number'] == sub_number_value]
+    ax = axes[i]
+
+    # Compute rolling mean with a window of 20
+    rolling_mean = subset_df.groupby("proba")["meanVelo"].rolling(window=20, min_periods=1).mean().reset_index(level=0, drop=True)
+
+    # Plot the rolling mean
+    sns.lineplot(x="trial_number", y=rolling_mean, hue="proba", data=subset_df, ax=ax, palette="tab10")
+
+    ax.set_title(f'sub_number = {sub_number_value}')
+    ax.set_xlabel('Trial Number')
+    ax.set_ylabel('Mean Velocity (Rolling Average)')
+    ax.legend(title='Proba', loc='upper right')
+
+# Adjust layout
+plt.tight_layout()
+plt.show()
+
+#|%%--%%| <OGalKjvytA|YNPqZzEBi7>
+
+
+unique_sub_numbers = df_prime['sub_number'].unique()
+
+# Set up subplots
+fig, axes = plt.subplots(nrows=1, ncols=len(unique_sub_numbers), figsize=(15, 5), sharey=True)
+
+# Plot each subplot
+for i, sub_number_value in enumerate(unique_sub_numbers):
+    subset_df = df_prime[df_prime['sub_number'] == sub_number_value]
+    ax = axes[i]
+
+    # Compute rolling mean with a window of 20
+    rolling_mean = subset_df.groupby(["proba", "color"])["meanVelo"].rolling(window=10, min_periods=1).mean().reset_index(level=[0, 1], drop=True)
+
+    # Plot the rolling mean with color as a hue
+    sns.lineplot(x="trial_number", y=rolling_mean, hue="proba", style="color", data=subset_df, ax=ax, palette="tab10", markers=True)
+
+    ax.set_title(f'sub_number = {sub_number_value}')
+    ax.set_xlabel('Trial Number')
+    ax.set_ylabel('Mean Velocity (Rolling Average)')
+    ax.legend(title='Proba', loc='upper right')
+
+# Adjust layout
+plt.tight_layout()
+plt.show()
+
+#|%%--%%| <YNPqZzEBi7|y62rNDGA0q>
+
+
+
+unique_sub_numbers = df_prime['sub_number'].unique()
+# Custom color palette for 'color' categories
+custom_palette = {'green': 'green', 'red': 'red'}
+for sub_number_value in unique_sub_numbers:
+    subset_df = df_prime[df_prime['sub_number'] == sub_number_value]
+
+    # Set up subplots for each proba
+    fig, axes = plt.subplots(nrows=1, ncols=len(subset_df['proba'].unique()), figsize=(15, 5), sharey=True)
+
+    # Plot each subplot
+    for i, proba_value in enumerate(subset_df['proba'].unique()):
+        proba_subset_df = subset_df[subset_df['proba'] == proba_value]
+        ax = axes[i]
+
+        # Group by both "proba" and "color" and compute rolling mean with a window of 20
+        rolling_mean = proba_subset_df.groupby(["proba", "color"])["meanVelo"].rolling(window=10, min_periods=1).mean().reset_index(level=[0, 1], drop=True)
+
+        # Plot the rolling mean with color as a hue
+        sns.lineplot(x="trial_number", y=rolling_mean, hue="color", data=proba_subset_df, ax=ax, palette=custom_palette, markers=True)
+
+        ax.set_title(f'sub_number = {sub_number_value}, proba = {proba_value}')
+        ax.set_xlabel('Trial Number')
+        ax.set_ylabel('Mean Velocity (Rolling Average)')
+        ax.legend(title='Color', loc='upper right')
+
+    # Adjust layout for subplots for each subject
+    plt.tight_layout()
+    plt.show()
+
+#|%%--%%| <y62rNDGA0q|YvO4edwPiv>
+
+# Plotting the mean velocity for each subject across trials for each probability given the chosen color
+
+unique_sub_numbers = df['sub_number'].unique()
+# Custom color palette for 'color' categories
+custom_palette = {'green': 'green', 'red': 'red'}
+for sub_number_value in unique_sub_numbers:
+    subset_df = df[df['sub_number'] == sub_number_value]
+
+    # Set up subplots for each proba
+    fig, axes = plt.subplots(nrows=1, ncols=len(subset_df['proba'].unique()), figsize=(15, 5), sharey=True)
+
+    # Plot each subplot
+    for i, proba_value in enumerate(subset_df['proba'].unique()):
+        proba_subset_df = subset_df[subset_df['proba'] == proba_value]
+        ax = axes[i]
+
+        # Group by both "proba" and "color" and compute rolling mean with a window of 20
+        rolling_mean = proba_subset_df.groupby(["proba", "color"])["meanVelo"].rolling(window=10, min_periods=1).mean().reset_index(level=[0, 1], drop=True)
+
+        # Plot the rolling mean with color as a hue
+        sns.lineplot(x="trial_number", y=rolling_mean, hue="color", data=proba_subset_df, ax=ax, palette=custom_palette, markers=True)
+
+        ax.set_title(f'sub_number = {sub_number_value}, proba = {proba_value}')
+        ax.set_xlabel('Trial Number')
+        ax.set_ylabel('Mean Velocity (Rolling Average)')
+        ax.legend(title='Color', loc='upper right')
+
+    # Adjust layout for subplots for each subject
+    plt.tight_layout()
+    plt.show()
 
