@@ -1,4 +1,4 @@
-ColorCue/data/
+ColorCue/data.csv
 edfconv.sh
 ColorCue/__pycache__/
 ColorCue/.DS_Store
