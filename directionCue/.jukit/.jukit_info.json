@@ -1,0 +1,1 @@
+{"cmd": "\nplt.plot(df[df.trial==1].time, df[df.trial==1].xp)\n", "cmd_opts": " --cell_id=Euqf42gpuf -s", "import_complete": 1, "terminal": "nvimterm"}

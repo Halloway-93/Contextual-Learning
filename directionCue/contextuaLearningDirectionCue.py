@@ -497,10 +497,10 @@ def process_data_file(f):
     df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
     # Drop rows where trial is equal to 1
-    df = df[df["trial"] != 1]
+    # df = df[df["trial"] != 1]
 
     # Decrement the values in the 'trial' column by 1
-    df.loc[:, "trial"] = df["trial"] - 1
+    # df.loc[:, "trial"] = df["trial"] - 1
 
     # Reset index after dropping rows and modifying the 'trial' column
     # df = df.reset_index(drop=True)
@@ -691,9 +691,37 @@ def process_all_asc_files(data_dir):
 
 # |%%--%%| <cEO3tWTyaO|udllPlyLvX>
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/data/"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results/sub00/sub00_100/sub00_100.asc"
 
-# |%%--%%| <udllPlyLvX|JMB3Rcqgal>
+#|%%--%%| <udllPlyLvX|qI9K5Een6u>
+
+data=read_asc(path)
+
+#|%%--%%| <qI9K5Een6u|Fvb38OeHzc>
+
+df=data['raw']
+df.head()
+mono = data["info"]["mono"]
+
+# Convert columns to numeric
+numeric_columns = ["trial", "time", "input"]
+if not mono:
+    numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
+else:
+    numeric_columns.extend(["xp", "yp", "ps"])
+
+df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
+
+
+#|%%--%%| <Fvb38OeHzc|hkzUBcXPsZ>
+
+df.dtypes
+
+#|%%--%%| <hkzUBcXPsZ|Euqf42gpuf>
+
+plt.plot(df[df.trial==1].time, df[df.trial==1].xp)
+
+# |%%--%%| <Euqf42gpuf|JMB3Rcqgal>
 
 df = process_all_asc_files(path)
 
