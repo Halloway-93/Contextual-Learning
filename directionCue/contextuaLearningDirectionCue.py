@@ -1,11 +1,12 @@
 import io
-from itertools import groupby
 import json
 import os
 import re
 import warnings
 from collections import defaultdict
 from datetime import datetime
+from itertools import groupby
+from math import ceil
 from os import listdir
 
 import matplotlib.pyplot as plt
@@ -13,18 +14,14 @@ import numpy as np
 import pandas as pd
 import researchpy as rp
 import seaborn as sns
-from seaborn.relational import scatterplot
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from frites import set_mpl_style
 from scipy import stats
 from scipy.stats import kruskal, linregress, normaltest, pearsonr
+from seaborn.relational import scatterplot
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
 
-set_mpl_style()
-
-# |%%--%%| <75QGi3fir4|YRTMdbuSUv>
 
 def process_events(rows, blocks, colnames):
     # If no data, create empty dataframe w/ all cols and types
@@ -39,7 +36,7 @@ def process_events(rows, blocks, colnames):
     coltypes = get_coltypes(colnames)
     df = pd.read_csv(
         io.StringIO("\n".join(rows)),
-        delimiter="\s+",
+        delimiter=r"\s+",
         header=None,
         names=colnames,
         na_values=".",
@@ -52,7 +49,6 @@ def process_events(rows, blocks, colnames):
         df["eye"] = pd.Categorical(df["eye"], categories=["L", "R"], ordered=False)
     df.insert(loc=0, column="trial", value=blocks)
     return df
-
 
 def process_saccades(saccades, blocks, info):
     sacc_df = process_events(saccades, blocks, get_sacc_header(info))
@@ -375,14 +371,6 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     # Get strings prior to first tab for each line for faster string matching
     inp_first = [re.split(r"\s", s)[0] for s in inp]
 
-    # # Get the Trial info for each trial:
-    # bias = [
-    #     s.split()[4] for s in inp if len(s.split()) > 4 and s.split()[2] == "Trialinfo:"
-    # ]
-    # direct = [
-    #     s.split()[5] for s in inp if len(s.split()) > 4 and s.split()[2] == "Trialinfo:"
-    # ]
-    # Check if any actual data recorded in file
     starts = [i for i, x in enumerate(inp_first) if x == "START"]
     if not starts:
         raise ValueError("No samples or events found in .asc file.")
@@ -465,20 +453,6 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     return out
 
 
-# event_path = "./ColorCue/data/sub-01/sub-01_col50-dir25_events.tsv"
-# events = pd.read_csv(event_path, sep="\t")
-# events.head()
-# events
-# data['info']
-#
-# MSG=data["msg"]
-# Zero=MSG.loc[MSG.text=='TargetOn',["trial","time"]]
-#
-# Zero
-# MSG.text.unique()
-
-# |%%--%%| <YRTMdbuSUv|zxDbdj42MS>
-
 def process_data_file(f):
     # Read data from file
     data = read_asc(f)
@@ -488,7 +462,7 @@ def process_data_file(f):
     mono = data["info"]["mono"]
 
     # Convert columns to numeric
-    numeric_columns = ["trial", "time", "input"]
+    numeric_columns = ["trial", "time"]
     if not mono:
         numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
     else:
@@ -509,7 +483,7 @@ def process_data_file(f):
     MSG = data["msg"]
     tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
     t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
-    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
+    Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
 
     # Reset time based on 'Zero' time
     for i in range(len(Zero)):
@@ -582,7 +556,7 @@ def process_data_file(f):
                     "xp",
                 ] = np.nan
 
-    # Extract first bias
+    # Extract first bia
     # first_bias = np.where(bias == 1)[0][0]
 
     # Extract position and velocity data
@@ -592,12 +566,11 @@ def process_data_file(f):
         else df.xp[(df.time >= 80) & (df.time <= 120)]
     )
     posSteadyState = (
-        df.xpr[(df.time >= 300) & (df.time <= 340)]
+        df.xpr[(df.time >= 300) ]
         if not mono
-        else df.xp[(df.time >= 300) & (df.time <= 340)]
+        else df.xp[(df.time >= 300) ]
     )
-    veloSteadyState = np.gradient(posSteadyState.values) * 1000 / 30
-    # Rescale position
+    veloSteadyState = np.gradient(posSteadyState.values)     # Rescale position
     pos_before = (
         df.xpr[(df.time >= -40) & (df.time <= 0)]
         if not mono
@@ -608,7 +581,7 @@ def process_data_file(f):
     trial_dim = len(selected_values) // time_dim
 
     pos = np.array(selected_values[: time_dim * trial_dim]).reshape(trial_dim, time_dim)
-    stdPos = np.std(pos, axis=1) / 30
+    stdPos = np.std(pos, axis=1) 
 
     pos_before_reshaped = np.array(pos_before[: time_dim * trial_dim]).reshape(
         trial_dim, time_dim
@@ -618,20 +591,18 @@ def process_data_file(f):
     veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
         trial_dim, time_dim
     )
-    velo = np.gradient(pos, axis=1) * 1000 / 30
+    velo = np.gradient(pos, axis=1)*1000/27.44
     velo[(velo > 20) | (velo < -20)] = np.nan
 
     for i, pp in enumerate(pos_before_mean):
         if pd.notna(pp):
-            pos[i] = (pos[i] - pp) / 30
+            pos[i] = (pos[i] - pp) 
 
-    # pos[(pos > 3) | (pos < -3)] = np.nan
 
     meanPos = np.nanmean(pos, axis=1)
     meanVelo = np.nanmean(velo, axis=1)
     stdVelo = np.std(velo, axis=1)
-    meanVSS = np.nanmean(veloSteadyState, axis=1)
-    # TS = trialSacc
+    meanVSS = np.nanmean(veloSteadyState, axis=1)*1000/27.44    # TS = trialSacc
     # SaccD = saccDir
     # SACC = Sacc
 
@@ -649,8 +620,6 @@ def process_data_file(f):
             # "SACC": SACC
         }
     )
-
-# |%%--%%| <zxDbdj42MS|cEO3tWTyaO>
 
 def process_all_asc_files(data_dir):
     allDFs = []
@@ -689,22 +658,31 @@ def process_all_asc_files(data_dir):
 
     return merged_data
 
-# |%%--%%| <cEO3tWTyaO|udllPlyLvX>
+#%%
+path= "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results/sub-99/session-01/sub-99_ses-01_proba-0.asc"
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results/sub00/sub00_100/sub00_100.asc"
-
-#|%%--%%| <udllPlyLvX|qI9K5Een6u>
+# %%
 
 data=read_asc(path)
 
-#|%%--%%| <qI9K5Een6u|Fvb38OeHzc>
+# %%
 
 df=data['raw']
 df.head()
 mono = data["info"]["mono"]
 
+# %%
+MSG = data["msg"]
+tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
+t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
+Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
+
+# %%
+gap=Zero.time.values-t0.time.values
+gap
+# %%
 # Convert columns to numeric
-numeric_columns = ["trial", "time", "input"]
+numeric_columns = ["trial", "time"]
 if not mono:
     numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
 else:
@@ -712,33 +690,47 @@ else:
 
 df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
-
-#|%%--%%| <Fvb38OeHzc|hkzUBcXPsZ>
-
-df.dtypes
-
-#|%%--%%| <hkzUBcXPsZ|Euqf42gpuf>
-
-plt.plot(df[df.trial==1].time, df[df.trial==1].xp)
-
-# |%%--%%| <Euqf42gpuf|JMB3Rcqgal>
-
-df = process_all_asc_files(path)
-
-#|%%--%%| <JMB3Rcqgal|LntB8OF6X4>
-
+# %%
+plt.subplot(1,2,1)
+velT1=np.diff(df[df.trial==20].xp)
+plt.plot(np.convolve(velT1, np.ones(10)/10, mode='valid'))
+plt.subplot(1,2,2)
+plt.plot(df[df.trial==20].time, df[df.trial==20].xp)
+plt.show()
+# %%
 df.head()
 
-#|%%--%%| <LntB8OF6X4|SRSsAKd0pv>
+# %%
 
+df.dtypes
+# %%
+
+df.trial.unique()
+
+# %%
+
+plt.plot(df[df.trial==2].time, df[df.trial==2].xp)
+plt.show()
+
+# %%
+
+df = process_data_file(path)
+
+# %%
+
+df.head()
+# %%
+len(df)
+# %%
 df.meanVelo.isna().sum()
-
-# |%%--%%| <SRSsAKd0pv|Hg0YhV9JLb>
+# %%
+plt.plot(df.meanVSS)
+plt.show()
+# %%
 data=df.copy()
 df.to_csv("data.csv", index=False)
 data
-#|%%--%%| <Hg0YhV9JLb|W5xRdkqgJu>
-
+# %%
 
 data[(data.sub_number==8) & (data.proba==75)]
 
@@ -1190,6 +1182,8 @@ print(df.trial_color_chosen.value_counts())
 
 
 from collections import Counter
+
+
 def compute_probability_distribution_tplus1_given_t(df, subject_col, condition_col, choice_col):
     # df is your DataFrame
     # subject_col is the column name for the subjects
@@ -1351,6 +1345,7 @@ Computing P(C_{t+2} | C_{t+1}, C_t)
 
 
 from collections import Counter
+
 
 def compute_probability_distribution_tplus2_given_tplus1_and_t(df, subject_col, condition_col, choice_col):
     # df is your DataFrame
