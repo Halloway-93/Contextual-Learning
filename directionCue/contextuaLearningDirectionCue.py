@@ -1,14 +1,7 @@
 import io
-import json
 import os
 import re
-import warnings
-from collections import defaultdict
 from datetime import datetime
-from itertools import groupby
-from math import ceil
-from os import listdir
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -17,8 +10,6 @@ import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy import stats
-from scipy.stats import kruskal, linregress, normaltest, pearsonr
-from seaborn.relational import scatterplot
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
 
@@ -484,7 +475,7 @@ def process_data_file(f):
     tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
     t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
     Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
-
+    tOFF=MSG.loc[MSG.text == "TargetOffSet", ["trial", "time"]]
     # Reset time based on 'Zero' time
     for i in range(len(Zero)):
         df.loc[df["trial"] == i + 1, "time"] = (
@@ -501,19 +492,17 @@ def process_data_file(f):
     # common_trials = Zero["trial"].values
     # t0 = t0[t0["trial"].isin(common_trials)]
     # tON = tON[tON["trial"].isin(common_trials)]
-
+    # targewt off set
+    TOFF=[]
+    if len(tOFF)< len(Zero):
+        TOFF=np.array([600]*len(Zero))
+    TOFF= tOFF.time.values - Zero.time.values
     SON = tON.time.values - Zero.time.values
     SOFF = t0.time.values - Zero.time.values
     # ZEROS = Zero.time.values
 
     # Extract saccades data
     Sacc = data["sacc"]
-
-    # Drop rows where trial is equal to 1
-    Sacc = Sacc[Sacc["trial"] != 1]
-
-    # Decrement the values in the 'trial' column by 1
-    Sacc.loc[:, "trial"] = Sacc["trial"] - 1
 
     # Reset saccade times
     for t in Zero.trial:
@@ -591,7 +580,7 @@ def process_data_file(f):
     veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
         trial_dim, time_dim
     )
-    velo = np.gradient(pos, axis=1)*1000/27.44
+    velo = np.gradient(pos, axis=1)*1000/27.28
     velo[(velo > 20) | (velo < -20)] = np.nan
 
     for i, pp in enumerate(pos_before_mean):
@@ -602,7 +591,7 @@ def process_data_file(f):
     meanPos = np.nanmean(pos, axis=1)
     meanVelo = np.nanmean(velo, axis=1)
     stdVelo = np.std(velo, axis=1)
-    meanVSS = np.nanmean(veloSteadyState, axis=1)*1000/27.44    # TS = trialSacc
+    meanVSS = np.nanmean(veloSteadyState, axis=1)*1000/27.28    # TS = trialSacc
     # SaccD = saccDir
     # SACC = Sacc
 
@@ -660,15 +649,16 @@ def process_all_asc_files(data_dir):
 dirPath= "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
+filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.asc"
 
 # %%
-eventsPath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.csv"
+eventsPath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.csv"
 # %%
 data=read_asc(filePath)
 # %%
 df=data['raw']
 df.head()
+# %%
 mono = data["info"]["mono"]
 events=pd.read_csv(eventsPath)
 # %%
@@ -677,6 +667,48 @@ tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
 t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
 Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
 Zero
+# %%
+# Extract saccades data
+Sacc = data["sacc"]
+
+# Reset saccade times
+for t in Zero.trial:
+    Sacc.loc[Sacc.trial == t, ["stime", "etime"]] = (
+        Sacc.loc[Sacc.trial == t, ["stime", "etime"]].values
+        - Zero.loc[Zero.trial == t, "time"].values
+    )
+
+
+# %%
+print(Sacc)
+
+# %%
+for t in Sacc.trial.unique():
+    start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
+    end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
+
+    for i in range(len(start)):
+        if not mono:
+            df.loc[
+                (df.trial == t)
+                & (df.time >= start.iloc[i] - 20)
+                & (df.time <= end.iloc[i] + 20),
+                "xpr",
+            ] = np.nan
+        else:
+            df.loc[
+                (df.trial == t)
+                & (df.time >= start.iloc[i] - 20)
+                & (df.time <= end.iloc[i] + 20),
+                "xp",
+            ] = np.nan
+
+# %%
+tOFF=MSG.loc[MSG.text == "TargetOffSet", ["trial", "time"]]
+tOFF
+# %%
+tOFF.time=tOFF.time.values-Zero.time.values
+tOFF
 # %%
 gap=Zero.time.values-t0.time.values
 gap
@@ -696,20 +728,165 @@ else:
 df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
 # %%
-trial= 220 
+trial= 100 
 print(-gap[trial-1])
-plt.subplot(1,2,1)
-velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<120)].xp)
-plt.plot(np.convolve(velT1*1000/27.28, np.ones(60)/60, mode='valid'))
+# %%
+print(
+       len (df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp
+         )        )
+# %%
+t=df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time< tOFF.time.iloc[trial-1])].time.values
+velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp)
+# Perform the convolution on the velocity data
+convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+# %%
+# Generate a new time axis with the same number of points as the convolved data
+new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
+# %%
+# print (new_t)
+# %%
+plt.figure(figsize=(20,12))
+plt.subplot(2,1,1)
+plt.xlabel('Time (ms)',fontsize=20)
+plt.ylabel('Velocity (deg/s)',fontsize=20)
+plt.plot(new_t,convolved_velT1)
 # plt.plot(velT1*1000/27.28)
-plt.subplot(1,2,2)
-plt.plot(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<120)].time, df[(df.trial==trial )& (df.time>-gap[trial-1])& (df.time<120)].xp)
+plt.subplot(2,1,2)
+plt.plot(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].time, df[(df.trial==trial )& (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp)
+plt.xlabel('Time (ms)',fontsize=20)
+plt.ylabel('Position (deg)',fontsize=20)
+plt.suptitle(f'Trial{trial}:Top Velocity, Bottom Position',fontsize=40)
 plt.show()
 # %%
+
+
+trials = [100, 101, 102]  # Replace with the actual trial numbers you want to plot
+
+plt.figure(figsize=(20, 12))
+
+# Subplot for velocities
+plt.subplot(2, 1, 1)
+plt.xlabel('Time (ms)', fontsize=20)
+plt.ylabel('Velocity (deg/s)', fontsize=20)
+
+# Subplot for positions
+plt.subplot(2, 1, 2)
+plt.xlabel('Time (ms)', fontsize=20)
+plt.ylabel('Position (deg)', fontsize=20)
+
+for trial in trials:
+    # Filter the dataframe based on the trial and time conditions
+    filtered_df = df[(df.trial == trial) & (df.time > -gap[trial-1]) & (df.time <= tOFF.time.iloc[trial-1])]
+
+    # Extract the time and velocity data
+    t = filtered_df.time.values
+    velT1 = np.diff(filtered_df.xp)  # Assuming velT1 is calculated as the difference of xp
+
+    # Perform the convolution on the velocity data
+    convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+
+    # Generate a new time axis with the same number of points as the convolved data
+    new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
+
+    # Plot the convolved velocity data
+    plt.subplot(2, 1, 1)
+    plt.plot(new_t, convolved_velT1, label=f'Trial {trial}')
+
+    # Plot the original position data
+    plt.subplot(2, 1, 2)
+    plt.plot(filtered_df.time, filtered_df.xp, label=f'Trial {trial}')
+
+# Add legend to the plots
+plt.subplot(2, 1, 1)
+plt.legend(fontsize=15)
+
+plt.subplot(2, 1, 2)
+plt.legend(fontsize=15)
+
+# Add a title to the figure
+plt.suptitle('Multiple Trials: Top Velocity, Bottom Position', fontsize=40)
+
+plt.tight_layout()
+plt.show()
+
+# %%
+#Focusing on the Anticipatory part: -200 t0 120 ms
+t=df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time< 120)].time.values
+velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= 120)].xp)
+# Perform the convolution on the velocity data
+convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+# %%
+# Generate a new time axis with the same number of points as the convolved data
+new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
+# %%
+print (new_t)
+# %%
+plt.figure(figsize=(20,12))
+plt.subplot(2,1,1)
+plt.xlabel('Time (ms)',fontsize=20)
+plt.ylabel('Velocity (deg/s)',fontsize=20)
+plt.plot(new_t,convolved_velT1)
+# plt.plot(velT1*1000/27.28)
+plt.subplot(2,1,2)
+plt.plot(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= 120)].time, df[(df.trial==trial )& (df.time>-gap[trial-1])& (df.time<=120)].xp)
+plt.xlabel('Time (ms)',fontsize=20)
+plt.ylabel('Position (deg)',fontsize=20)
+plt.suptitle(f'Trial{trial}:Anticipatory Interval',fontsize=40)
+plt.show()
 df.head()
 
 # %%
 
+trials = [i for i in range (201,211)] # Replace with the actual trial numbers you want to plot
+
+plt.figure(figsize=(20, 12))
+
+# Subplot for velocities
+plt.subplot(2, 1, 1)
+plt.xlabel('Time (ms)', fontsize=20)
+plt.ylabel('Velocity (deg/s)', fontsize=20)
+
+# Subplot for positions
+plt.subplot(2, 1, 2)
+plt.xlabel('Time (ms)', fontsize=20)
+plt.ylabel('Position (deg)', fontsize=20)
+
+for trial in trials:
+    # Filter the dataframe based on the trial and time conditions
+    filtered_df = df[(df.trial == trial) & (df.time > -gap[trial-1]) & (df.time <= 120)]
+
+    # Extract the time and velocity data
+    t = filtered_df.time.values
+    velT1 = np.diff(filtered_df.xp)  # Assuming velT1 is calculated as the difference of xp
+
+    # Perform the convolution on the velocity data
+    convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+
+    # Generate a new time axis with the same number of points as the convolved data
+    new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
+
+    # Plot the convolved velocity data
+    plt.subplot(2, 1, 1)
+    plt.plot(new_t, convolved_velT1, label=f'Trial {trial}')
+
+    # Plot the original position data
+    plt.subplot(2, 1, 2)
+    plt.plot(filtered_df.time, filtered_df.xp, label=f'Trial {trial}')
+
+# Add legend to the plots
+plt.subplot(2, 1, 1)
+plt.legend(fontsize=15)
+
+plt.subplot(2, 1, 2)
+plt.legend(fontsize=15)
+
+# Add a title to the figure
+plt.suptitle('Multiple Trials: Top Velocity, Bottom Position', fontsize=40)
+
+plt.tight_layout()
+plt.show()
+
+# %%
 df.dtypes
 # %%
 
@@ -734,7 +911,7 @@ data.head()
 # %%
 
 
-df = process_data_file(path)
+df = process_data_file(dirPath)
 
 # %%
 
@@ -754,48 +931,25 @@ data
 
 data[(data.sub_number==8) & (data.proba==75)]
 
-# |%%--%%| <W5xRdkqgJu|Bl5azLXPAj>
 r"""°°°
 # Start Running the code from Here
 °°°"""
-# |%%--%%| <Bl5azLXPAj|3i52FtWJSQ>
 
 df = pd.read_csv("data.csv")
-# [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
-# df.dropna(inplace=True)
 df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
 
 
 df = df.dropna(subset=['meanVelo'])
-# Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
-# df.rename(columns={'old_column': 'new_column'}, inplace=True)
 df.head()
 
-#|%%--%%| <3i52FtWJSQ|uaFYIlpVOv>
 
 df.meanVelo.isna().sum()
 
-#|%%--%%| <uaFYIlpVOv|MiPpHmGKf9>
-
 df = df[df['sub_number'] != 9]
 
-# |%%--%%| <MiPpHmGKf9|3Gq7a3CaeL>
 
 colors = ["green", "red"]
-# Set style to whitegrid
 
-# # Set font size for labels
-# sns.set(
-#     rc={
-#         "axes.labelsize": 25,
-#         
-#         "axes.titlesize": 20,
-#     }
-# )
-#
-# sns.set_style("whitegrid")
-
-# |%%--%%| <3Gq7a3CaeL|5oDmrK9hbj>
 
 sns.lmplot(
     x="proba",
