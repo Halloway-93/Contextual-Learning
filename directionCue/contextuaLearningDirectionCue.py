@@ -660,15 +660,17 @@ def process_all_asc_files(data_dir):
 dirPath= "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
+filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
 
+# %%
+eventsPath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.csv"
 # %%
 data=read_asc(filePath)
 # %%
 df=data['raw']
 df.head()
 mono = data["info"]["mono"]
-
+events=pd.read_csv(eventsPath)
 # %%
 MSG = data["msg"]
 tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
@@ -694,12 +696,14 @@ else:
 df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
 # %%
+trial= 220 
+print(-gap[trial-1])
 plt.subplot(1,2,1)
-velT1=np.diff(df[(df.trial==99) & (df.time>0)& (df.time<120)].xp)
-plt.plot(np.convolve(velT1*1000/27.28, np.ones(10)/10, mode='valid'))
-# plt.plot(velT1)
+velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<120)].xp)
+plt.plot(np.convolve(velT1*1000/27.28, np.ones(60)/60, mode='valid'))
+# plt.plot(velT1*1000/27.28)
 plt.subplot(1,2,2)
-plt.plot(df[(df.trial==99) & (df.time>0)& (df.time<120)].time, df[(df.trial==99 )& (df.time>0)& (df.time<120)].xp)
+plt.plot(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<120)].time, df[(df.trial==trial )& (df.time>-gap[trial-1])& (df.time<120)].xp)
 plt.show()
 # %%
 df.head()
