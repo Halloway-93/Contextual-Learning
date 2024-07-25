@@ -1,13 +1,7 @@
 import io
-import json
 import os
 import re
-import warnings
-from collections import defaultdict
 from datetime import datetime
-from itertools import groupby
-from math import ceil
-from os import listdir
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +12,6 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy import stats
 from scipy.stats import kruskal, linregress, normaltest, pearsonr
-from seaborn.relational import scatterplot
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
 
@@ -657,10 +650,10 @@ def process_all_asc_files(data_dir):
     return merged_data
 
 #%%
-dirPath= "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+dirPath= "/envau//work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
+filePath="/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
 
 # %%
 data=read_asc(filePath)
@@ -696,8 +689,8 @@ df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 # %%
 plt.subplot(1,2,1)
 velT1=np.diff(df[(df.trial==99) & (df.time>0)& (df.time<120)].xp)
-plt.plot(np.convolve(velT1*1000/27.28, np.ones(10)/10, mode='valid'))
-# plt.plot(velT1)
+# plt.plot(np.convolve(velT1*1000/27.28, np.ones(10)/10, mode='valid'))
+plt.plot(velT1)
 plt.subplot(1,2,2)
 plt.plot(df[(df.trial==99) & (df.time>0)& (df.time<120)].time, df[(df.trial==99 )& (df.time>0)& (df.time<120)].xp)
 plt.show()
