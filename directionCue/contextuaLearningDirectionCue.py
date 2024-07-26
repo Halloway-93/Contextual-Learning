@@ -482,21 +482,13 @@ def process_data_file(f):
             df.loc[df["trial"] == i + 1, "time"] - Zero.time.values[i]
         )
 
-    # Drop bad trials
-    # badTrials = get_bad_trials(df)
-    # df = drop_bad_trials(df, badTrials)
-    # Zero = drop_bad_trials(Zero, badTrials)
-    # tON = drop_bad_trials(tON, badTrials)
-    # t0 = drop_bad_trials(t0, badTrials)
 
-    # common_trials = Zero["trial"].values
-    # t0 = t0[t0["trial"].isin(common_trials)]
-    # tON = tON[tON["trial"].isin(common_trials)]
-    # targewt off set
+    # target off set
     TOFF=[]
     if len(tOFF)< len(Zero):
         TOFF=np.array([600]*len(Zero))
-    TOFF= tOFF.time.values - Zero.time.values
+    else:
+        TOFF=tOFF.time.values-Zero.time.values
     SON = tON.time.values - Zero.time.values
     SOFF = t0.time.values - Zero.time.values
     # ZEROS = Zero.time.values
@@ -599,6 +591,7 @@ def process_data_file(f):
         {
             "SON": SON,
             "SOFF": SOFF,
+            "TOFF": TOFF,
             "meanPos": meanPos,
             "stdPos": stdPos,
             "meanVelo": meanVelo,
@@ -649,11 +642,11 @@ def process_all_asc_files(data_dir):
 dirPath= "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.asc"
+filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-009/session-03/sub-009_ses-03_proba-75.asc"
 
 # %%
-eventsPath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.csv"
-# %%
+eventsPath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-009/session-03/sub-009_ses-03_proba-75.csv"
+#%%
 data=read_asc(filePath)
 # %%
 df=data['raw']
@@ -661,6 +654,7 @@ df.head()
 # %%
 mono = data["info"]["mono"]
 events=pd.read_csv(eventsPath)
+events
 # %%
 MSG = data["msg"]
 tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
@@ -681,27 +675,36 @@ for t in Zero.trial:
 
 # %%
 print(Sacc)
-
+#Keeping only the saccades inside the window we're interested in: [-200, 600] ms
+Sacc=Sacc[(Sacc.stime>=-200) & (Sacc.etime<200)]
 # %%
-for t in Sacc.trial.unique():
-    start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
-    end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
-
-    for i in range(len(start)):
-        if not mono:
-            df.loc[
-                (df.trial == t)
-                & (df.time >= start.iloc[i] - 20)
-                & (df.time <= end.iloc[i] + 20),
-                "xpr",
-            ] = np.nan
-        else:
-            df.loc[
-                (df.trial == t)
-                & (df.time >= start.iloc[i] - 20)
-                & (df.time <= end.iloc[i] + 20),
-                "xp",
-            ] = np.nan
+sns.histplot(Sacc.dur.values)
+plt.show()
+# %%
+badTrial=int(Sacc[Sacc.dur==Sacc.dur.max()].trial.values[0])
+badTrial
+# %%
+Sacc[Sacc.trial==badTrial]
+# %%
+# for t in Sacc.trial.unique():
+#     start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
+#     end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
+#
+#     for i in range(len(start)):
+#         if not mono:
+#             df.loc[
+#                 (df.trial == t)
+#                 & (df.time >= start.iloc[i] - 5)
+#                 & (df.time <= end.iloc[i] + 10),
+#                 "xpr",
+#             ] = np.nan
+#         else:
+#             df.loc[
+#                 (df.trial == t)
+#                 & (df.time >= start.iloc[i] - 5)
+#                 & (df.time <= end.iloc[i] + 10),
+#                 "xp",
+#             ] = np.nan
 
 # %%
 tOFF=MSG.loc[MSG.text == "TargetOffSet", ["trial", "time"]]
@@ -728,22 +731,19 @@ else:
 df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
 # %%
-trial= 100 
-print(-gap[trial-1])
+trial= badTrial
+trial
 # %%
-print(
-       len (df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp
-         )        )
-# %%
+# Extract position and velocity data
 t=df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time< tOFF.time.iloc[trial-1])].time.values
-velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp)
+velT1=np.gradient(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp)
+
 # Perform the convolution on the velocity data
-convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+
+convolved_velT1 = np.convolve(velT1 * 1000 / 27.28, np.ones(20)/20, mode='valid')
 # %%
 # Generate a new time axis with the same number of points as the convolved data
 new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
-# %%
-# print (new_t)
 # %%
 plt.figure(figsize=(20,12))
 plt.subplot(2,1,1)
@@ -753,6 +753,7 @@ plt.plot(new_t,convolved_velT1)
 # plt.plot(velT1*1000/27.28)
 plt.subplot(2,1,2)
 plt.plot(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].time, df[(df.trial==trial )& (df.time>-gap[trial-1])& (df.time<= tOFF.time.iloc[trial-1])].xp)
+
 plt.xlabel('Time (ms)',fontsize=20)
 plt.ylabel('Position (deg)',fontsize=20)
 plt.suptitle(f'Trial{trial}:Top Velocity, Bottom Position',fontsize=40)
@@ -760,7 +761,7 @@ plt.show()
 # %%
 
 
-trials = [100, 101, 102]  # Replace with the actual trial numbers you want to plot
+trials = [100]  # Replace with the actual trial numbers you want to plot
 
 plt.figure(figsize=(20, 12))
 
@@ -814,12 +815,10 @@ plt.show()
 t=df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time< 120)].time.values
 velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<= 120)].xp)
 # Perform the convolution on the velocity data
-convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+convolved_velT1 = np.convolve(velT1 * 1000 / 27.28, np.ones(20)/20, mode='valid')
 # %%
 # Generate a new time axis with the same number of points as the convolved data
 new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
-# %%
-print (new_t)
 # %%
 plt.figure(figsize=(20,12))
 plt.subplot(2,1,1)
@@ -836,9 +835,21 @@ plt.show()
 df.head()
 
 # %%
-
-trials = [i for i in range (201,211)] # Replace with the actual trial numbers you want to plot
-
+np.mean(convolved_velT1)
+# %%
+# Separating the trials based on the chosen arrowChosen
+events
+# %%
+np.mean(events.RT.values)
+sns.histplot(events.RT)
+plt.show()
+# %%
+chosenUpTrials=events[events.chosen_arrow=="up"].index.values+1
+chosenDownTrials=events[events.chosen_arrow=="down"].index.values+1
+# %%
+# %%
+trials =chosenUpTrials[chosenUpTrials>100]
+ 
 plt.figure(figsize=(20, 12))
 
 # Subplot for velocities
@@ -850,18 +861,18 @@ plt.ylabel('Velocity (deg/s)', fontsize=20)
 plt.subplot(2, 1, 2)
 plt.xlabel('Time (ms)', fontsize=20)
 plt.ylabel('Position (deg)', fontsize=20)
-
+allVelUp=[]
 for trial in trials:
     # Filter the dataframe based on the trial and time conditions
     filtered_df = df[(df.trial == trial) & (df.time > -gap[trial-1]) & (df.time <= 120)]
 
     # Extract the time and velocity data
     t = filtered_df.time.values
-    velT1 = np.diff(filtered_df.xp)  # Assuming velT1 is calculated as the difference of xp
-
+    velT1 = np.gradient(filtered_df.xp)* 1000 / 27.44  # Assuming velT1 is calculated as the difference of xp
     # Perform the convolution on the velocity data
-    convolved_velT1 = np.convolve(velT1 * 1000 / 27.44, np.ones(60)/60, mode='valid')
+    convolved_velT1 = np.convolve(velT1 , np.ones(20)/20, mode='valid')
 
+    allVelUp.append(np.mean(velT1))
     # Generate a new time axis with the same number of points as the convolved data
     new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
 
@@ -881,27 +892,79 @@ plt.subplot(2, 1, 2)
 plt.legend(fontsize=15)
 
 # Add a title to the figure
-plt.suptitle('Multiple Trials: Top Velocity, Bottom Position', fontsize=40)
+plt.suptitle(r"Chosen arrow is Up ($\mathbb{P}(Right|UP)$"+f'={events.proba.unique()[0]}) :Velocity(Top) & Position(Bottom)', fontsize=30)
 
 plt.tight_layout()
 plt.show()
-
 # %%
-df.dtypes
+sns.histplot(allVelUp)
+plt.show()
 # %%
-
-df.trial.unique()
-
-# %%
-
-plt.plot(df[df.trial==2].time, df[df.trial==2].xp)
+sns.boxplot(allVelUp)
 plt.show()
 
 # %%
+np.mean(allVelUp)
+# %%
+trials=chosenDownTrials[chosenDownTrials>100]
+allVelDown=[]
+#Plotting the trials Separately
+for trial in trials:
+    # Create a new figure for each trial
+    plt.figure(figsize=(20, 12))
+
+    # Filter the dataframe based on the trial and time conditions
+    filtered_df = df[(df.trial == trial) & (df.time >-gap[trial-1] ) & (df.time <= 120)]
+
+    # Extract the time and position data
+    t = filtered_df.time.values
+    xp = filtered_df.xp.values
+
+    # Compute velocity using np.gradient
+    velT1 = np.gradient(xp) * 1000/27.28 # Convert to deg/s
+
+    # Perform the convolution on the velocity data with a filter length of 40 data points
+    filter_length =20 
+    convolved_velT1 = np.convolve(velT1, np.ones(filter_length)/filter_length, mode='valid')
+    allVelDown.append(np.mean(convolved_velT1))
+    # Generate a new time axis with the same number of points as the convolved data
+    new_t = np.linspace(t.min(), t.max(), len(convolved_velT1))
+
+    # Plot the convolved velocity data
+    plt.subplot(2, 1, 1)
+    plt.plot(new_t, convolved_velT1, label=f'Trial {trial}')
+    plt.xlabel('Time (ms)', fontsize=20)
+    plt.ylabel('Velocity (deg/s)', fontsize=20)
+    plt.title(f'Trial {trial}: Velocity', fontsize=25)
+    plt.legend(fontsize=15)
+
+    # Plot the original position data
+    plt.subplot(2, 1, 2)
+    plt.plot(filtered_df.time, filtered_df.xp, label=f'Trial {trial}')
+    plt.xlabel('Time (ms)', fontsize=20)
+    plt.ylabel('Position (deg)', fontsize=20)
+    plt.title(f'Trial {trial}: Position', fontsize=25)
+    plt.legend(fontsize=15)
+
+    # Add a title to the figure
+    plt.suptitle(f'Trial {trial}: Velocity & Position', fontsize=40)
+
+    plt.tight_layout()
+    plt.show()
+# %%
+sns.histplot(allVelDown)
+plt.show()
+#%%
+sns.histplot(allVelDown,label="Down")
+sns.histplot(allVelUp,label="Up")
+plt.title("$\mathbb{P}(Right|Up)=0$")
+plt.legend()
+plt.show()
 
 # %%
+np.nanmean(allVelDown)
 # %%
-# %%
+np.nanmean(allVelUp)
 # %%
 # %%
 # %%
@@ -960,7 +1023,6 @@ sns.lmplot(
     palette=colors,
 )
 
-# |%%--%%| <5oDmrK9hbj|Eur5T9cko4>
 
 l = (
     df.groupby(["sub_number", "trial_color_chosen", "proba"])
@@ -969,13 +1031,11 @@ l = (
 
 l
 
-#|%%--%%| <Eur5T9cko4|a2J1tKJJaU>
 
 
 l["color"] = l["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
 
 
-# |%%--%%| <a2J1tKJJaU|uAQ9iaoizi>
 
 bp = sns.boxplot(
     x="proba", y="meanVelo", hue="color", data=l, palette=colors
@@ -985,7 +1045,6 @@ plt.xlabel("P(Right|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
 plt.savefig("clccbp.png")
 
-# |%%--%%| <uAQ9iaoizi|3Dehis9z4T>
 
 lm = sns.lmplot(
     x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors, height=8
