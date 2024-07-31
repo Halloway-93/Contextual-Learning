@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import re
 from datetime import datetime
@@ -470,22 +471,28 @@ def process_all_raw_data(data_dir):
 
     for root, _, files in sorted(os.walk(data_dir)):
         for filename in sorted(files):
+            df= pd.DataFrame()
+            proba=np.nan
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
                 data = read_asc(filepath)
                 df = process_raw_data(data)
-                allRawData.append(df)
 
-            if filename.endswith(".csv"):
+            
+            
+            if filename.endswith(".json"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                events = pd.read_csv(filepath)
-                proba = events["proba"].unique()[-1]  # print(len(events))
-                # allEvents.append(events)
-            # Adding the proba to the raw data
-                df.proba = proba
+                with open(filepath, "r") as f:
+                    metadata = json.load(f)
+                sub=metadata.get("sub" )
+                proba=metadata.get("proba")
+                df["sub"]=[sub]*len(df)
 
+                df["proba"] = [proba]*len(df)
+            
+            allRawData.append(df)
     bigDF = pd.concat(allRawData, axis=0, ignore_index=True)
     bigDF.to_csv("/envau/work/brainets/oueld.h/contextuaLearning/directionCue/rawData.csv", index=False)
 
