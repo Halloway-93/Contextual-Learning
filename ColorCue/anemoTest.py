@@ -1,14 +1,10 @@
 
 import BIDSification_eyetrackingData as BIDS
 
-#------------------------------------------------------------------------------
-# Parameters
-#------------------------------------------------------------------------------
 
 path_oldData = '/Volumes/work/brainets/oueld.h/Contextual Learning/data' # Path of the data directory to BIDSified
 path_newData = '/Volumes/work/brainets/oueld.h/Contextual Learning/dataBIDS' # Path of the new BIDS data directory
 
-#|%%--%%| <qeX1yoCdGO|IjGooByzHu>
 
 # Creating the necessary files for the BIDSification
 process = BIDS.StandardisationProcess(dirpath=path_oldData)
@@ -19,12 +15,10 @@ process.create_dataset_description()
 #------------------------------------------------------------------------------
 process.create_settingsEvents('infoFiles.tsv')
 
-
-#|%%--%%| <IjGooByzHu|zj7rJ5CoZ8>
-
+|%%--%%| <IjGooByzHu|zj7rJ5CoZ8>
 
 
-#|%%--%%| <zj7rJ5CoZ8|deLSqMsnQS>
+
 
 
 # Name of the file describing the dataset
