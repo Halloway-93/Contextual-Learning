@@ -306,7 +306,7 @@ def get_info(nonsample, firstcol):
     return info
 
 
-def process_raw(raw, blocks, info):
+def get_raw(raw, blocks, info):
     if len(raw) == 0:
         # If no sample data in file, create empty raw DataFrame w/ all applicable columns
         raw = ["", ""]
@@ -406,7 +406,7 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     # Initialize dictionary of data output and process different data types
     out = {}
     if samples:
-        out["raw"] = process_raw(
+        out["raw"] = get_raw(
             [line for line, raw in zip(inp, is_raw) if raw], block[is_raw], info
         )
     if events:
@@ -444,15 +444,24 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     return out
 
 
-def process_data_file(f):
-    # Read data from file
-    data = read_asc(f)
+def process_raw_data(data):
 
-    # Extract relevant data from the DataFrame
     df = data["raw"]
     mono = data["info"]["mono"]
+    MSG = data["msg"]
+    Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
+    Sacc = data["sacc"]
 
-    # Convert columns to numeric
+    for t in Zero.trial:
+        Sacc.loc[Sacc.trial == t, ["stime", "etime"]] = (
+            Sacc.loc[Sacc.trial == t, ["stime", "etime"]].values
+            - Zero.loc[Zero.trial == t, "time"].values
+        )
+
+    for i in range(len(Zero)):
+        df.loc[df["trial"] == i + 1, "time"] = (
+            df.loc[df["trial"] == i + 1, "time"] - Zero.time.values[i]
+        )
     numeric_columns = ["trial", "time"]
     if not mono:
         numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
@@ -460,6 +469,52 @@ def process_data_file(f):
         numeric_columns.extend(["xp", "yp", "ps"])
 
     df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
+
+    return df
+
+def process_all_raw_data(data_dir):
+    allRawData = []
+    # allEvents = []
+
+    for root, _, files in sorted(os.walk(data_dir)):
+        for filename in sorted(files):
+            if filename.endswith(".asc"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                data=read_asc(filepath)
+                df=process_raw_data(data)
+                allRawData.append(df)
+
+            if filename.endswith(".csv"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                events = pd.read_csv(filepath)
+                proba=events['proba'].unique().values[-1]                 # print(len(events))
+                # allEvents.append(events)
+            #Adding the proba to the raw data
+            df.proba=proba
+
+    bigDF = pd.concat(allRawData, axis=0, ignore_index=True)
+    bigDF.to_csv('rawData.csv', index=False)
+
+
+def process_data_file(f):
+    # Read data from file
+    data = read_asc(f)
+    sampling_rate = data["info"]["sample.rate"]
+    deg = 27.28  # pixel to degree conversion
+    # Extract relevant data from the DataFrame
+    df = process_raw_data(data)
+    mono = data["info"]["mono"]
+
+    # # Convert columns to numeric
+    # numeric_columns = ["trial", "time"]
+    # if not mono:
+    #     numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
+    # else:
+    #     numeric_columns.extend(["xp", "yp", "ps"])
+    #
+    # df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
     # Drop rows where trial is equal to 1
     # df = df[df["trial"] != 1]
@@ -493,46 +548,46 @@ def process_data_file(f):
     # ZEROS = Zero.time.values
 
     # Extract saccades data
-    Sacc = data["sacc"]
+    # Sacc = data["sacc"]
 
-    # Reset saccade times
-    for t in Zero.trial:
-        Sacc.loc[Sacc.trial == t, ["stime", "etime"]] = (
-            Sacc.loc[Sacc.trial == t, ["stime", "etime"]].values
-            - Zero.loc[Zero.trial == t, "time"].values
-        )
+    # # Reset saccade times
+    # for t in Zero.trial:
+    #     Sacc.loc[Sacc.trial == t, ["stime", "etime"]] = (
+    #         Sacc.loc[Sacc.trial == t, ["stime", "etime"]].values
+    #         - Zero.loc[Zero.trial == t, "time"].values
+    #     )
 
     # Sacc = drop_bad_trials(Sacc, badTrials)
 
     # Extract trials with saccades within the time window [0, 80ms]
-    Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")]["trial"].values
-
-    np.sign(
-        (
-            Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].exp
-            - Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].sxp
-        ).values
-    )
-
-    for t in Sacc.trial.unique():
-        start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
-        end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
-
-        for i in range(len(start)):
-            if not mono:
-                df.loc[
-                    (df.trial == t)
-                    & (df.time >= start.iloc[i] - 20)
-                    & (df.time <= end.iloc[i] + 20),
-                    "xpr",
-                ] = np.nan
-            else:
-                df.loc[
-                    (df.trial == t)
-                    & (df.time >= start.iloc[i] - 20)
-                    & (df.time <= end.iloc[i] + 20),
-                    "xp",
-                ] = np.nan
+    # Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")]["trial"].values
+    #
+    # np.sign(
+    #     (
+    #         Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].exp
+    #         - Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].sxp
+    #     ).values
+    # )
+    #
+    # for t in Sacc.trial.unique():
+    #     start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
+    #     end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
+    #
+    #     for i in range(len(start)):
+    #         if not mono:
+    #             df.loc[
+    #                 (df.trial == t)
+    #                 & (df.time >= start.iloc[i] - 20)
+    #                 & (df.time <= end.iloc[i] + 20),
+    #                 "xpr",
+    #             ] = np.nan
+    #         else:
+    #             df.loc[
+    #                 (df.trial == t)
+    #                 & (df.time >= start.iloc[i] - 20)
+    #                 & (df.time <= end.iloc[i] + 20),
+    #                 "xp",
+    #             ] = np.nan
 
     # Extract first bia
     # first_bias = np.where(bias == 1)[0][0]
@@ -565,7 +620,7 @@ def process_data_file(f):
     veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
         trial_dim, time_dim
     )
-    velo = np.gradient(pos, axis=1) * 1000 / 27.28
+    velo = np.gradient(pos, axis=1) * sampling_rate / deg #deg/s
     # velo[(velo > 20) | (velo < -20)] = np.nan
 
     for i, pp in enumerate(pos_before_mean):
@@ -575,7 +630,7 @@ def process_data_file(f):
     meanPos = np.nanmean(pos, axis=1)
     meanVelo = np.nanmean(velo, axis=1)
     stdVelo = np.std(velo, axis=1)
-    meanVSS = np.nanmean(veloSteadyState, axis=1) * 1000 / 27.28  # TS = trialSacc
+    meanVSS = np.nanmean(veloSteadyState, axis=1) * sampling_rate/ deg # TS = trialSacc
 
     return pd.DataFrame(
         {
@@ -628,6 +683,7 @@ def process_all_asc_files(data_dir):
     # print(len(merged_data))
 
     return merged_data
+
 
 
 # %%
@@ -721,6 +777,8 @@ df.head()
 mono = data["info"]["mono"]
 events = pd.read_csv(eventsPath)
 events
+# %%
+data["info"]
 # %%
 MSG = data["msg"]
 tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
