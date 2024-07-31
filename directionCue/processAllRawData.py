@@ -3,6 +3,8 @@ import json
 import os
 import re
 from datetime import datetime
+
+from pathlib import Path  
 import numpy as np
 import pandas as pd
 
@@ -464,37 +466,51 @@ def process_raw_data(data):
 
     return df
 
+# Assuming read_asc and process_raw_data are defined elsewhere
+
+def read_file(filepath):
+    if filepath.suffix == ".asc":
+        print(f"Read data from {filepath}")
+        data = read_asc(filepath)
+        return process_raw_data(data)
+    elif filepath.suffix == ".json":
+        print(f"Read data from {filepath}")
+        with open(filepath, "r") as f:
+            metadata = json.load(f)
+        return metadata
+    return None
+
+def process_metadata(df, metadata):
+    sub = metadata.get("sub")
+    proba = metadata.get("proba")
+    df["sub"] = [sub] * len(df)
+    df["proba"] = [proba] * len(df)
+    return df
 
 def process_all_raw_data(data_dir):
-    allRawData = []
-    # allEvents = []
+    all_raw_data = []
+    data_dir_path = Path(data_dir)
 
-    for root, _, files in sorted(os.walk(data_dir)):
-        for filename in sorted(files):
-            df= pd.DataFrame()
-            proba=np.nan
-            if filename.endswith(".asc"):
-                filepath = os.path.join(root, filename)
-                print(f"Read data from {filepath}")
-                data = read_asc(filepath)
-                df = process_raw_data(data)
+    for filepath in sorted(data_dir_path.rglob("*")):
+        if filepath.is_file():
+            if filepath.suffix == ".asc":
+                df = read_file(filepath)
+                all_raw_data.append(df)
+            elif filepath.suffix == ".json":
+                metadata = read_file(filepath)
+                if all_raw_data:
+                    all_raw_data[-1] = process_metadata(all_raw_data[-1], metadata)
+        
 
-            
-            
-            if filename.endswith(".json"):
-                filepath = os.path.join(root, filename)
-                print(f"Read data from {filepath}")
-                with open(filepath, "r") as f:
-                    metadata = json.load(f)
-                sub=metadata.get("sub" )
-                proba=metadata.get("proba")
-                df["sub"]=[sub]*len(df)
 
-                df["proba"] = [proba]*len(df)
-            
-            allRawData.append(df)
-    bigDF = pd.concat(allRawData, axis=0, ignore_index=True)
+
+    bigDF = pd.concat(all_raw_data, axis=0, ignore_index=True)
     bigDF.to_csv("/envau/work/brainets/oueld.h/contextuaLearning/directionCue/rawData.csv", index=False)
+
+
+# Example usage
+# data_dir = "path/to/your/data"
+# big_df = process_all_raw_data(data_dir)
 
 
 # Running the code on the server
