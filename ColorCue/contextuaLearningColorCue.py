@@ -1,27 +1,22 @@
 import io
-from itertools import groupby
-import json
 import os
 import re
-import warnings
-from collections import defaultdict
 from datetime import datetime
-from os import listdir
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import researchpy as rp
 import seaborn as sns
-from seaborn.relational import scatterplot
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy import stats
-from scipy.stats import kruskal, linregress, normaltest, pearsonr
+from scipy.stats import kruskal
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
 
 # %%
+
 
 def process_events(rows, blocks, colnames):
     # If no data, create empty dataframe w/ all cols and types
@@ -200,11 +195,15 @@ def get_model(header):
         model = (
             "EyeLink II"
             if float(ver_num) < 2.4
-            else "EyeLink 1000"
-            if float(ver_num) < 5
-            else "EyeLink 1000 Plus"
-            if float(ver_num) < 6
-            else "EyeLink Portable Duo"
+            else (
+                "EyeLink 1000"
+                if float(ver_num) < 5
+                else (
+                    "EyeLink 1000 Plus"
+                    if float(ver_num) < 6
+                    else "EyeLink Portable Duo"
+                )
+            )
         )
     return [model, ver_num]
 
@@ -361,6 +360,7 @@ def process_raw(raw, blocks, info):
             raw_df.loc[raw_df["psr"] == 0, "psr"] = np.nan
     return raw_df
 
+
 # %%
 def read_asc(fname, samples=True, events=True, parse_all=False):
     with open(fname, "r", encoding="ISO-8859-1", errors="ignore") as f:
@@ -473,6 +473,7 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 #
 # Zero
 # MSG.text.unique()
+
 
 # %%
 def process_data_file(f):
@@ -587,12 +588,10 @@ def process_data_file(f):
         if not mono
         else df.xp[(df.time >= 80) & (df.time <= 120)]
     )
-    posSteadyState = (
-        df.xpr[(df.time >= 300) ]
-        if not mono
-        else df.xp[(df.time >= 300) ]
-    )
-    veloSteadyState = np.gradient(posSteadyState.values) * 1000 / 27.28    # Rescale position
+    posSteadyState = df.xpr[(df.time >= 300)] if not mono else df.xp[(df.time >= 300)]
+    veloSteadyState = (
+        np.gradient(posSteadyState.values) * 1000 / 27.28
+    )  # Rescale position
     pos_before = (
         df.xpr[(df.time >= -40) & (df.time <= 0)]
         if not mono
@@ -683,6 +682,7 @@ def process_all_asc_files(data_dir):
 
     return merged_data
 
+
 # %%
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/data/"
 
@@ -699,7 +699,7 @@ df.head()
 df.meanVelo.isna().sum()
 
 # %%
-data=df.copy()
+data = df.copy()
 df.to_csv("data.csv", index=False)
 data
 
@@ -715,7 +715,7 @@ df = pd.read_csv("data.csv")
 df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
 
 
-df = df.dropna(subset=['meanVelo'])
+df = df.dropna(subset=["meanVelo"])
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
 df.head()
@@ -725,7 +725,7 @@ df.head()
 df.meanVelo.isna().sum()
 # %%
 
-df = df[df['sub_number'] != 9]
+df = df[df["sub_number"] != 9]
 
 # %%
 
@@ -736,7 +736,7 @@ colors = ["green", "red"]
 # sns.set(
 #     rc={
 #         "axes.labelsize": 25,
-#         
+#
 #         "axes.titlesize": 20,
 #     }
 # )
@@ -761,12 +761,13 @@ plt.show()
 l = (
     df.groupby(["sub_number", "trial_color_chosen", "proba"])
     .meanVelo.mean()
-    .reset_index())
+    .reset_index()
+)
 
 l
 
 # %%
-#|%%--%%| <Eur5T9cko4|a2J1tKJJaU>
+# |%%--%%| <Eur5T9cko4|a2J1tKJJaU>
 
 
 l["color"] = l["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
@@ -775,9 +776,7 @@ l["color"] = l["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red
 # %%
 # |%%--%%| <a2J1tKJJaU|uAQ9iaoizi>
 
-bp = sns.boxplot(
-    x="proba", y="meanVelo", hue="color", data=l, palette=colors
-)
+bp = sns.boxplot(x="proba", y="meanVelo", hue="color", data=l, palette=colors)
 bp.legend(fontsize="larger")
 plt.xlabel("P(Right|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
@@ -794,26 +793,39 @@ lm.set_axis_labels("P(Right|Red)", "Anticipatory Velocity")
 # lm.ax.legend(fontsize='large')
 plt.savefig("clcclp.png")
 plt.show()
-#|%%--%%| <3Dehis9z4T|WOTr1SVABI>
+# |%%--%%| <3Dehis9z4T|WOTr1SVABI>
 
 # %%
 
 # Create the box plot with transparent fill and black borders, and without legend
 bp = sns.boxplot(
-    x="proba", y="meanVelo", hue="color", data=l, palette=colors,
-    boxprops=dict(facecolor='none', edgecolor='black'), legend=False
+    x="proba",
+    y="meanVelo",
+    hue="color",
+    data=l,
+    palette=colors,
+    boxprops=dict(facecolor="none", edgecolor="black"),
+    legend=False,
 )
 
 # Add scatter plot on top
 sns.stripplot(
-    x="proba", y="meanVelo", hue="color", data=l, dodge=True, palette=colors, jitter=True, size=8, alpha=0.7
+    x="proba",
+    y="meanVelo",
+    hue="color",
+    data=l,
+    dodge=True,
+    palette=colors,
+    jitter=True,
+    size=8,
+    alpha=0.7,
 )
 # Set labels for both top and bottom x-axes
 plt.xlabel("P(Right|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
-plt.xticks( fontsize=30)
-plt.yticks( fontsize=30)
-#Overlay regplot on top of the boxplot and stripplot
+plt.xticks(fontsize=30)
+plt.yticks(fontsize=30)
+# Overlay regplot on top of the boxplot and stripplot
 
 plt.twiny().set_xlabel("P(Right|Green)", fontsize=30)
 # Set the tick positions for both top and bottom x-axes
@@ -828,21 +840,29 @@ plt.gca().invert_xaxis()
 
 # Manually add stars indicating statistical significance
 # Adjust the coordinates based on your plot
-plt.text(0.6, 0.6, '**', fontsize=30, ha='center', va='center', color='red')
-plt.text(0.6, 0.65, '_______________', fontsize=30, ha='center', va='center', color='red')
+plt.text(0.6, 0.6, "**", fontsize=30, ha="center", va="center", color="red")
+plt.text(
+    0.6, 0.65, "_______________", fontsize=30, ha="center", va="center", color="red"
+)
 # plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
 
-plt.text(0.75, 0.75, '***', fontsize=30, ha='center', va='center', color='green')
-plt.text(0.75, 0.8, '_______________', fontsize=30, ha='center', va='center', color='green')
+plt.text(0.75, 0.75, "***", fontsize=30, ha="center", va="center", color="green")
+plt.text(
+    0.75, 0.8, "_______________", fontsize=30, ha="center", va="center", color="green"
+)
 
 # Right side
 
-plt.text(0.25,-1, '**', fontsize=30, ha='center', va='center', color='red')
-plt.text(0.25,- 0.95, '_______________', fontsize=30, ha='center', va='center', color='red')
+plt.text(0.25, -1, "**", fontsize=30, ha="center", va="center", color="red")
+plt.text(
+    0.25, -0.95, "_______________", fontsize=30, ha="center", va="center", color="red"
+)
 # plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
 
-plt.text(0.45,- 1, '***', fontsize=30, ha='center', va='center', color='green')
-plt.text(0.45, -1, '_______________', fontsize=30, ha='center', va='center', color='green')
+plt.text(0.45, -1, "***", fontsize=30, ha="center", va="center", color="green")
+plt.text(
+    0.45, -1, "_______________", fontsize=30, ha="center", va="center", color="green"
+)
 
 # plt.text(0.333, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='green')
 # Adjust legend
@@ -882,7 +902,7 @@ bp = sns.boxplot(
 bp.legend(fontsize=25)
 plt.xlabel("Color Chosen", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
-plt.savefig('antihueproba.png')
+plt.savefig("antihueproba.png")
 plt.show()
 # %%
 df[(df.sub_number == 8)].trial_color_chosen
@@ -957,27 +977,25 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 
-#|%%--%%| <25TLqU3Ffh|0egQ5Pt63g>
+# |%%--%%| <25TLqU3Ffh|0egQ5Pt63g>
 # %%
 
-summary = rp.summary_cont(
-    df.groupby(["sub_number", "color", "proba"])["meanVelo"]
-)
+summary = rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
 
-#|%%--%%| <0egQ5Pt63g|pWlRpGw6rk>
+# |%%--%%| <0egQ5Pt63g|pWlRpGw6rk>
 # %%
 
 summary.reset_index(inplace=True)
 print(summary)
-#|%%--%%| <pWlRpGw6rk|De2pkM9jay>
+# |%%--%%| <pWlRpGw6rk|De2pkM9jay>
 # %%
 
 
-sns.boxplot(data=summary, x="proba", y="Mean", hue="color",palette=["green", "red"])
+sns.boxplot(data=summary, x="proba", y="Mean", hue="color", palette=["green", "red"])
 plt.show()
 
-#|%%--%%| <De2pkM9jay|OoqkKYL40A>
+# |%%--%%| <De2pkM9jay|OoqkKYL40A>
 
 # %%
 
@@ -985,10 +1003,25 @@ plt.show()
 unique_sub_numbers = summary["sub_number"].unique()
 
 # Set up the FacetGrid
-facet_grid = sns.FacetGrid(data=summary, col="sub_number", col_wrap=4, sharex=True, sharey=True, height=3, aspect=1.5)
+facet_grid = sns.FacetGrid(
+    data=summary,
+    col="sub_number",
+    col_wrap=4,
+    sharex=True,
+    sharey=True,
+    height=3,
+    aspect=1.5,
+)
 
 # Create pointplots for each sub_number
-facet_grid.map_dataframe(sns.pointplot ,x="proba", y="Mean", hue="color", markers=["o", "s", "d"], palette=['green','red'])
+facet_grid.map_dataframe(
+    sns.pointplot,
+    x="proba",
+    y="Mean",
+    hue="color",
+    markers=["o", "s", "d"],
+    palette=["green", "red"],
+)
 
 # Add legends
 facet_grid.add_legend()
@@ -998,19 +1031,21 @@ for ax, sub_number in zip(facet_grid.axes.flat, unique_sub_numbers):
     ax.set_title(f"Subject {sub_number}")
 
 # Adjust spacing between subplots
-facet_grid.fig.subplots_adjust(wspace=0.2, hspace=0.2)  # Adjust wspace and hspace as needed
+facet_grid.fig.subplots_adjust(
+    wspace=0.2, hspace=0.2
+)  # Adjust wspace and hspace as needed
 
 # Show the plot
 plt.savefig("allSubjectanti.png")
 plt.show()
-#|%%--%%| <OoqkKYL40A|n3x6xbZn3K>
+# |%%--%%| <OoqkKYL40A|n3x6xbZn3K>
 
 # %%
-grid= sns.FacetGrid(df, col="sub_number",hue='proba', col_wrap=4, height=3)
+grid = sns.FacetGrid(df, col="sub_number", hue="proba", col_wrap=4, height=3)
 
-#|%%--%%| <n3x6xbZn3K|P5OlKynfTc>
+# |%%--%%| <n3x6xbZn3K|P5OlKynfTc>
 
-grid.map(plt.scatter,'trial_number','meanVelo')
+grid.map(plt.scatter, "trial_number", "meanVelo")
 plt.show()
 # %%
 # |%%--%%| <P5OlKynfTc|O5W1mDptee>
@@ -1079,7 +1114,7 @@ stats.ttest_ind(
 )
 
 # %%
-#|%%--%%| <0IbD46YHQY|bs8JxWTHJZ>
+# |%%--%%| <0IbD46YHQY|bs8JxWTHJZ>
 
 
 # t test to comprare proba 25/red and proba75/green
@@ -1088,7 +1123,7 @@ stats.ttest_ind(
     df[(df.proba == 25) & (df.color == "green")].meanVelo,
 )
 
-#|%%--%%| <bs8JxWTHJZ|9chAimtOga>
+# |%%--%%| <bs8JxWTHJZ|9chAimtOga>
 # %%
 
 
@@ -1098,7 +1133,7 @@ stats.ttest_ind(
 )
 
 # %%
-#|%%--%%| <9chAimtOga|ORF419I7zO>
+# |%%--%%| <9chAimtOga|ORF419I7zO>
 
 
 stats.ttest_ind(
@@ -1138,7 +1173,7 @@ for color in colors:
         )
     print("\n")
 
-#|%%--%%| <7Pnq20YKvY|fsmlwWdIC0>
+# |%%--%%| <7Pnq20YKvY|fsmlwWdIC0>
 # %%
 r"""
 # Analysis of subject who did Vanessa's task
@@ -1146,7 +1181,7 @@ r"""
 # |%%--%%| <fsmlwWdIC0|9e6bJW7zSd>
 # %%
 
-df_prime = df[(df.sub_number > 12) ]
+df_prime = df[(df.sub_number > 12)]
 
 # |%%--%%| <9e6bJW7zSd|aAEDXXm0yJ>
 
@@ -1172,7 +1207,12 @@ plt.ylabel("Anticipatory Velocity", fontsize=30)
 
 # %%
 lm = sns.lmplot(
-    x="proba", y="meanVelo", hue="trial_color_chosen", data=l_prime, palette=colors, height=8
+    x="proba",
+    y="meanVelo",
+    hue="trial_color_chosen",
+    data=l_prime,
+    palette=colors,
+    height=8,
 )
 # Adjust font size for axis labels
 lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity")
@@ -1182,12 +1222,16 @@ lm.set_axis_labels("P(R|Red)", "Anticipatory Velocity")
 
 # Participants balanced their choices
 print(df.trial_color_chosen.value_counts())
-#|%%--%%| <qxewuIGTnt|ZwGowoTUlq>
+# |%%--%%| <qxewuIGTnt|ZwGowoTUlq>
 # %%
 
 
 from collections import Counter
-def compute_probability_distribution_tplus1_given_t(df, subject_col, condition_col, choice_col):
+
+
+def compute_probability_distribution_tplus1_given_t(
+    df, subject_col, condition_col, choice_col
+):
     # df is your DataFrame
     # subject_col is the column name for the subjects
     # condition_col is the column name for the conditions
@@ -1209,7 +1253,9 @@ def compute_probability_distribution_tplus1_given_t(df, subject_col, condition_c
         # Calculate the conditional probabilities
         probability_distribution = {}
         for (choice_t, choice_tplus1), count in transition_counts.items():
-            probability_distribution[(choice_tplus1, choice_t)] = count / total_counts_t[choice_t]
+            probability_distribution[(choice_tplus1, choice_t)] = (
+                count / total_counts_t[choice_t]
+            )
 
         # Store the probability distribution in the dictionary
         probability_distributions[(subject, condition)] = probability_distribution
@@ -1218,30 +1264,32 @@ def compute_probability_distribution_tplus1_given_t(df, subject_col, condition_c
 
 
 # %%
-#|%%--%%| <ZwGowoTUlq|ggwrOHSS1C>
+# |%%--%%| <ZwGowoTUlq|ggwrOHSS1C>
 
-probability_distributions_by_group = compute_probability_distribution_tplus1_given_t(df, 'sub_number', 'proba', 'trial_color_chosen')
+probability_distributions_by_group = compute_probability_distribution_tplus1_given_t(
+    df, "sub_number", "proba", "trial_color_chosen"
+)
 probability_distributions_by_group
 
-#|%%--%%| <ggwrOHSS1C|xhpGhcUYO3>
+# |%%--%%| <ggwrOHSS1C|xhpGhcUYO3>
 
 
 # %%
 
 # Example usage:
 # with columns "subject", "condition", and "choice"
-for i in df['sub_number'].unique():
-    for p in df['proba'].unique():
+for i in df["sub_number"].unique():
+    for p in df["proba"].unique():
         print(f"Probability Distribution for subject {i} and condition {p}:")
         for key, probability in probability_distributions_by_group[(i, p)].items():
-            print(f'P(C_{key[0]} | C_{key[1]}) = {probability:.2f}')
+            print(f"P(C_{key[0]} | C_{key[1]}) = {probability:.2f}")
 
 # %%
-#|%%--%%| <xhpGhcUYO3|go3EAD1SFB>
+# |%%--%%| <xhpGhcUYO3|go3EAD1SFB>
 
 # Get unique subjects and probabilities
-unique_subjects = df['sub_number'].unique()
-unique_probabilities = df['proba'].unique()
+unique_subjects = df["sub_number"].unique()
+unique_probabilities = df["proba"].unique()
 
 # Iterate over subjects
 for subject in unique_subjects:
@@ -1251,7 +1299,9 @@ for subject in unique_subjects:
     # Iterate over probabilities
     for j, probability in enumerate(unique_probabilities):
         # Get probability distribution for the current subject and probability
-        probability_distribution = probability_distributions_by_group.get((subject, probability), {})
+        probability_distribution = probability_distributions_by_group.get(
+            (subject, probability), {}
+        )
 
         # Get unique pairs and corresponding probabilities
         # The pai is C_t+1 and C_t
@@ -1263,23 +1313,32 @@ for subject in unique_subjects:
         bar_offsets = np.arange(len(unique_pairs))
 
         # Plot the bar chart
-        axes[j].bar(bar_offsets, probabilities, bar_width, label=f'Probability {probability}')
+        axes[j].bar(
+            bar_offsets, probabilities, bar_width, label=f"Probability {probability}"
+        )
         axes[j].set_xticks(bar_offsets)
-        
-        axes[j].set_xticklabels([f'({pair[0]}, {pair[1]})' for pair in unique_pairs],size=20)
-        axes[j].set_title('$\mathbb{P}(Right|Red)$='+f'{probability}',fontsize=30)
-        axes[j].set_xlabel('Pairs $(C_{t+1}, C_t)$')
+
+        axes[j].set_xticklabels(
+            [f"({pair[0]}, {pair[1]})" for pair in unique_pairs], size=20
+        )
+        axes[j].set_title("$\mathbb{P}(Right|Red)$=" + f"{probability}", fontsize=30)
+        axes[j].set_xlabel("Pairs $(C_{t+1}, C_t)$")
         # axes[j].set_ytickslabels(size=20)
     # Set common labels and legend for the entire figure
     # fig.text(0.5, 0.04, 'Pairs (C_t, C_{t+1})', ha='center', va='center')
     # fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
-    fig.suptitle('$\mathbb{P}(Choice_{t+1}|Choice_t)$ for each condition:'+ f'Subject {subject}',size=35)
+    fig.suptitle(
+        "$\mathbb{P}(Choice_{t+1}|Choice_t)$ for each condition:"
+        + f"Subject {subject}",
+        size=35,
+    )
     # Adjust layout
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
 
-#|%%--%%| <go3EAD1SFB|LIDfUD5MWo>
+# |%%--%%| <go3EAD1SFB|LIDfUD5MWo>
 # %%
+
 
 # Computing the mean over all subjects
 def compute_mean_probability_distribution_tplus1_given_t(dictionary):
@@ -1296,26 +1355,38 @@ def compute_mean_probability_distribution_tplus1_given_t(dictionary):
     # Calculate the mean probability distribution over all subjects for each condition
     for condition, distribution in mean_probability_distribution.items():
         total_subjects = len(dictionary) // len(mean_probability_distribution)
-        mean_probability_distribution[condition] = {key: count / total_subjects for key, count in distribution.items()}
+        mean_probability_distribution[condition] = {
+            key: count / total_subjects for key, count in distribution.items()
+        }
 
     return mean_probability_distribution
 
 
 # %%
-#|%%--%%| <LIDfUD5MWo|lKAgzJCVuI>
+# |%%--%%| <LIDfUD5MWo|lKAgzJCVuI>
 
 
 # Assuming you already have the probability_distributions_by_group_tplus1_given_t dictionary
-probability_distributions_by_group_tplus1_given_t = compute_probability_distribution_tplus1_given_t(df, 'sub_number', 'proba', 'trial_color_chosen')
-mean_probability_distribution_tplus1_given_t = compute_mean_probability_distribution_tplus1_given_t(probability_distributions_by_group_tplus1_given_t)
+probability_distributions_by_group_tplus1_given_t = (
+    compute_probability_distribution_tplus1_given_t(
+        df, "sub_number", "proba", "trial_color_chosen"
+    )
+)
+mean_probability_distribution_tplus1_given_t = (
+    compute_mean_probability_distribution_tplus1_given_t(
+        probability_distributions_by_group_tplus1_given_t
+    )
+)
 
 
-#|%%--%%| <lKAgzJCVuI|5oKxlGF93G>
+# |%%--%%| <lKAgzJCVuI|5oKxlGF93G>
 # %%
 
 
 # Extract unique pairs (C_t, C_{t+1}) from the first condition (assuming all conditions have the same pairs)
-unique_pairs_t_tplus1 = list(mean_probability_distribution_tplus1_given_t.values())[0].keys()
+unique_pairs_t_tplus1 = list(mean_probability_distribution_tplus1_given_t.values())[
+    0
+].keys()
 
 # Prepare data for plotting
 num_conditions = len(mean_probability_distribution_tplus1_given_t)
@@ -1328,38 +1399,40 @@ bar_width = 0.2
 bar_offsets = np.arange(num_pairs)
 
 # Plotting
-for idx, (condition, mean_distribution) in enumerate(mean_probability_distribution_tplus1_given_t.items()):
+for idx, (condition, mean_distribution) in enumerate(
+    mean_probability_distribution_tplus1_given_t.items()
+):
     probabilities = [mean_distribution[pair] for pair in unique_pairs_t_tplus1]
 
-    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f'Condition {condition}')
+    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f"Condition {condition}")
     axes[idx].set_xticks(bar_offsets)
     axes[idx].set_xticklabels(unique_pairs_t_tplus1)
     # axes[idx].set_xlabel('Pairs (C_t, C_{t+1})')
-    axes[idx].set_title(f'Probability:  {condition}')
+    axes[idx].set_title(f"Probability:  {condition}")
 
 # Set common labels and legend
-fig.text(0.5, 0.04, 'Pairs (C_{t+1},C_t,)', ha='center', va='center')
-fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
-fig.suptitle('Mean Probability Distribution for Each Condition and Pair (C_{t+1},C_t)')
+fig.text(0.5, 0.04, "Pairs (C_{t+1},C_t,)", ha="center", va="center")
+fig.text(0.06, 0.5, "Probability", ha="center", va="center", rotation="vertical")
+fig.suptitle("Mean Probability Distribution for Each Condition and Pair (C_{t+1},C_t)")
 # plt.legend()
 
 plt.show()
 
 
 # %%
-#|%%--%%| <5oKxlGF93G|4SSNV0ixKb>
+# |%%--%%| <5oKxlGF93G|4SSNV0ixKb>
 """°°°
 Computing P(C_{t+2} | C_{t+1}, C_t)
 °°°"""
-#|%%--%%| <4SSNV0ixKb|7AfY2O0mA0>
+# |%%--%%| <4SSNV0ixKb|7AfY2O0mA0>
 # %%
 
 
-from collections import Counter
-
-def compute_probability_distribution_tplus2_given_tplus1_and_t(df, subject_col, condition_col, choice_col):
+def compute_probability_distribution_tplus2_given_tplus1_and_t(
+    df, subject_col, condition_col, choice_col
+):
     # df is your DataFrame
-    # subject_col is the column name for the subjects 
+    # subject_col is the column name for the subjects
     # condition_col is the column name for the conditions
     # choice_col is the column name for the choices
 
@@ -1371,48 +1444,63 @@ def compute_probability_distribution_tplus2_given_tplus1_and_t(df, subject_col, 
         choices = group_df[choice_col].tolist()
 
         # Count occurrences of each triplet (C_t, C_{t+1}, C_{t+2})
-        transition_counts_t_tplus1_tplus2 = Counter(zip(choices[:-2], choices[1:-1], choices[2:]))
+        transition_counts_t_tplus1_tplus2 = Counter(
+            zip(choices[:-2], choices[1:-1], choices[2:])
+        )
 
         # Compute total counts for each pair (C_{t+1}, C_t)
         total_counts_tplus1_t = Counter(zip(choices[:-1], choices[1:]))
 
         # Calculate the conditional probabilities for P(C_{t+2} | C_{t+1} & C_t)
         probability_distribution_tplus2_given_tplus1_and_t = {}
-        for (choice_t, choice_tplus1, choice_tplus2), count in transition_counts_t_tplus1_tplus2.items():
-            probability_distribution_tplus2_given_tplus1_and_t[(choice_tplus2, choice_tplus1, choice_t)] = count / total_counts_tplus1_t[choice_t, choice_tplus1]
+        for (
+            choice_t,
+            choice_tplus1,
+            choice_tplus2,
+        ), count in transition_counts_t_tplus1_tplus2.items():
+            probability_distribution_tplus2_given_tplus1_and_t[
+                (choice_tplus2, choice_tplus1, choice_t)
+            ] = (count / total_counts_tplus1_t[choice_t, choice_tplus1])
 
         # Store the probability distribution in the dictionary
-        probability_distributions_tplus2_given_tplus1_and_t[(subject, condition)] = probability_distribution_tplus2_given_tplus1_and_t
+        probability_distributions_tplus2_given_tplus1_and_t[(subject, condition)] = (
+            probability_distribution_tplus2_given_tplus1_and_t
+        )
 
     return probability_distributions_tplus2_given_tplus1_and_t
 
-#|%%--%%| <7AfY2O0mA0|JIDuF3osMK>
+
+# |%%--%%| <7AfY2O0mA0|JIDuF3osMK>
 # %%
 
 
-probability_distributions_by_group = compute_probability_distribution_tplus2_given_tplus1_and_t(df, 'sub_number', 'proba', 'trial_color_chosen')
+probability_distributions_by_group = (
+    compute_probability_distribution_tplus2_given_tplus1_and_t(
+        df, "sub_number", "proba", "trial_color_chosen"
+    )
+)
 probability_distributions_by_group
-#|%%--%%| <JIDuF3osMK|ZfiNVKwozc>
+# |%%--%%| <JIDuF3osMK|ZfiNVKwozc>
 
 # %%
-for i in df['sub_number'].unique():
-    for p in df['proba'].unique():
+for i in df["sub_number"].unique():
+    for p in df["proba"].unique():
         print(f"Probability Distribution for subject {i} and condition {p}:")
         for key, probability in probability_distributions_by_group[(i, p)].items():
-            print(f'P(C_{key[0]} | C_{key[1]},C_{key[2]}) = {probability:.2f}')
+            print(f"P(C_{key[0]} | C_{key[1]},C_{key[2]}) = {probability:.2f}")
 
-#|%%--%%| <ZfiNVKwozc|B6f78cRdCl>
+# |%%--%%| <ZfiNVKwozc|B6f78cRdCl>
 
 # %%
 
 unique_triplets = list(probability_distributions_by_group.values())[0].keys()
 unique_triplets
-#|%%--%%| <B6f78cRdCl|4uikRnrdl5>
+# |%%--%%| <B6f78cRdCl|4uikRnrdl5>
 
 # %%
 probability_distributions_by_group.items()
 
-#|%%--%%| <4uikRnrdl5|37XUO5s80z>
+# |%%--%%| <4uikRnrdl5|37XUO5s80z>
 # %%
 
 # Extract unique triplets from the first condition (assuming all conditions have the same triplets)
@@ -1429,7 +1517,9 @@ bar_offsets = np.arange(num_triplets)
 
 
 # Plotting
-for idx, (condition, mean_distribution) in enumerate(probability_distributions_by_group.items()):
+for idx, (condition, mean_distribution) in enumerate(
+    probability_distributions_by_group.items()
+):
     subject = condition[0]
     condition_value = condition[1]
 
@@ -1438,20 +1528,32 @@ for idx, (condition, mean_distribution) in enumerate(probability_distributions_b
 
     probabilities = [mean_distribution[triplet] for triplet in unique_triplets]
 
-    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f'Subject {subject}, Condition {condition_value}')
+    axes[idx].bar(
+        bar_offsets,
+        probabilities,
+        bar_width,
+        label=f"Subject {subject}, Condition {condition_value}",
+    )
     axes[idx].set_xticks(bar_offsets)
     axes[idx].set_xticklabels(unique_triplets, fontsize=8)
-    axes[idx].set_title(f'Subject {subject}, Condition {condition_value}')
+    axes[idx].set_title(f"Subject {subject}, Condition {condition_value}")
 
 # Set common labels
-fig.text(0.5, 0.04, 'Triplets (C_{t+2}, C_{t+1}, C_t))', ha='center', va='center', fontsize=20)
-fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
-fig.suptitle('Mean Probability Distribution for P(C_t+2 | C_t+1, C_t)', fontsize=30)
+fig.text(
+    0.5,
+    0.04,
+    "Triplets (C_{t+2}, C_{t+1}, C_t))",
+    ha="center",
+    va="center",
+    fontsize=20,
+)
+fig.text(0.06, 0.5, "Probability", ha="center", va="center", rotation="vertical")
+fig.suptitle("Mean Probability Distribution for P(C_t+2 | C_t+1, C_t)", fontsize=30)
 
 plt.show()
 
 
-#|%%--%%| <37XUO5s80z|jfgTiohOAU>
+# |%%--%%| <37XUO5s80z|jfgTiohOAU>
 
 # %%
 
@@ -1466,37 +1568,42 @@ def compute_mean_probability_distribution(dictionary):
         num_participants = 0
 
         # Aggregate distributions for the same condition
-        for (subject, cond) in dictionary.keys():
+        for subject, cond in dictionary.keys():
             if cond == condition:
                 distribution = dictionary[(subject, cond)]
                 mean_distribution.update(distribution)
                 num_participants += 1
 
         # Calculate the mean by dividing each count by the number of participants
-        mean_distribution = {key: count / num_participants for key, count in mean_distribution.items()}
+        mean_distribution = {
+            key: count / num_participants for key, count in mean_distribution.items()
+        }
 
         # Store the mean distribution for the condition
         mean_probability_distribution[condition] = mean_distribution
 
     return mean_probability_distribution
 
-#|%%--%%| <jfgTiohOAU|ki3x5jpfAR>
+
+# |%%--%%| <jfgTiohOAU|ki3x5jpfAR>
 
 # %%
-meanOverSubjects=compute_mean_probability_distribution(probability_distributions_by_group)
+meanOverSubjects = compute_mean_probability_distribution(
+    probability_distributions_by_group
+)
 meanOverSubjects
 
 # %%
-#|%%--%%| <ki3x5jpfAR|4ol2GdpoqJ>
+# |%%--%%| <ki3x5jpfAR|4ol2GdpoqJ>
 
 
-for p in df['proba'].unique():
+for p in df["proba"].unique():
     print(f"Probability Distribution for proba {p}:")
     for key, probability in meanOverSubjects[(p)].items():
-        print(f'P(C_{key[0]} | C_{key[1]},C_{key[2]}) = {probability:.2f}')
+        print(f"P(C_{key[0]} | C_{key[1]},C_{key[2]}) = {probability:.2f}")
 
 
-#|%%--%%| <4ol2GdpoqJ|RAx7oDpABa>
+# |%%--%%| <4ol2GdpoqJ|RAx7oDpABa>
 
 # %%
 
@@ -1517,107 +1624,134 @@ bar_offsets = np.arange(num_triplets)
 for idx, (condition, mean_distribution) in enumerate(meanOverSubjects.items()):
     probabilities = [mean_distribution[triplet] for triplet in unique_triplets]
 
-    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f'Condition {condition}')
+    axes[idx].bar(bar_offsets, probabilities, bar_width, label=f"Condition {condition}")
     axes[idx].set_xticks(bar_offsets)
     axes[idx].set_xticklabels(unique_triplets, fontsize=8)
     # axes[idx].set_xlabel('Triplets (C_t, C_{t+1}, C_{t+2})')
-    axes[idx].set_title(f'Condition {condition}')
+    axes[idx].set_title(f"Condition {condition}")
 
 # Set common labels and legend
-fig.text(0.5, 0.04, 'Triplets (C_{t+2}, C_{t+1}, C_t))', ha='center', va='center',fontsize=20)
-fig.text(0.06, 0.5, 'Probability', ha='center', va='center', rotation='vertical')
-fig.suptitle('Mean Probability Distribution for P(C_t+2 | C_t+1, C_t)',fontsize=30)
+fig.text(
+    0.5,
+    0.04,
+    "Triplets (C_{t+2}, C_{t+1}, C_t))",
+    ha="center",
+    va="center",
+    fontsize=20,
+)
+fig.text(0.06, 0.5, "Probability", ha="center", va="center", rotation="vertical")
+fig.suptitle("Mean Probability Distribution for P(C_t+2 | C_t+1, C_t)", fontsize=30)
 plt.legend()
 
 plt.show()
-#|%%--%%| <RAx7oDpABa|YvO4edwPiv>
+# |%%--%%| <RAx7oDpABa|YvO4edwPiv>
 
 # %%
 
 
-unique_sub_numbers = df['sub_number'].unique()
+unique_sub_numbers = df["sub_number"].unique()
 # Custom color palette for 'color' categories
-custom_palette = {'green': 'green', 'red': 'red'}
+custom_palette = {"green": "green", "red": "red"}
 for sub_number_value in unique_sub_numbers:
-    subset_df = df[df['sub_number']] == sub_number_value
+    subset_df = df[df["sub_number"]] == sub_number_value
 
     # Set up subplots for each proba
-    fig, axes = plt.subplots(nrows=1, ncols=len(subset_df['proba'].unique()), figsize=(15, 5), sharey=True)
+    fig, axes = plt.subplots(
+        nrows=1, ncols=len(subset_df["proba"].unique()), figsize=(15, 5), sharey=True
+    )
 
     # Plot each subplot
-    for i, proba_value in enumerate(subset_df['proba'].unique()):
-        proba_subset_df = subset_df[subset_df['proba'] == proba_value]
+    for i, proba_value in enumerate(subset_df["proba"].unique()):
+        proba_subset_df = subset_df[subset_df["proba"] == proba_value]
         ax = axes[i]
 
         # Group by both "proba" and "color" and compute rolling mean with a window of 20
-        rolling_mean = proba_subset_df.groupby(["proba", "color"])["meanVelo"].rolling(window=10, min_periods=1).mean().reset_index(level=[0, 1], drop=True)
+        rolling_mean = (
+            proba_subset_df.groupby(["proba", "color"])["meanVelo"]
+            .rolling(window=10, min_periods=1)
+            .mean()
+            .reset_index(level=[0, 1], drop=True)
+        )
 
         # Plot the rolling mean with color as a hue
-        sns.lineplot(x="trial_number", y=rolling_mean, hue="color", data=proba_subset_df, ax=ax, palette=custom_palette, markers=True)
+        sns.lineplot(
+            x="trial_number",
+            y=rolling_mean,
+            hue="color",
+            data=proba_subset_df,
+            ax=ax,
+            palette=custom_palette,
+            markers=True,
+        )
 
-        ax.set_title(f'sub_number = {sub_number_value}, proba = {proba_value}')
-        ax.set_xlabel('Trial Number')
-        ax.set_ylabel('Mean Velocity (Rolling Average)')
-        ax.legend(title='Color', loc='upper right')
+        ax.set_title(f"sub_number = {sub_number_value}, proba = {proba_value}")
+        ax.set_xlabel("Trial Number")
+        ax.set_ylabel("Mean Velocity (Rolling Average)")
+        ax.legend(title="Color", loc="upper right")
 
     # Adjust layout for subplots for each subject
     plt.tight_layout()
     plt.show()
 
-#|%%--%%| <YvO4edwPiv|wY6MEnWD9g>
+# |%%--%%| <YvO4edwPiv|wY6MEnWD9g>
 # %%
 
 rolling_mean
 
-#|%%--%%| <wY6MEnWD9g|bB5rAoyuwj>
+# |%%--%%| <wY6MEnWD9g|bB5rAoyuwj>
 # %%
 
-#Score of percistency
+# Score of percistency
 
-#|%%--%%| <bB5rAoyuwj|btcBZVF8lR>
+# |%%--%%| <bB5rAoyuwj|btcBZVF8lR>
 
-probability_distributions_by_group_tplus1_given_t.keys ()
+probability_distributions_by_group_tplus1_given_t.keys()
 
-#|%%--%%| <btcBZVF8lR|U1RCI8clxw>
+# |%%--%%| <btcBZVF8lR|U1RCI8clxw>
 # %%
 
 
 probability_distributions_by_group_tplus1_given_t
-#|%%--%%| <U1RCI8clxw|jGu7UdQ3iH>
+# |%%--%%| <U1RCI8clxw|jGu7UdQ3iH>
 # %%
 
-tplus1GivenT=pd.DataFrame(probability_distributions_by_group_tplus1_given_t)
-#|%%--%%| <jGu7UdQ3iH|eaOt3gMsmF>
+tplus1GivenT = pd.DataFrame(probability_distributions_by_group_tplus1_given_t)
+# |%%--%%| <jGu7UdQ3iH|eaOt3gMsmF>
 # %%
 
 tplus1GivenT
 
-#|%%--%%| <eaOt3gMsmF|htGZUflqhx>
+# |%%--%%| <eaOt3gMsmF|htGZUflqhx>
 # %%
 
 
-
-#|%%--%%| <htGZUflqhx|m3jza5TNn8>
-
-
-
+# |%%--%%| <htGZUflqhx|m3jza5TNn8>
 
 
 # Convert dictionary to DataFrame
 # %%
-tplus1GivenT = pd.DataFrame.from_dict({(k1, k2): v2 for k1, d in probability_distributions_by_group_tplus1_given_t.items() for k2, v2 in d.items()}, orient='index')
+tplus1GivenT = pd.DataFrame.from_dict(
+    {
+        (k1, k2): v2
+        for k1, d in probability_distributions_by_group_tplus1_given_t.items()
+        for k2, v2 in d.items()
+    },
+    orient="index",
+)
 
 # Reset index and rename columns
-tplus1GivenT = tplus1GivenT.reset_index().rename(columns={'level_0': 'Group', 'level_1': 'Distribution', 0: 'Probability'})
+tplus1GivenT = tplus1GivenT.reset_index().rename(
+    columns={"level_0": "Group", "level_1": "Distribution", 0: "Probability"}
+)
 
 print(tplus1GivenT)
 
-#|%%--%%| <m3jza5TNn8|ypzJK0eb37>
+# |%%--%%| <m3jza5TNn8|ypzJK0eb37>
 # %%
 
 tplus1GivenT.columns
 
-#|%%--%%| <ypzJK0eb37|kAaihO8ylP>
+# |%%--%%| <ypzJK0eb37|kAaihO8ylP>
 # %%
 
 # Dictionary to store the sums for each main key
@@ -1648,14 +1782,13 @@ for main_key, sub_dict in probability_distributions_by_group_tplus1_given_t.item
 for main_key, sum_value in sums_by_main_key.items():
     print(f"Main Key: {main_key}, Sum: {sum_value}")
 
-#|%%--%%| <kAaihO8ylP|FIuoAdIe71>
+# |%%--%%| <kAaihO8ylP|FIuoAdIe71>
 # %%
 
 sums_by_main_key
 
-#|%%--%%| <FIuoAdIe71|rgRPlJFvLL>
+# |%%--%%| <FIuoAdIe71|rgRPlJFvLL>
 # %%
-
 
 
 # Initialize lists to store data
@@ -1667,42 +1800,44 @@ persistence_scores = []
 for key, value in sums_by_main_key.items():
     # Extract subject and probability from the key
     subject, probability = key
-    
+
     # Append data to lists
     subjects.append(subject)
     probabilities.append(probability)
     persistence_scores.append(value)
 
 # Create DataFrame
-percistenceScore = pd.DataFrame({
-    'Subject': subjects,
-    'Probability': probabilities,
-    'Persistence Score': persistence_scores
-})
+percistenceScore = pd.DataFrame(
+    {
+        "Subject": subjects,
+        "Probability": probabilities,
+        "Persistence Score": persistence_scores,
+    }
+)
 
 # Display DataFrame
 print(percistenceScore)
 
-#|%%--%%| <rgRPlJFvLL|3CJbtd4FeR>
+# |%%--%%| <rgRPlJFvLL|3CJbtd4FeR>
 # %%
 
-percistenceScore.groupby('Subject')['Persistence Score'].mean()
+percistenceScore.groupby("Subject")["Persistence Score"].mean()
 
-#|%%--%%| <3CJbtd4FeR|iCpM9sHN6j>
+# |%%--%%| <3CJbtd4FeR|iCpM9sHN6j>
 # %%
 
-learning=df.groupby(['sub_number','color','proba']).meanVelo.mean().reset_index()
+learning = df.groupby(["sub_number", "color", "proba"]).meanVelo.mean().reset_index()
 learning
-#|%%--%%| <iCpM9sHN6j|in2fBOKfLB>
+# |%%--%%| <iCpM9sHN6j|in2fBOKfLB>
 # %%
 
 
 # Group by 'sub_number' and 'color'
-grouped = learning.groupby(['sub_number', 'color'])
+grouped = learning.groupby(["sub_number", "color"])
 
 # Calculate the mean velocity for probability 75 and 25, respectively
-mean_velo_75 = grouped.apply(lambda x: x[x['proba'] == 75]['meanVelo'].mean())
-mean_velo_25 = grouped.apply(lambda x: x[x['proba'] == 25]['meanVelo'].mean())
+mean_velo_75 = grouped.apply(lambda x: x[x["proba"] == 75]["meanVelo"].mean())
+mean_velo_25 = grouped.apply(lambda x: x[x["proba"] == 25]["meanVelo"].mean())
 
 # Calculate the difference
 difference = np.abs(mean_velo_75 - mean_velo_25)
@@ -1710,68 +1845,83 @@ difference = np.abs(mean_velo_75 - mean_velo_25)
 # Display the result
 print(difference)
 
-#|%%--%%| <in2fBOKfLB|XVJ4Z1UtaB>
+# |%%--%%| <in2fBOKfLB|XVJ4Z1UtaB>
 # %%
 
 grouped
 
 # %%
-#|%%--%%| <XVJ4Z1UtaB|bLdHdui9o8>
+# |%%--%%| <XVJ4Z1UtaB|bLdHdui9o8>
 
-difference_green=difference.xs('green', level='color')
-difference_red=difference.xs('red', level='color')
-percistence=percistenceScore.groupby('Subject')['Persistence Score'].mean().reset_index()
+difference_green = difference.xs("green", level="color")
+difference_red = difference.xs("red", level="color")
+percistence = (
+    percistenceScore.groupby("Subject")["Persistence Score"].mean().reset_index()
+)
 percistence
 
-#|%%--%%| <bLdHdui9o8|mJbZBBTDrX>
+# |%%--%%| <bLdHdui9o8|mJbZBBTDrX>
 # %%
 
-percistence['learningScore']=np.mean([difference_green,difference_red], axis=0)
+percistence["learningScore"] = np.mean([difference_green, difference_red], axis=0)
 
-#|%%--%%| <mJbZBBTDrX|sQipqrPL2s>
+# |%%--%%| <mJbZBBTDrX|sQipqrPL2s>
 # %%
 
-percistence["learningGreen"]=difference_green.values
-percistence["learningRed"]=difference_red.values
+percistence["learningGreen"] = difference_green.values
+percistence["learningRed"] = difference_red.values
 percistence
-#|%%--%%| <sQipqrPL2s|Yf0nwdODe4>
+# |%%--%%| <sQipqrPL2s|Yf0nwdODe4>
 # %%
 
-sns.scatterplot(data=percistence, x="Persistence Score", y="learningGreen", hue="Subject")
+sns.scatterplot(
+    data=percistence, x="Persistence Score", y="learningGreen", hue="Subject"
+)
 plt.show()
-#|%%--%%| <Yf0nwdODe4|gXeKBR5VSb>
+# |%%--%%| <Yf0nwdODe4|gXeKBR5VSb>
 
 # %%
 sns.scatterplot(data=percistence, x="Persistence Score", y="learningRed", hue="Subject")
 plt.show()
 # %%
-#|%%--%%| <gXeKBR5VSb|zSwvDk70Ay>
+# |%%--%%| <gXeKBR5VSb|zSwvDk70Ay>
 
-sns.scatterplot(data=percistence, x="Persistence Score", y="learningScore", hue="Subject")
+sns.scatterplot(
+    data=percistence, x="Persistence Score", y="learningScore", hue="Subject"
+)
 plt.show()
-#|%%--%%| <zSwvDk70Ay|mOf9eDNwlV>
+# |%%--%%| <zSwvDk70Ay|mOf9eDNwlV>
 # %%
 
 # Plotting
 plt.figure(figsize=(10, 6))
 
 # Scatter plot for Learning Green
-plt.scatter(percistence['Persistence Score'], percistence['learningGreen'], color='green', label='Learning Green')
+plt.scatter(
+    percistence["Persistence Score"],
+    percistence["learningGreen"],
+    color="green",
+    label="Learning Green",
+)
 plt.show()
 # Scatter plot for Learning Red
 # %%
-plt.scatter(percistence['Persistence Score'], percistence['learningRed'], color='red', label='Learning Red')
+plt.scatter(
+    percistence["Persistence Score"],
+    percistence["learningRed"],
+    color="red",
+    label="Learning Red",
+)
 
 # Adding labels and title
-plt.xlabel('Persistence Score')
-plt.ylabel('Learning Score')
-plt.title('Persistence Score vs Learning Score')
+plt.xlabel("Persistence Score")
+plt.ylabel("Learning Score")
+plt.title("Persistence Score vs Learning Score")
 plt.legend()
 
 # Show plot
 plt.show()
-#|%%--%%| <mOf9eDNwlV|CVwlJ9uY8v>
-
+# |%%--%%| <mOf9eDNwlV|CVwlJ9uY8v>
 
 
 # %%
@@ -1779,56 +1929,80 @@ plt.show()
 plt.figure(figsize=(10, 6))
 
 # Scatter plot for Learning Green
-plt.scatter(percistence['Persistence Score'], percistence['learningGreen'], color='green', label='Learning Green')
+plt.scatter(
+    percistence["Persistence Score"],
+    percistence["learningGreen"],
+    color="green",
+    label="Learning Green",
+)
 
 # Scatter plot for Learning Red
-plt.scatter(percistence['Persistence Score'], percistence['learningRed'], color='red', label='Learning Red')
+plt.scatter(
+    percistence["Persistence Score"],
+    percistence["learningRed"],
+    color="red",
+    label="Learning Red",
+)
 
 # Adding fitting lines using seaborn's lmplot
-sns.regplot(x='Persistence Score', y='learningGreen', data=percistence, scatter=False, color='green')
-sns.regplot(x='Persistence Score', y='learningRed', data=percistence, scatter=False, color='red')
+sns.regplot(
+    x="Persistence Score",
+    y="learningGreen",
+    data=percistence,
+    scatter=False,
+    color="green",
+)
+sns.regplot(
+    x="Persistence Score", y="learningRed", data=percistence, scatter=False, color="red"
+)
 
 # Adding labels and title
-plt.xlabel('Persistence Score')
-plt.ylabel('Learning Score')
-plt.title('Persistence Score vs Learning Score')
+plt.xlabel("Persistence Score")
+plt.ylabel("Learning Score")
+plt.title("Persistence Score vs Learning Score")
 plt.legend()
-plt.savefig('Persistence_Score_vs_Learning_Score.png')
+plt.savefig("Persistence_Score_vs_Learning_Score.png")
 # Show plot
 plt.show()
 
 
-#|%%--%%| <CVwlJ9uY8v|bjMFu3kNZl>
+# |%%--%%| <CVwlJ9uY8v|bjMFu3kNZl>
 # %%
 plt.scatter(data=percistence, x="Persistence Score", y="learningScore")
-sns.regplot(x='Persistence Score', y='learningScore', data=percistence, scatter=False, color='black')
+sns.regplot(
+    x="Persistence Score",
+    y="learningScore",
+    data=percistence,
+    scatter=False,
+    color="black",
+)
 # Adding labels and title
-plt.xlabel('Persistence Score',fontsize=30)
-plt.ylabel('Learning Score',fontsize=30)
-plt.title('Persistence Score vs Learning Score',fontsize=40)
+plt.xlabel("Persistence Score", fontsize=30)
+plt.ylabel("Learning Score", fontsize=30)
+plt.title("Persistence Score vs Learning Score", fontsize=40)
 plt.legend()
-plt.savefig('Persistence_Score_vs_Learning_Score.png')
+plt.savefig("Persistence_Score_vs_Learning_Score.png")
 # Show plot
 plt.show()
 
-#|%%--%%| <bjMFu3kNZl|tnRAsPqMvM>
+# |%%--%%| <bjMFu3kNZl|tnRAsPqMvM>
 # %%
 
 
 import statsmodels.api as sm
 
 # Define the independent variables (Xs) and dependent variables (Ys)
-X = percistence[['Persistence Score']]
-Y_green = percistence['learningGreen']
-Y_red = percistence['learningRed']
-Y=percistence['learningScore']
+X = percistence[["Persistence Score"]]
+Y_green = percistence["learningGreen"]
+Y_red = percistence["learningRed"]
+Y = percistence["learningScore"]
 # Add a constant to the independent variables for the intercept term
 X = sm.add_constant(X)
 
 # Fit the multiple linear regression models
 model_green = sm.OLS(Y_green, X).fit()
 model_red = sm.OLS(Y_red, X).fit()
-model=sm.OLS(Y, X).fit()
+model = sm.OLS(Y, X).fit()
 # Print the summary of the regression results
 print("Regression Results for Learning Green:")
 print(model_green.summary())
@@ -1836,43 +2010,66 @@ print(model_green.summary())
 print("\nRegression Results for Learning Red:")
 print(model_red.summary())
 
-#|%%--%%| <tnRAsPqMvM|9b0P2daokY>
+# |%%--%%| <tnRAsPqMvM|9b0P2daokY>
 
 # %%
 print("\nRegression Results for Learning Score:")
 print(model.summary())
 
-#|%%--%%| <9b0P2daokY|KjTNRknrah>
+# |%%--%%| <9b0P2daokY|KjTNRknrah>
 # %%
 
-df_green = df[df.color == 'green']
-df_red = df[df.color == 'red']
+df_green = df[df.color == "green"]
+df_red = df[df.color == "red"]
 
-#|%%--%%| <KjTNRknrah|NfyGTpWFos>
+# |%%--%%| <KjTNRknrah|NfyGTpWFos>
 # %%
 
 # For df_green
-df_green_last_40_trials = df_green.groupby(['sub_number','proba']).tail(40)
+df_green_last_40_trials = df_green.groupby(["sub_number", "proba"]).tail(40)
 df_green_last_40_trials
-#|%%--%%| <MeklYuccDP|iLt0dZ28I6>
+# |%%--%%| <MeklYuccDP|iLt0dZ28I6>
 
 # Create a dictionary to map each subject to a specific color
 # %%
-subject_colors = {sub: sns.color_palette('husl', n_colors=len(df_green_last_40_trials['sub_number'].unique()))[i] 
-                  for i, sub in enumerate(sorted(df_green_last_40_trials['sub_number'].unique()))}
+subject_colors = {
+    sub: sns.color_palette(
+        "husl", n_colors=len(df_green_last_40_trials["sub_number"].unique())
+    )[i]
+    for i, sub in enumerate(sorted(df_green_last_40_trials["sub_number"].unique()))
+}
 
 # Plot mean velocity for each combination of 'sub_number' and 'proba', manually assigning colors
-ax = sns.catplot(x='proba', y='meanVelo', hue='sub_number', kind='point', data=df_green, palette=subject_colors, legend=False)
-plt.xlabel('Probability')
-plt.ylabel('Mean Velocity')
-plt.title('Mean Velocity (Green) across the last 40 Trials \n for Each Sub and Proba')
+ax = sns.catplot(
+    x="proba",
+    y="meanVelo",
+    hue="sub_number",
+    kind="point",
+    data=df_green,
+    palette=subject_colors,
+    legend=False,
+)
+plt.xlabel("Probability")
+plt.ylabel("Mean Velocity")
+plt.title("Mean Velocity (Green) across the last 40 Trials \n for Each Sub and Proba")
 
 # Get the current axes
 ax = plt.gca()
 
 # Manually create legend with subject labels and corresponding colors
-handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=subject_colors[sub], markersize=10, label=f'Sub {sub}') for sub in sorted(df_green['sub_number'].unique())]
-ax.legend(handles=handles, title='Subject', loc='upper right',fontsize='small')
+handles = [
+    plt.Line2D(
+        [0],
+        [0],
+        marker="o",
+        color="w",
+        markerfacecolor=subject_colors[sub],
+        markersize=10,
+        label=f"Sub {sub}",
+    )
+    for sub in sorted(df_green["sub_number"].unique())
+]
+ax.legend(handles=handles, title="Subject", loc="upper right", fontsize="small")
 
 plt.show()
 
@@ -1881,66 +2078,98 @@ plt.show()
 
 
 # Create a dictionary to map each subject to a specific color
-subject_colors = {sub: sns.color_palette('husl', n_colors=len(df_red['sub_number'].unique()))[i] 
-                  for i, sub in enumerate(sorted(df_red['sub_number'].unique()))}
+subject_colors = {
+    sub: sns.color_palette("husl", n_colors=len(df_red["sub_number"].unique()))[i]
+    for i, sub in enumerate(sorted(df_red["sub_number"].unique()))
+}
 
 # Plot mean velocity for each combination of 'sub_number' and 'proba', manually assigning colors
-ax = sns.catplot(x='proba', y='meanVelo', hue='sub_number', kind='point', data=df_red, palette=subject_colors, legend=False)
-plt.xlabel('Probability')
-plt.ylabel('Mean Velocity')
-plt.title('Mean Velocity across 240 Trials for Each Sub and Proba')
+ax = sns.catplot(
+    x="proba",
+    y="meanVelo",
+    hue="sub_number",
+    kind="point",
+    data=df_red,
+    palette=subject_colors,
+    legend=False,
+)
+plt.xlabel("Probability")
+plt.ylabel("Mean Velocity")
+plt.title("Mean Velocity across 240 Trials for Each Sub and Proba")
 
 # Get the current axes
 ax = plt.gca()
 
 # Manually create legend with subject labels and corresponding colors
-handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=subject_colors[sub], markersize=10, label=f'Sub {sub}') for sub in sorted(df_red['sub_number'].unique())]
-ax.legend(handles=handles, title='Subject', loc='upper right',fontsize='small')
+handles = [
+    plt.Line2D(
+        [0],
+        [0],
+        marker="o",
+        color="w",
+        markerfacecolor=subject_colors[sub],
+        markersize=10,
+        label=f"Sub {sub}",
+    )
+    for sub in sorted(df_red["sub_number"].unique())
+]
+ax.legend(handles=handles, title="Subject", loc="upper right", fontsize="small")
 
 plt.show()
 
-#|%%--%%| <ibJic2WQyh|QdkOZdFx9N>
+# |%%--%%| <ibJic2WQyh|QdkOZdFx9N>
 # %%
 
 df_green_last_40_trials.proba.unique()
 
-#|%%--%%| <QdkOZdFx9N|iu5cRdvDKF>
+# |%%--%%| <QdkOZdFx9N|iu5cRdvDKF>
 # %%
 
-l_green=df_green_last_40_trials.groupby(["sub_number", "proba"]).meanVelo.mean().reset_index()
+l_green = (
+    df_green_last_40_trials.groupby(["sub_number", "proba"])
+    .meanVelo.mean()
+    .reset_index()
+)
 l_green
 
-#|%%--%%| <iu5cRdvDKF|xDbH5HWsVR>
+# |%%--%%| <iu5cRdvDKF|xDbH5HWsVR>
 # %%
 
-df_red_last_40_trials = df_red.groupby(['sub_number','proba']).tail(40)
+df_red_last_40_trials = df_red.groupby(["sub_number", "proba"]).tail(40)
 df_red_last_40_trials
 
-#|%%--%%| <xDbH5HWsVR|uvEDDrZ7B8>
+# |%%--%%| <xDbH5HWsVR|uvEDDrZ7B8>
 # %%
 
 df_red_last_40_trials.proba.unique()
 
-#|%%--%%| <uvEDDrZ7B8|qeUJHOs7qz>
+# |%%--%%| <uvEDDrZ7B8|qeUJHOs7qz>
 
-l_red=df_red_last_40_trials.groupby(["sub_number", "proba"]).meanVelo.mean().reset_index()
+l_red = (
+    df_red_last_40_trials.groupby(["sub_number", "proba"]).meanVelo.mean().reset_index()
+)
 l_red
 
 
-
 # %%
-#|%%--%%| <qeUJHOs7qz|u41mblaBsi>
+# |%%--%%| <qeUJHOs7qz|u41mblaBsi>
 
 # Plot the last 40 trials for each color across the 3 probabilities:
 # Concatenate the two DataFrames and create a new column 'group' to distinguish between them
-df_green_last_40_trials['color'] = 'Green'
-df_red_last_40_trials['color'] = 'Red'
+df_green_last_40_trials["color"] = "Green"
+df_red_last_40_trials["color"] = "Red"
 las40Trials = pd.concat([df_green_last_40_trials, df_red_last_40_trials])
 
 # Plot the boxplot
-sns.boxplot(x="proba", y="meanVelo", hue="color", data=las40Trials, palette={'Green': 'green', 'Red': 'red'})
+sns.boxplot(
+    x="proba",
+    y="meanVelo",
+    hue="color",
+    data=las40Trials,
+    palette={"Green": "green", "Red": "red"},
+)
 plt.show()
-#|%%--%%| <u41mblaBsi|CHoiD1szdN>
+# |%%--%%| <u41mblaBsi|CHoiD1szdN>
 
 
 # %%
@@ -1948,32 +2177,35 @@ df.columns
 
 
 df.trial_RT_colochoice
-RT=df.groupby(['sub_number','proba']).trial_RT_colochoice.mean().reset_index()['trial_RT_colochoice']
+RT = (
+    df.groupby(["sub_number", "proba"])
+    .trial_RT_colochoice.mean()
+    .reset_index()["trial_RT_colochoice"]
+)
 
 
 # %%
-plt.hist(RT, color='lightblue', edgecolor='black')
-plt.vlines(RT.mean(), 0, 10, color='red', linestyle='--', label='Mean RT')
+plt.hist(RT, color="lightblue", edgecolor="black")
+plt.vlines(RT.mean(), 0, 10, color="red", linestyle="--", label="Mean RT")
 # plt.vlines(0.6, 0, 10, color='black', label='Mean RT', linewidth=2,label="Vanessa's Exp")
 plt.legend()
-plt.xlabel('RT',fontsize=40)
-plt.title('RT Distribution',fontsize=40)
-plt.savefig('RT_Distribution.png')
+plt.xlabel("RT", fontsize=40)
+plt.title("RT Distribution", fontsize=40)
+plt.savefig("RT_Distribution.png")
 plt.show()
 
 # %%
-df.trial_color_chosen==df.trial_color_UP
+df.trial_color_chosen == df.trial_color_UP
 
 
-df['arrowChosen']=df.trial_color_chosen==df.trial_color_UP
+df["arrowChosen"] = df.trial_color_chosen == df.trial_color_UP
 
 
-df.arrowChosen=['UP' if x==True else 'DOWN' for x in df.arrowChosen]
+df.arrowChosen = ["UP" if x == True else "DOWN" for x in df.arrowChosen]
 
 
 df.arrowChosen
 
 # %%
 
-df[(df.sub_number==16)&(df.proba==75)& (df.arrowChosen=='UP')]
-
+df[(df.sub_number == 16) & (df.proba == 75) & (df.arrowChosen == "UP")]

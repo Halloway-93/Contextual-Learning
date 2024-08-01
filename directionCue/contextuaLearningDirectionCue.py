@@ -1,13 +1,9 @@
 import io
 import os
 import re
-<<<<<<< HEAD
 from datetime import datetime
 
-=======
 from collections import Counter
-from datetime import datetime
->>>>>>> 71568f674b0cb5d6024589f0c932d02ad66da7f8
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,10 +12,6 @@ import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy import stats
-<<<<<<< HEAD
-from scipy.stats import kruskal, linregress, normaltest, pearsonr
-=======
->>>>>>> 71568f674b0cb5d6024589f0c932d02ad66da7f8
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
 
@@ -481,6 +473,7 @@ def process_raw_data(data):
 
     return df
 
+
 def process_all_raw_data(data_dir):
     allRawData = []
     # allEvents = []
@@ -490,21 +483,21 @@ def process_all_raw_data(data_dir):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                data=read_asc(filepath)
-                df=process_raw_data(data)
+                data = read_asc(filepath)
+                df = process_raw_data(data)
                 allRawData.append(df)
 
             if filename.endswith(".csv"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
                 events = pd.read_csv(filepath)
-                proba=events['proba'].unique().values[-1]                 # print(len(events))
+                proba = events["proba"].unique().values[-1]  # print(len(events))
                 # allEvents.append(events)
-            #Adding the proba to the raw data
-            df.proba=proba
+            # Adding the proba to the raw data
+            df.proba = proba
 
     bigDF = pd.concat(allRawData, axis=0, ignore_index=True)
-    bigDF.to_csv('rawData.csv', index=False)
+    bigDF.to_csv("rawData.csv", index=False)
 
 
 def process_data_file(f):
@@ -629,7 +622,7 @@ def process_data_file(f):
     veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
         trial_dim, time_dim
     )
-    velo = np.gradient(pos, axis=1) * sampling_rate / deg #deg/s
+    velo = np.gradient(pos, axis=1) * sampling_rate / deg  # deg/s
     # velo[(velo > 20) | (velo < -20)] = np.nan
 
     for i, pp in enumerate(pos_before_mean):
@@ -639,7 +632,9 @@ def process_data_file(f):
     meanPos = np.nanmean(pos, axis=1)
     meanVelo = np.nanmean(velo, axis=1)
     stdVelo = np.std(velo, axis=1)
-    meanVSS = np.nanmean(veloSteadyState, axis=1) * sampling_rate/ deg # TS = trialSacc
+    meanVSS = (
+        np.nanmean(veloSteadyState, axis=1) * sampling_rate / deg
+    )  # TS = trialSacc
 
     return pd.DataFrame(
         {
@@ -693,17 +688,13 @@ def process_all_asc_files(data_dir):
 
     return merged_data
 
-<<<<<<< HEAD
-#%%
-dirPath= "/envau//work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-<<<<<<< HEAD
-filePath="/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
-=======
-filePath="/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
->>>>>>> abd6336886d1b74966ea60d524342b8dc2edbf24
-=======
+dirPath = "/envau//work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+
+# %%
+filePath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
+filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
 
 
 # %%
@@ -777,7 +768,6 @@ def detect_saccades(data, mono=True):
     saccades_df = pd.DataFrame(saccades)
     return saccades_df
 
->>>>>>> 71568f674b0cb5d6024589f0c932d02ad66da7f8
 
 # %%
 dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
@@ -878,22 +868,22 @@ else:
 df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
 # %%
-<<<<<<< HEAD
-trial= 220 
-print(-gap[trial-1])
-plt.subplot(1,2,1)
-<<<<<<< HEAD
-velT1=np.diff(df[(df.trial==99) & (df.time>0)& (df.time<120)].xp)
+trial = 220
+print(-gap[trial - 1])
+plt.subplot(1, 2, 1)
+velT1 = np.diff(df[(df.trial == 99) & (df.time > 0) & (df.time < 120)].xp)
 # plt.plot(np.convolve(velT1*1000/27.28, np.ones(10)/10, mode='valid'))
 plt.plot(velT1)
-=======
-velT1=np.diff(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<120)].xp)
-plt.plot(np.convolve(velT1*1000/27.28, np.ones(60)/60, mode='valid'))
+velT1 = np.diff(
+    df[(df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time < 120)].xp
+)
+plt.plot(np.convolve(velT1 * 1000 / 27.28, np.ones(60) / 60, mode="valid"))
 # plt.plot(velT1*1000/27.28)
->>>>>>> abd6336886d1b74966ea60d524342b8dc2edbf24
-plt.subplot(1,2,2)
-plt.plot(df[(df.trial==trial) & (df.time>-gap[trial-1])& (df.time<120)].time, df[(df.trial==trial )& (df.time>-gap[trial-1])& (df.time<120)].xp)
-=======
+plt.subplot(1, 2, 2)
+plt.plot(
+    df[(df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time < 120)].time,
+    df[(df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time < 120)].xp,
+)
 trial = badTrial
 trial
 # %%
@@ -901,8 +891,8 @@ trial
 sac = detect_saccades(df, mono)
 sac
 # %%
-#getting only the saccasde in the window -200 to 150
-sac=sac[(sac.start>=-200) & (sac.end<=150)]
+# getting only the saccasde in the window -200 to 150
+sac = sac[(sac.start >= -200) & (sac.end <= 150)]
 # %%
 # Extract position and velocity data
 t = df[
@@ -948,7 +938,6 @@ plt.plot(
 plt.xlabel("Time (ms)", fontsize=20)
 plt.ylabel("Position (deg)", fontsize=20)
 plt.suptitle(f"Trial{trial}:Top Velocity, Bottom Position", fontsize=40)
->>>>>>> 71568f674b0cb5d6024589f0c932d02ad66da7f8
 plt.show()
 # %%
 

@@ -487,7 +487,7 @@ def process_metadata(df, metadata):
     df["proba"] = [proba] * len(df)
     return df
 
-def process_all_raw_data(data_dir):
+def process_all_raw_data(data_dir,filename="rawData.csv"):
     all_raw_data = []
     data_dir_path = Path(data_dir)
 
@@ -504,8 +504,8 @@ def process_all_raw_data(data_dir):
 
 
 
-    bigDF = pd.concat(all_raw_data, axis=0, ignore_index=True)
-    bigDF.to_csv("/envau/work/brainets/oueld.h/contextuaLearning/directionCue/rawData.csv", index=False)
+    big_df = pd.concat(all_raw_data, axis=0, ignore_index=True)
+    big_df.to_csv(os.path.join(data_dir,filename), index=False)
 
 
 # Example usage
@@ -514,5 +514,11 @@ def process_all_raw_data(data_dir):
 
 
 # Running the code on the server
-dirPath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
-process_all_raw_data(dirPath)
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+process_all_raw_data(dirPath1)
+dirPath2= "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+process_all_raw_data(dirPath2)
+
+
+
+
