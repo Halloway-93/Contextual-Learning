@@ -13,7 +13,7 @@ df.columns
 # Getting the region of interest
 fixOff = -200
 latency = 120
-df = df[(df.time >= -200) & (df.time <= 120)]
+df = df[(df.time >= fixOff+20) & (df.time <= latency)]
 # %%
 # Test on one subject and one condition and one trial
 
@@ -34,8 +34,8 @@ pw_fit.plot_data(color="grey", s=20)
 pw_fit.plot_fit(color="red", linewidth=4)
 pw_fit.plot_breakpoints()
 pw_fit.plot_breakpoint_confidence_intervals()
-plt.xlabel("x")
-plt.ylabel("y")
+plt.xlabel("time (ms)")
+plt.ylabel("eye x position (deg)")
 plt.show()
 # %%
 # Last 150 trials of the 6th subject
@@ -44,7 +44,7 @@ allFit = []
 for t in lastTrial.trial.unique():
     x = lastTrial[lastTrial["trial"] == t].time.values
     y = lastTrial[lastTrial["trial"] == t].xp.values
-    pw_fit = pw.Fit(x, y, n_breakpoints=3)
+    pw_fit = pw.Fit(x, y, n_breakpoints=2)
     allFit.append(pw_fit)
 # %%
 for pw_fit in allFit:
@@ -52,6 +52,45 @@ for pw_fit in allFit:
     pw_fit.plot_fit(color="red", linewidth=4)
     pw_fit.plot_breakpoints()
     pw_fit.plot_breakpoint_confidence_intervals()
-    plt.xlabel("x")
-    plt.ylabel("y")
+    plt.xlabel("time (ms)")
+    plt.ylabel("eye x position (deg)")
     plt.show()
+
+# %%
+ms = pw.ModelSelection(x, y, max_breakpoints=3)
+# %%
+ms.models
+# %%
+
+# Get the key results of the fit
+pw_results = pw_fit.get_results()
+pw_estimates = pw_results["estimates"]
+pw_estimates
+# %%
+
+for t in lastTrial.trial.unique():
+    x = lastTrial[lastTrial["trial"] == t].time.values
+    y = lastTrial[lastTrial["trial"] == t].xp.values
+    ms = pw.ModelSelection(x, y, max_breakpoints=3,n_boot=100)
+
+# %%
+
+pw_fit = pw.Fit(x, y, n_breakpoints=2,n_boot=1000)
+# %%
+print(pw_fit.summary())
+
+# %%
+
+ms = pw.ModelSelection(x, y, max_breakpoints=3,n_boot=1000)
+# %%
+
+ms = pw.ModelSelection(x, y, max_breakpoints=5,n_boot=100)
+# %%
+pw_fit.plot_data(color="grey", s=20)
+pw_fit.plot_fit(color="red", linewidth=4)
+pw_fit.plot_breakpoints()
+pw_fit.plot_breakpoint_confidence_intervals()
+plt.xlabel("time (ms)")
+plt.ylabel("eye x position (deg)")
+plt.show()
+

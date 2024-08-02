@@ -3,8 +3,7 @@ import json
 import os
 import re
 from datetime import datetime
-
-from pathlib import Path  
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
@@ -466,7 +465,9 @@ def process_raw_data(data):
 
     return df
 
+
 # Assuming read_asc and process_raw_data are defined elsewhere
+
 
 def read_file(filepath):
     if filepath.suffix == ".asc":
@@ -480,6 +481,7 @@ def read_file(filepath):
         return metadata
     return None
 
+
 def process_metadata(df, metadata):
     sub = metadata.get("sub")
     proba = metadata.get("proba")
@@ -487,7 +489,8 @@ def process_metadata(df, metadata):
     df["proba"] = [proba] * len(df)
     return df
 
-def process_all_raw_data(data_dir,filename="rawData.csv"):
+
+def process_all_raw_data(data_dir, filename="rawData.csv"):
     all_raw_data = []
     data_dir_path = Path(data_dir)
 
@@ -500,12 +503,9 @@ def process_all_raw_data(data_dir,filename="rawData.csv"):
                 metadata = read_file(filepath)
                 if all_raw_data:
                     all_raw_data[-1] = process_metadata(all_raw_data[-1], metadata)
-        
-
-
 
     big_df = pd.concat(all_raw_data, axis=0, ignore_index=True)
-    big_df.to_csv(os.path.join(data_dir,filename), index=False)
+    big_df.to_csv(os.path.join(data_dir, filename), index=False)
 
 
 # Example usage
@@ -516,9 +516,5 @@ def process_all_raw_data(data_dir,filename="rawData.csv"):
 # Running the code on the server
 dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 process_all_raw_data(dirPath1)
-dirPath2= "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 process_all_raw_data(dirPath2)
-
-
-
-
