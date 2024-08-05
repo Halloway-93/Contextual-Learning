@@ -1,5 +1,6 @@
 import pandas as pd
 import piecewise_regression as pw
+import json
 
 
 # %%
@@ -55,4 +56,8 @@ def pwAnalysis(csvPath):
 
 
 csvPath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv"
-pwAnalysis(csvPath)
+slopesPath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/slopes.json"
+allSlopes = pwAnalysis(csvPath)
+# Serialize the data to a JSON file
+with open(slopesPath, "w") as file:
+    json.dump(allSlopes, file)
