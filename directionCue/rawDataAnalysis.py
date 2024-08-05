@@ -13,7 +13,7 @@ df.columns
 # Getting the region of interest
 fixOff = -200
 latency = 120
-df = df[(df.time >= fixOff+20) & (df.time <= latency)]
+df = df[(df.time >= fixOff + 20) & (df.time <= latency)]
 # %%
 # Test on one subject and one condition and one trial
 
@@ -47,13 +47,14 @@ for t in lastTrial.trial.unique():
     pw_fit = pw.Fit(x, y, n_breakpoints=2)
     allFit.append(pw_fit)
 # %%
-for pw_fit in allFit:
+for i, pw_fit in enumerate(allFit):
     pw_fit.plot_data(color="grey", s=20)
     pw_fit.plot_fit(color="red", linewidth=4)
     pw_fit.plot_breakpoints()
     pw_fit.plot_breakpoint_confidence_intervals()
     plt.xlabel("time (ms)")
     plt.ylabel("eye x position (deg)")
+    plt.title(f"Trial={149+i+1})")
     plt.show()
 
 # %%
@@ -71,26 +72,44 @@ pw_estimates
 for t in lastTrial.trial.unique():
     x = lastTrial[lastTrial["trial"] == t].time.values
     y = lastTrial[lastTrial["trial"] == t].xp.values
-    ms = pw.ModelSelection(x, y, max_breakpoints=3,n_boot=100)
+    ms = pw.ModelSelection(x, y, max_breakpoints=7, n_boot=100)
 
 # %%
 
-pw_fit = pw.Fit(x, y, n_breakpoints=2,n_boot=1000)
+pw_fit = pw.Fit(x, y, n_breakpoints=2, n_boot=100)
 # %%
 print(pw_fit.summary())
 
 # %%
 
-ms = pw.ModelSelection(x, y, max_breakpoints=3,n_boot=1000)
+ms = pw.ModelSelection(x, y, max_breakpoints=3, n_boot=1000)
 # %%
 
-ms = pw.ModelSelection(x, y, max_breakpoints=5,n_boot=100)
+maxBreakPoints = 10
+ms = pw.ModelSelection(x, y, max_breakpoints=maxBreakPoints, n_boot=100)
+
 # %%
-pw_fit.plot_data(color="grey", s=20)
-pw_fit.plot_fit(color="red", linewidth=4)
-pw_fit.plot_breakpoints()
-pw_fit.plot_breakpoint_confidence_intervals()
-plt.xlabel("time (ms)")
-plt.ylabel("eye x position (deg)")
-plt.show()
+for pw_fit in ms.models:
+    pw_fit.plot_data(color="grey", s=20)
+    pw_fit.plot_fit(color="red", linewidth=4)
+    pw_fit.plot_breakpoints()
+    pw_fit.plot_breakpoint_confidence_intervals()
+    plt.xlabel("time (ms)")
+    plt.ylabel("eye x position (deg)")
+    plt.show()
+# %%
+# %%
+
+# List of slopes
+slopes = [f"alpha{i+1}" for i in range(maxBreakPoints+1)]
+slopes
+# %%
+for i,pw_fit in enumerate(ms.models):
+    pw_results = pw_fit.get_results()
+    pw_estimates = pw_results["estimates"]
+    for s in slopes:
+        if s in pw_estimates.keys():
+            print(f"breakpoints={i+1}:",pw_estimates[s]['estimate'])
+
+# %%
 
