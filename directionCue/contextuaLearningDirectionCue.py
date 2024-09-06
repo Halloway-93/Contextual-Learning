@@ -689,11 +689,11 @@ def process_all_asc_files(data_dir):
 
 
 # %%
-dirPath = "/envau//work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-filePath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
-filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
+filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
+# filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
 
 
 # %%
@@ -772,10 +772,10 @@ def detect_saccades(data, mono=True):
 dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 
 # %%
-filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-006/session-01/sub-006_ses-01_proba-75.asc"
+filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-006/session-04/sub-006_ses-04_proba-100.asc"
 
 # %%
-eventsPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-006/session-01/sub-006_ses-01_proba-75.csv"
+eventsPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-006/session-04/sub-006_ses-04_proba-100.csv"
 # %%
 data = read_asc(filePath)
 # %%
@@ -872,7 +872,7 @@ print(-gap[trial - 1])
 plt.subplot(1, 2, 1)
 velT1 = np.diff(df[(df.trial == 99) & (df.time > 0) & (df.time < 120)].xp)
 # plt.plot(np.convolve(velT1*1000/27.28, np.ones(10)/10, mode='valid'))
-plt.plot(velT1)
+# plt.plot(velT1)
 velT1 = np.diff(
     df[(df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time < 120)].xp
 )
@@ -883,6 +883,8 @@ plt.plot(
     df[(df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time < 120)].time,
     df[(df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time < 120)].xp,
 )
+plt.show()
+## %%
 trial = badTrial
 trial
 # %%
@@ -1038,7 +1040,6 @@ plt.show()
 chosenUpTrials = events[events.chosen_arrow == "up"].index.values + 1
 chosenDownTrials = events[events.chosen_arrow == "down"].index.values + 1
 # %%
-# %%
 trials = chosenUpTrials[chosenUpTrials > 1]
 
 plt.figure(figsize=(20, 12))
@@ -1171,7 +1172,7 @@ for trial in trials:
         plt.subplot(2, 1, 2)
         plt.axvspan(stime, etime, color="red", alpha=0.3)
     # Add a title to the figure
-    plt.suptitle(f"Trial {trial}: Velocity & Position", fontsize=40)
+    plt.suptitle(f"Trial {trial}: Chosen arrow-(UP) \n P(Right|UP)= {events.proba.values[0]} ", fontsize=40)
 
     plt.tight_layout()
     plt.show()
@@ -1240,7 +1241,7 @@ for trial in trials:
         plt.subplot(2, 1, 2)
         plt.axvspan(stime, etime, color="red", alpha=0.3)
     # Add a title to the figure
-    plt.suptitle(f"Trial {trial}: Velocity & Position", fontsize=40)
+    plt.suptitle(f"Trial {trial}: Chosen arrow-(UP) \n P(Right|UP)= {events.proba.values[0]} ", fontsize=40)
 
     plt.tight_layout()
     plt.show()
@@ -1265,52 +1266,11 @@ np.nanmean(allVelUp)
 # %%
 # %%
 # %%
-data = process_all_asc_files(dirPath)
+data = pd.read_csv("/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv")
 # %%
 data.head()
 # %%
-
-
-df = process_data_file(dirPath)
-
 # %%
-
-df.head()
-# %%
-len(df)
-# %%
-df.meanVelo.isna().sum()
-# %%
-plt.plot(df.meanVSS)
-plt.show()
-# %%
-data = df.copy()
-df.to_csv("data.csv", index=False)
-data
-# %%
-
-data[(data.sub_number == 8) & (data.proba == 75)]
-
-# r"""°°°
-# # Start Running the code from Here
-# °°°"""
-#
-df = pd.read_csv("data.csv")
-df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
-
-
-df = df.dropna(subset=["meanVelo"])
-df.head()
-
-
-df.meanVelo.isna().sum()
-
-df = df[df["sub_number"] != 9]
-
-
-colors = ["green", "red"]
-
-
 sns.lmplot(
     x="proba",
     y="meanVelo",

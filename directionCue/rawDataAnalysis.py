@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # %%
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/rawData.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv"
 )
 df.head()
 # %%
@@ -72,7 +72,7 @@ pw_estimates
 for t in lastTrial.trial.unique():
     x = lastTrial[lastTrial["trial"] == t].time.values
     y = lastTrial[lastTrial["trial"] == t].xp.values
-    ms = pw.ModelSelection(x, y, max_breakpoints=7, n_boot=100)
+    ms = pw.ModelSelection(x, y, max_breakpoints=3, n_boot=100)
 
 # %%
 
