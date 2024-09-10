@@ -1172,7 +1172,10 @@ for trial in trials:
         plt.subplot(2, 1, 2)
         plt.axvspan(stime, etime, color="red", alpha=0.3)
     # Add a title to the figure
-    plt.suptitle(f"Trial {trial}: Chosen arrow-(UP) \n P(Right|UP)= {events.proba.values[0]} ", fontsize=40)
+    plt.suptitle(
+        f"Trial {trial}: Chosen arrow-(UP) \n P(Right|UP)= {events.proba.values[0]} ",
+        fontsize=40,
+    )
 
     plt.tight_layout()
     plt.show()
@@ -1241,7 +1244,10 @@ for trial in trials:
         plt.subplot(2, 1, 2)
         plt.axvspan(stime, etime, color="red", alpha=0.3)
     # Add a title to the figure
-    plt.suptitle(f"Trial {trial}: Chosen arrow-(UP) \n P(Right|UP)= {events.proba.values[0]} ", fontsize=40)
+    plt.suptitle(
+        f"Trial {trial}: Chosen arrow-(DOWN) \n P(Right|UP)= {events.proba.values[0]} ",
+        fontsize=40,
+    )
 
     plt.tight_layout()
     plt.show()
@@ -1260,16 +1266,212 @@ plt.legend()
 plt.show()
 
 # %%
-np.nanmean(allVelDown)
+# Looking at the position offest on the x-axis during the Anticipatory window ([-200, 120] ms)
+# Arrow chosed is down
+trials = chosenDownTrials[chosenDownTrials > 0]
+allPosDown = []
+# Plotting the trials Separately
+for trial in trials:
+
+    # Filter the dataframe based on the trial and time conditions
+    filtered_df = df[
+        (df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time <= 120)
+    ]
+
+    # Extract the time and position data
+    t = filtered_df.time.values
+    xp = filtered_df.xp.values
+    allPosDown.append(xp[-1] - xp[0])
+
 # %%
-np.nanmean(allVelUp)
+trials = chosenUpTrials[chosenUpTrials > 0]
+allPosUp = []
+# Plotting the trials Separately
+for trial in trials:
+
+    # Filter the dataframe based on the trial and time conditions
+    filtered_df = df[
+        (df.trial == trial) & (df.time > -gap[trial - 1]) & (df.time <= 120)
+    ]
+
+    # Extract the time and position data
+    t = filtered_df.time.values
+    xp = filtered_df.xp.values
+    allPosUp.append(xp[-1] - xp[0])
+
+
+# %%
+plt.figure(figsize=(12, 10))
+sns.histplot(allPosDown, label="Down")
+sns.histplot(allPosUp, label="Up")
+plt.title(r"$\mathbb{P}(Right|Up)=" + f"{events.proba.unique()[-1]}$", fontsize=30)
+plt.xlabel("Position Offset", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.legend(fontsize=14)
+plt.show()
+
+
+# %%
+plt.subplot(1, 2, 1)
+
+sns.histplot(allPosDown, label="Down")
+sns.histplot(allPosUp, label="Up")
+plt.title(r"$\mathbb{P}(Right|Up)=" + f"{events.proba.unique()[-1]}$", fontsize=30)
+plt.xlabel("Position Offset", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.legend(fontsize=15)
+
+plt.subplot(1, 2, 2)
+sns.histplot(allVelDown, label="Down")
+sns.histplot(allVelUp, label="Up")
+plt.title(r"$\mathbb{P}(Right|Up)=" + f"{events.proba.unique()[-1]}$", fontsize=30)
+plt.xlabel("Anticipatory Velocity", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.legend(fontsize=15)
+plt.show()
+plt.savefig("positionOffsetVsAntiVelo.png")
 # %%
 # %%
 # %%
-data = pd.read_csv("/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv")
+data = pd.read_csv(
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv"
+)
 # %%
 data.head()
 # %%
+data.drop(columns=["cr.info"], inplace=True)
+# %%
+filtered_data = data[(data["time"] > -200) & (data["time"] < 120)]
+
+
+# %%
+filtered_data
+# %%
+allEvents = pd.read_csv(
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
+)
+allEvents.head()
+# %%
+allEvents.loc[(allEvents["sub"] == 1), "training"] = "no"
+allEvents
+# %%
+allEvents.head()
+# %%
+unique_sub = allEvents["sub"].unique()
+unique_sub
+
+# %%
+for sub in unique_sub:
+    unique_prob = allEvents[allEvents["sub"] == sub]["proba"].unique()
+    for p in unique_prob:
+        trials = [
+            int(i + 1)
+            for i in range(
+                len(allEvents[(allEvents["sub"] == sub) & (allEvents["proba"] == p)])
+            )
+        ]
+        allEvents.loc[
+            (allEvents["sub"] == sub) & (allEvents["proba"] == p), "trial"
+        ] = trials
+# %%
+allEvents.head()
+# %%
+# getting all the saccaades for all participatns and all conditions (proba) in the Anticipatory window.
+allSacc = detect_saccades(filtered_data)
+# %%
+allSacc
+# %%
+# Getting rid of the training trials
+trainingTrials = allEvents[allEvents["training"] == "yes"][["trial", "sub", "proba"]]
+trainingTrials
+# %%
+# %# Merge to find rows to drop, using indicator to identify matches
+merged = filtered_data.merge(
+    trainingTrials, on=["trial", "sub", "proba"], how="left", indicator=True
+)
+
+# Drop the rows that have a match in trainingTrials
+filtered_data = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
+
+## %%
+
+filtered_data
+# %%
+filtered_data[
+    (filtered_data["sub"] == 5)
+    & (filtered_data["proba"] == 0.5)
+    & (filtered_data["trial"] == 21)
+]
+# %%
+# Getting the offset in the x-axis for all participants and all conditions in the Anticipatory window.
+allSubsOffSet = {}
+for sub in unique_sub:
+    unique_prob = allEvents[allEvents["sub"] == sub]["proba"].unique()
+    allSubsOffSet[sub] = {}
+    for p in unique_prob:
+        trialsOfInterest = allEvents[
+            (allEvents["sub"] == sub)
+            & (allEvents["proba"] == p)
+            & (allEvents["trial"] > 100)
+        ]
+        upTrials = trialsOfInterest[trialsOfInterest["chosen_arrow"] == "up"][
+            "trial"
+        ].values
+        downTrials = trialsOfInterest[trialsOfInterest["chosen_arrow"] == "down"][
+            "trial"
+        ].values
+        allPosUp = []
+        allPosDown = []
+        # Plotting the trials Separately
+        for trial in upTrials:
+            # Filter the dataframe based on the trial and time conditions
+            filtered_df = filtered_data[filtered_data["trial"] == trial]
+            if len(filtered_df) == 0:
+                allPosUp.append(np.nan)
+            # Extract the time and position data
+            else:
+
+                xp = filtered_df["xp"].values
+                allPosUp.append(xp[-1] - xp[0])
+
+        for trial in downTrials:
+            # Filter the dataframe based on the trial and time conditions
+            filtered_df = filtered_data[filtered_data["trial"] == trial]
+
+            if len(filtered_df) == 0:
+                allPosDown.append(np.nan)
+            # Extract the time and position data
+            else:
+                xp = filtered_df["xp"].values
+                allPosDown.append(xp[-1] - xp[0])
+        allSubsOffSet[sub][p] = {"up": allPosUp, "down": allPosDown}
+# %%
+allSubsOffSet
+# %%
+
+for sub, prob_dict in allSubsOffSet.items():
+    num_plots = len(prob_dict)
+    fig, axes = plt.subplots(1, num_plots, figsize=(12 * num_plots, 10))
+
+    if num_plots == 1:
+        axes = [axes]  # Ensure axes is always a list for consistent indexing
+
+    for ax, (prob, pos_dict) in zip(axes, prob_dict.items()):
+        allPosUp = pos_dict["up"]
+        allPosDown = pos_dict["down"]
+
+        sns.histplot(allPosDown, label="Down", ax=ax)
+        sns.histplot(allPosUp, label="Up", ax=ax)
+        ax.set_title(r"$\mathbb{P}(Right|Up)=" + f"{prob}$", fontsize=30)
+        ax.set_xlabel("Position Offset", fontsize=20)
+        ax.legend(fontsize=14)
+
+    plt.suptitle(f"Subject {sub}", fontsize=30)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.show()
 # %%
 sns.lmplot(
     x="proba",
