@@ -462,19 +462,6 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     return out
 
 
-# event_path = "./ColorCue/data/sub-01/sub-01_col50-dir25_events.tsv"
-# events = pd.read_csv(event_path, sep="\t")
-# events.head()
-# events
-# data['info']
-#
-# MSG=data["msg"]
-# Zero=MSG.loc[MSG.text=='TargetOn',["trial","time"]]
-#
-# Zero
-# MSG.text.unique()
-
-
 # %%
 def process_data_file(f):
     # Read data from file
@@ -513,17 +500,8 @@ def process_data_file(f):
         df.loc[df["trial"] == i + 1, "time"] = (
             df.loc[df["trial"] == i + 1, "time"] - Zero.time.values[i]
         )
-
-    # Drop bad trials
-    # badTrials = get_bad_trials(df)
-    # df = drop_bad_trials(df, badTrials)
-    # Zero = drop_bad_trials(Zero, badTrials)
-    # tON = drop_bad_trials(tON, badTrials)
-    # t0 = drop_bad_trials(t0, badTrials)
-
-    # common_trials = Zero["trial"].values
-    # t0 = t0[t0["trial"].isin(common_trials)]
-    # tON = tON[tON["trial"].isin(common_trials)]
+    tON.loc[:, "time"] = tON.time.values - Zero.time.values
+    t0.loc[:, "time"] = t0.time.values - Zero.time.values
 
     SON = tON.time.values - Zero.time.values
     SOFF = t0.time.values - Zero.time.values
@@ -548,16 +526,6 @@ def process_data_file(f):
     # Sacc = drop_bad_trials(Sacc, badTrials)
 
     # Extract trials with saccades within the time window [0, 80ms]
-    trialSacc = Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")][
-        "trial"
-    ].values
-
-    saccDir = np.sign(
-        (
-            Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].exp
-            - Sacc[(Sacc.stime >= -200) & (Sacc.etime < 80) & (Sacc.eye == "R")].sxp
-        ).values
-    )
 
     for t in Sacc.trial.unique():
         start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
@@ -583,31 +551,24 @@ def process_data_file(f):
     # first_bias = np.where(bias == 1)[0][0]
 
     # Extract position and velocity data
+    fOFF = -200
+    latency = 120
     selected_values = (
-        df.xpr[(df.time >= 80) & (df.time <= 120)]
+        df.xpr[(df.time >= fOFF) & (df.time <= latency)]
         if not mono
-        else df.xp[(df.time >= 80) & (df.time <= 120)]
+        else df.xp[(df.time >= fOFF) & (df.time <= latency)]
     )
     posSteadyState = df.xpr[(df.time >= 300)] if not mono else df.xp[(df.time >= 300)]
     veloSteadyState = (
         np.gradient(posSteadyState.values) * 1000 / 27.28
     )  # Rescale position
-    pos_before = (
-        df.xpr[(df.time >= -40) & (df.time <= 0)]
-        if not mono
-        else df.xp[(df.time >= -40) & (df.time <= 0)]
-    )
 
-    time_dim = 41
+    time_dim = latency - fOFF + 1
     trial_dim = len(selected_values) // time_dim
 
     pos = np.array(selected_values[: time_dim * trial_dim]).reshape(trial_dim, time_dim)
     stdPos = np.std(pos, axis=1) / 27.28
 
-    pos_before_reshaped = np.array(pos_before[: time_dim * trial_dim]).reshape(
-        trial_dim, time_dim
-    )
-    pos_before_mean = np.nanmean(pos_before_reshaped, axis=1)
     # Reshaping veloSteadyState
     veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
         trial_dim, time_dim
@@ -615,14 +576,10 @@ def process_data_file(f):
     velo = np.gradient(pos, axis=1) * 1000 / 27.28
     velo[(velo > 20) | (velo < -20)] = np.nan
 
-    for i, pp in enumerate(pos_before_mean):
-        if pd.notna(pp):
-            pos[i] = (pos[i] - pp) / 27.28
-
     # pos[(pos > 3) | (pos < -3)] = np.nan
 
-    meanPos = np.nanmean(pos, axis=1)
-    meanVelo = np.nanmean(velo, axis=1)
+    posOffSet = pos[:, -1] - pos[:, 0]
+    meanVelo = np.nanmean(velo[:, -(latency - 40) :], axis=1)
     stdVelo = np.std(velo, axis=1)
     meanVSS = np.nanmean(veloSteadyState, axis=1)
     # TS = trialSacc
@@ -633,7 +590,7 @@ def process_data_file(f):
         {
             "SON": SON,
             "SOFF": SOFF,
-            "meanPos": meanPos,
+            "posOffSet": posOffSet,
             "stdPos": stdPos,
             "meanVelo": meanVelo,
             "stdVelo": stdVelo,
@@ -651,6 +608,7 @@ def process_all_asc_files(data_dir):
 
     for root, _, files in sorted(os.walk(data_dir)):
         for filename in sorted(files):
+            print(filename)
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
@@ -684,7 +642,7 @@ def process_all_asc_files(data_dir):
 
 
 # %%
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/data/"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 
 # %%
 
@@ -698,6 +656,8 @@ df.head()
 
 df.meanVelo.isna().sum()
 
+# %%
+df.posOffSet.isna().sum()
 # %%
 data = df.copy()
 df.to_csv("data.csv", index=False)
@@ -743,7 +703,6 @@ colors = ["green", "red"]
 #
 # sns.set_style("whitegrid")
 
-# |%%--%%| <3Gq7a3CaeL|5oDmrK9hbj>
 # %%
 
 sns.lmplot(
@@ -756,25 +715,31 @@ sns.lmplot(
 )
 plt.show()
 # %%
-# |%%--%%| <5oDmrK9hbj|Eur5T9cko4>
+sns.lmplot(
+    x="proba",
+    y="posOffSet",
+    data=df,
+    hue="color",
+    scatter_kws={"alpha": 0.2},
+    palette=colors,
+)
+plt.show()
+# %%
 
 l = (
-    df.groupby(["sub_number", "trial_color_chosen", "proba"])
-    .meanVelo.mean()
+    df.groupby(["sub_number", "trial_color_chosen", "proba"])[["meanVelo", "posOffSet"]]
+    .mean()
     .reset_index()
 )
 
-l
 
-# %%
-# |%%--%%| <Eur5T9cko4|a2J1tKJJaU>
+l
 
 
 l["color"] = l["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
-
+l
 
 # %%
-# |%%--%%| <a2J1tKJJaU|uAQ9iaoizi>
 
 bp = sns.boxplot(x="proba", y="meanVelo", hue="color", data=l, palette=colors)
 bp.legend(fontsize="larger")
@@ -783,8 +748,14 @@ plt.ylabel("Anticipatory Velocity", fontsize=30)
 plt.savefig("clccbp.png")
 plt.show()
 # %%
-# |%%--%%| <uAQ9iaoizi|3Dehis9z4T>
 
+bp = sns.boxplot(x="proba", y="posOffSet", hue="color", data=l, palette=colors)
+bp.legend(fontsize="larger")
+plt.xlabel("P(Right|Red)", fontsize=30)
+plt.ylabel("Pos OffSet", fontsize=30)
+plt.savefig("clccbp.png")
+plt.show()
+# %%
 lm = sns.lmplot(
     x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors, height=8
 )
@@ -793,7 +764,6 @@ lm.set_axis_labels("P(Right|Red)", "Anticipatory Velocity")
 # lm.ax.legend(fontsize='large')
 plt.savefig("clcclp.png")
 plt.show()
-# |%%--%%| <3Dehis9z4T|WOTr1SVABI>
 
 # %%
 
@@ -875,7 +845,6 @@ plt.savefig("clccbp.png")
 # Show the plot
 plt.show()
 
-# |%%--%%| <WOTr1SVABI|vYWDmNPJzF>
 
 lm = sns.lmplot(
     x="trial_color_chosen",
@@ -888,7 +857,6 @@ lm = sns.lmplot(
 # Adjust font size for axis labels
 lm.set_axis_labels("Color Chosen", "Anticipatory Velocity", fontsize=20)
 
-# |%%--%%| <vYWDmNPJzF|9G9RNagTmD>
 # %%
 
 bp = sns.boxplot(
@@ -908,7 +876,6 @@ plt.show()
 df[(df.sub_number == 8)].trial_color_chosen
 
 # %%
-# |%%--%%| <j4gIYm7cNG|mHmPSwy3tt>
 
 model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "red"])
 result = model.fit()
@@ -923,7 +890,6 @@ result = model.fit()
 print(result.summary())
 
 # %%
-# |%%--%%| <W079IjXLEt|F41ctrwqmO>
 
 model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 25])
 result = model.fit()
@@ -931,7 +897,6 @@ result = model.fit()
 print(result.summary())
 
 # %%
-# |%%--%%| <F41ctrwqmO|rBfpoY7fA0>
 
 model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 75])
 result = model.fit()
@@ -939,14 +904,12 @@ result = model.fit()
 print(result.summary())
 
 # %%
-# |%%--%%| <rBfpoY7fA0|HrAfkXEm6J>
 
 model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 50])
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <HrAfkXEm6J|gHJgT14rWA>
 # %%
 
 model = ols("meanVelo ~ C(proba) ", data=df[df.trial_color_chosen == 1]).fit()
@@ -954,20 +917,16 @@ anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
 
-# |%%--%%| <gHJgT14rWA|NcL5QtSuQu>
 # %%
 
 rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
-# |%%--%%| <NcL5QtSuQu|Kff2OUFdNo>
 # %%
 
 model = ols("meanVelo ~ C(proba):C(color) ", data=df).fit()
 anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
-
-# |%%--%%| <Kff2OUFdNo|25TLqU3Ffh>
 # %%
 
 model = smf.mixedlm(
@@ -977,25 +936,21 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 
-# |%%--%%| <25TLqU3Ffh|0egQ5Pt63g>
 # %%
 
 summary = rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
 
-# |%%--%%| <0egQ5Pt63g|pWlRpGw6rk>
 # %%
 
 summary.reset_index(inplace=True)
 print(summary)
-# |%%--%%| <pWlRpGw6rk|De2pkM9jay>
 # %%
 
 
 sns.boxplot(data=summary, x="proba", y="Mean", hue="color", palette=["green", "red"])
 plt.show()
 
-# |%%--%%| <De2pkM9jay|OoqkKYL40A>
 
 # %%
 
@@ -1038,17 +993,14 @@ facet_grid.fig.subplots_adjust(
 # Show the plot
 plt.savefig("allSubjectanti.png")
 plt.show()
-# |%%--%%| <OoqkKYL40A|n3x6xbZn3K>
 
 # %%
 grid = sns.FacetGrid(df, col="sub_number", hue="proba", col_wrap=4, height=3)
 
-# |%%--%%| <n3x6xbZn3K|P5OlKynfTc>
 
 grid.map(plt.scatter, "trial_number", "meanVelo")
 plt.show()
 # %%
-# |%%--%%| <P5OlKynfTc|O5W1mDptee>
 
 # Create a KDE plot of residuals
 sns.displot(model.resid, kind="kde", fill=True, lw=1)
@@ -1063,7 +1015,6 @@ plt.plot(x, p, "k", linewidth=1)
 plt.title("KDE Plot of Model Residuals (Red) and Normal Distribution (Black)")
 plt.xlabel("Residuals")
 plt.show()
-# |%%--%%| <O5W1mDptee|AxGXf1axFL>
 # %%
 
 fig = plt.figure(figsize=(16, 9))
@@ -1073,7 +1024,6 @@ sm.qqplot(model.resid, dist=stats.norm, line="s", ax=ax)
 
 ax.set_title("Q-Q Plot")
 
-# |%%--%%| <AxGXf1axFL|Jpl7HunDxN>
 
 # %%
 labels = ["Statistic", "p-value"]
@@ -1083,7 +1033,6 @@ norm_res = stats.normaltest(model.resid)
 for key, val in dict(zip(labels, norm_res)).items():
     print(key, val)
 
-# |%%--%%| <Jpl7HunDxN|zQIeHV1DXu>
 
 # %%
 fig = plt.figure(figsize=(16, 9))
@@ -1094,7 +1043,6 @@ ax.set_title("Distribution of Residuals for Anticipatory Velocity by Subject")
 ax.set_ylabel("Residuals")
 ax.set_xlabel("Subject")
 
-# |%%--%%| <zQIeHV1DXu|txSp7GI86s>
 # %%
 
 het_white_res = het_white(model.resid, model.model.exog)
@@ -1104,26 +1052,23 @@ labels = ["LM Statistic", "LM-Test p-value", "F-Statistic", "F-Test p-value"]
 for key, val in dict(zip(labels, het_white_res)).items():
     print(key, val)
 
-# |%%--%%| <txSp7GI86s|0IbD46YHQY>
 # %%
 
 # t test to comprare proba 25/red and proba75/green
 stats.ttest_ind(
-    df[(df.proba == 25) & (df.color == "red")].meanVelo,
-    df[(df.proba == 75) & (df.color == "green")].meanVelo,
+    l[(l.proba == 25) & (l.color == "red")].meanVelo,
+    l[(l.proba == 75) & (l.color == "green")].meanVelo,
 )
 
 # %%
-# |%%--%%| <0IbD46YHQY|bs8JxWTHJZ>
 
 
 # t test to comprare proba 25/red and proba75/green
 stats.ttest_ind(
-    df[(df.proba == 75) & (df.color == "red")].meanVelo,
-    df[(df.proba == 25) & (df.color == "green")].meanVelo,
+    l[(l.proba == 75) & (l.color == "red")].meanVelo,
+    l[(l.proba == 75) & (l.color == "green")].meanVelo,
 )
 
-# |%%--%%| <bs8JxWTHJZ|9chAimtOga>
 # %%
 
 

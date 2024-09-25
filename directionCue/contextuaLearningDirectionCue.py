@@ -13,6 +13,7 @@ import statsmodels.formula.api as smf
 from scipy import stats
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
+from statsmodels.stats.anova import AnovaRM
 
 
 def process_events(rows, blocks, colnames):
@@ -689,14 +690,6 @@ def process_all_asc_files(data_dir):
 
 
 # %%
-dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
-
-# %%
-filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-04/sub-003_ses-04_proba-0.asc"
-# filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-003/session-03/sub-003_ses-03_proba-75.asc"
-
-
-# %%
 def detect_saccades(data, mono=True):
     sample_window = 0.001  # 1 kHz eye tracking
     deg = 27.28  # pixel to degree conversion
@@ -769,20 +762,19 @@ def detect_saccades(data, mono=True):
 
 
 # %%
-dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/"
+dirFig = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/figures/"
+# %%
+filePath = "~/boubou/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.asc"
 
 # %%
-filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-006/session-04/sub-006_ses-04_proba-100.asc"
-
-# %%
-eventsPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-006/session-04/sub-006_ses-04_proba-100.csv"
+eventsPath = "~/boubou/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.csv"
 # %%
 data = read_asc(filePath)
 # %%
 df = data["raw"]
 df.head()
 
-# %%
 # %%
 mono = data["info"]["mono"]
 events = pd.read_csv(eventsPath)
@@ -1333,193 +1325,604 @@ plt.yticks(fontsize=15)
 plt.legend(fontsize=15)
 plt.show()
 plt.savefig("positionOffsetVsAntiVelo.png")
+
 # %%
-# %%
-# %%
-data = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv"
-)
+# Reading the full data.
+data = pd.read_csv(dirPath + "rawData.csv")
+
 # %%
 data.head()
 # %%
 data.drop(columns=["cr.info"], inplace=True)
 # %%
-filtered_data = data[(data["time"] > -200) & (data["time"] < 120)]
-
-
+# Getting the time window of ineterst.
+filtered_data = data[(data["time"] > -200) & (data["time"] <= 120)]
+filtered_data
+# %%
+filtered_data.loc[:, "time"] = pd.to_numeric(filtered_data["time"], errors="coerce")
 # %%
 filtered_data
 # %%
-allEvents = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
-)
-allEvents.head()
+allEvents = pd.read_csv(dirPath + "allEvents.csv")
+allEvents
 # %%
 allEvents.loc[(allEvents["sub"] == 1), "training"] = "no"
 allEvents
 # %%
-allEvents.head()
-# %%
 unique_sub = allEvents["sub"].unique()
-unique_sub
-
 # %%
+filtered_sacc = detect_saccades(filtered_data)
+filtered_sacc
+# %%
+# Getting the Position Offset for each Participant and each proba
+df_results = []
 for sub in unique_sub:
     unique_prob = allEvents[allEvents["sub"] == sub]["proba"].unique()
     for p in unique_prob:
-        trials = [
-            int(i + 1)
-            for i in range(
-                len(allEvents[(allEvents["sub"] == sub) & (allEvents["proba"] == p)])
+        trials = filtered_data[
+            (filtered_data["sub"] == sub) & (filtered_data["proba"] == p)
+        ]["trial"].unique()
+        # getting rid off the training trials.
+        if len(trials) > 240:
+            trials = trials[trials > len(trials) - 240]
+        for trial in trials:
+            # Filter the dataframe based on the trial and time conditions
+            xPos = filtered_data[
+                (filtered_data["trial"] == trial)
+                & (filtered_data["sub"] == sub)
+                & (filtered_data["proba"] == p)
+            ]
+            # print(xPos[xPos["time"] >= 80].values)
+            meanVelo = np.nanmean(
+                np.gradient(xPos[xPos["time"] >= 80]["xp"].values) * 1000 / 27.28
             )
-        ]
-        allEvents.loc[
-            (allEvents["sub"] == sub) & (allEvents["proba"] == p), "trial"
-        ] = trials
+            # print(meanVelo)
+            posOffset = (
+                xPos.xp.values[-1] - xPos.xp.values[0]
+            )  # Append the result to the DataFrame
+            df_results.append(
+                {
+                    "trial": trial,
+                    "sub": sub,
+                    "proba": p,
+                    "posOffSet": posOffset,
+                    "meanVelo": meanVelo,
+                }
+            )
 # %%
-allEvents.head()
+df_results = pd.DataFrame(df_results)
+df_results
+# %%
+df_results["sub"].unique()
+# %%
+# Adding the colum of chosen arrow to the df_results.
+for sub in unique_sub:
+    for unique_prob in df_results[df_results["sub"] == sub]["proba"].unique():
+        # Get the trials for the current subject and probability
+        trials = df_results[
+            (df_results["sub"] == sub) & (df_results["proba"] == unique_prob)
+        ]["trial"].values
+
+        # Filter allEvents to get the chosen_arrow values for the current trials
+        eventsOfInterest = allEvents[
+            (allEvents["sub"] == sub)
+            & (allEvents["proba"] == unique_prob)
+            & (allEvents["trial"].isin(trials))
+        ]
+
+        # Create a dictionary to map trials to chosen_arrow values
+        trial_arrow_map = dict(
+            zip(eventsOfInterest["trial"], eventsOfInterest["chosen_arrow"])
+        )
+
+        # Update the df_results DataFrame with the chosen_arrow values
+        df_results.loc[
+            (df_results["sub"] == sub) & (df_results["proba"] == unique_prob), "arrow"
+        ] = df_results.loc[
+            (df_results["sub"] == sub) & (df_results["proba"] == unique_prob), "trial"
+        ].map(
+            trial_arrow_map
+        )
+
+        # Create a dictionary to map trials to target direction values
+        trial_td_map = dict(
+            zip(eventsOfInterest["trial"], eventsOfInterest["target_direction"])
+        )
+
+        # Update the df_results DataFrame with the chosen_arrow values
+        df_results.loc[
+            (df_results["sub"] == sub) & (df_results["proba"] == unique_prob), "TD"
+        ] = df_results.loc[
+            (df_results["sub"] == sub) & (df_results["proba"] == unique_prob), "trial"
+        ].map(
+            trial_td_map
+        )
+df_results
 # %%
 # getting all the saccaades for all participatns and all conditions (proba) in the Anticipatory window.
-allSacc = detect_saccades(filtered_data)
+# allSacc = detect_saccades(filtered_data)
 # %%
-allSacc
+# allSacc
 # %%
-# Getting rid of the training trials
-trainingTrials = allEvents[allEvents["training"] == "yes"][["trial", "sub", "proba"]]
-trainingTrials
+# Saving the dataframe to a csv file.
+df_results.to_csv(dirPath + "results.csv", index=False)
 # %%
-# %# Merge to find rows to drop, using indicator to identify matches
-merged = filtered_data.merge(
-    trainingTrials, on=["trial", "sub", "proba"], how="left", indicator=True
-)
-
-# Drop the rows that have a match in trainingTrials
-filtered_data = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
-
-## %%
-
-filtered_data
+# getting the results of the anticipatory position offset and mean velocity on [80, 120] ms
+df = pd.read_csv(dirPath + "results.csv")
+# Create a DataFrame
+df["proba"] = pd.to_numeric(df["proba"], errors="coerce")
+df["posOffSet"] = pd.to_numeric(df["posOffSet"], errors="coerce")
+df["meanVelo"] = pd.to_numeric(df["meanVelo"], errors="coerce")
+# Print the resulting DataFrame
+print(df)
 # %%
-filtered_data[
-    (filtered_data["sub"] == 5)
-    & (filtered_data["proba"] == 0.5)
-    & (filtered_data["trial"] == 21)
-]
+# getting previous TD for each trial for each subject and each proba
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub]["proba"].unique():
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "TD"
+        ].shift(1)
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "arrow_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "arrow"
+        ].shift(1)
 # %%
-# Getting the offset in the x-axis for all participants and all conditions in the Anticipatory window.
-allSubsOffSet = {}
-for sub in unique_sub:
-    unique_prob = allEvents[allEvents["sub"] == sub]["proba"].unique()
-    allSubsOffSet[sub] = {}
-    for p in unique_prob:
-        trialsOfInterest = allEvents[
-            (allEvents["sub"] == sub)
-            & (allEvents["proba"] == p)
-            & (allEvents["trial"] > 100)
-        ]
-        upTrials = trialsOfInterest[trialsOfInterest["chosen_arrow"] == "up"][
-            "trial"
-        ].values
-        downTrials = trialsOfInterest[trialsOfInterest["chosen_arrow"] == "down"][
-            "trial"
-        ].values
-        allPosUp = []
-        allPosDown = []
-        # Plotting the trials Separately
-        for trial in upTrials:
-            # Filter the dataframe based on the trial and time conditions
-            filtered_df = filtered_data[filtered_data["trial"] == trial]
-            if len(filtered_df) == 0:
-                allPosUp.append(np.nan)
-            # Extract the time and position data
-            else:
-
-                xp = filtered_df["xp"].values
-                allPosUp.append(xp[-1] - xp[0])
-
-        for trial in downTrials:
-            # Filter the dataframe based on the trial and time conditions
-            filtered_df = filtered_data[filtered_data["trial"] == trial]
-
-            if len(filtered_df) == 0:
-                allPosDown.append(np.nan)
-            # Extract the time and position data
-            else:
-                xp = filtered_df["xp"].values
-                allPosDown.append(xp[-1] - xp[0])
-        allSubsOffSet[sub][p] = {"up": allPosUp, "down": allPosDown}
+df["interaction"] = list(zip(df["TD_prev"], df["arrow_prev"]))
+# Clean the data
+# df.dropna(subset=["posOffSet", "meanVelo"], inplace=True)
+df.dropna(inplace=True)
+df = df[(df["posOffSet"] >= -150) & (df["posOffSet"] <= 150)]
+df = df[(df["meanVelo"] >= -8) & (df["meanVelo"] <= 8)]
 # %%
-allSubsOffSet
+df
 # %%
-
-for sub, prob_dict in allSubsOffSet.items():
-    num_plots = len(prob_dict)
-    fig, axes = plt.subplots(1, num_plots, figsize=(12 * num_plots, 10))
-
-    if num_plots == 1:
-        axes = [axes]  # Ensure axes is always a list for consistent indexing
-
-    for ax, (prob, pos_dict) in zip(axes, prob_dict.items()):
-        allPosUp = pos_dict["up"]
-        allPosDown = pos_dict["down"]
-
-        sns.histplot(allPosDown, label="Down", ax=ax)
-        sns.histplot(allPosUp, label="Up", ax=ax)
-        ax.set_title(r"$\mathbb{P}(Right|Up)=" + f"{prob}$", fontsize=30)
-        ax.set_xlabel("Position Offset", fontsize=20)
-        ax.legend(fontsize=14)
-
-    plt.suptitle(f"Subject {sub}", fontsize=30)
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.show()
+df[(df.proba == 0) & (df.TD_prev == -1) & (df.arrow == "up")]
 # %%
-sns.lmplot(
-    x="proba",
-    y="meanVelo",
-    data=df,
-    hue="color",
-    scatter_kws={"alpha": 0.2},
-    palette=colors,
-)
-
-
-l = (
-    df.groupby(["sub_number", "trial_color_chosen", "proba"])
-    .meanVelo.mean()
+# Need to shift it for each proba and each sub
+# df['TD_prev']=df['TD'].shift(1)
+# df
+# %%
+df_prime = df[["trial", "proba", "arrow", "TD_prev", "posOffSet", "meanVelo"]]
+learningCurve = (
+    df_prime.groupby(["proba", "arrow", "TD_prev"])
+    .mean()[["posOffSet", "meanVelo"]]
     .reset_index()
 )
 
-l
 
+learningCurve
+# %%
+df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
 
-l["color"] = l["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
-
-
-bp = sns.boxplot(x="proba", y="meanVelo", hue="color", data=l, palette=colors)
-bp.legend(fontsize="larger")
-plt.xlabel("P(Right|Red)", fontsize=30)
-plt.ylabel("Anticipatory Velocity", fontsize=30)
-plt.savefig("clccbp.png")
-
-
-lm = sns.lmplot(
-    x="proba", y="meanVelo", hue="trial_color_chosen", data=l, palette=colors, height=8
+# %%
+sns.barplot(
+    x="proba",
+    y="posOffSet",
+    hue="TD_prev",
+    data=learningCurve[learningCurve.arrow == "up"],
 )
+plt.title("Position Offset: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+
+
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="TD_prev",
+    data=learningCurve[learningCurve.arrow == "up"],
+)
+plt.title("Anticipatory Velocity: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+sns.barplot(
+    x="proba",
+    y="posOffSet",
+    hue="TD_prev",
+    data=learningCurve[learningCurve.arrow == "down"],
+)
+plt.title("Position Offset: Arrow DOWN")
+plt.xlabel("P(Left|DOWN)")
+plt.show()
+# %%
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="TD_prev",
+    data=learningCurve[learningCurve.arrow == "down"],
+)
+plt.title("meanVelo: Arrow DOWN")
+plt.xlabel("P(Left|DOWN)")
+plt.show()
+# %%
+for p in learningCurve.proba.unique():
+    # y = np.convolve(
+    #     learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == 1)
+    #     ].posOffSet,
+    #     np.ones(5) / 5,
+    #     mode="valid",
+    # )
+    sns.scatterplot(
+        x="trial",
+        y="posOffSet",
+        hue="TD_prev",
+        palette="coolwarm",
+        data=learningCurve[
+            (learningCurve.arrow == "up")
+            & (learningCurve.proba == p)
+            & (learningCurve.TD_prev == 1)
+        ],
+    )
+    # plt.plot(y, label=f"P(Right|UP): {p}, TD_prev=1")
+    # y = np.convolve(
+    #     learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == -1)
+    #     ].posOffSet,
+    #     np.ones(5) / 5,
+    #     mode="valid",
+    # )
+    sns.scatterplot(
+        x="trial",
+        y="posOffSet",
+        hue="TD_prev",
+        palette="viridis",
+        data=learningCurve[
+            (learningCurve.arrow == "up")
+            & (learningCurve.proba == p)
+            & (learningCurve.TD_prev == -1)
+        ],
+    )
+    # plt.plot(y, label=f"P(Right|UP)= {p}, TD_prev=-1")
+    plt.legend()
+    plt.title("Learning Curve: Arrow UP")
+    plt.show()
+# %%
+# %%
+for p in learningCurve.proba.unique():
+    y = np.convolve(
+        learningCurve[
+            (learningCurve.arrow == "up")
+            & (learningCurve.proba == p)
+            & (learningCurve.TD_prev == 1)
+        ].posOffSet,
+        np.ones(20) / 20,
+        mode="valid",
+    )
+    sns.lineplot(
+        x="trial",
+        y="posOffSet",
+        hue="TD_prev",
+        palette="tab10",
+        data=learningCurve[
+            (learningCurve.arrow == "up")
+            & (learningCurve.proba == p)
+            & (learningCurve.TD_prev == 1)
+        ],
+    )
+    plt.plot(y, label=f"Up: {p}, TD_prev=1")
+    y = np.convolve(
+        learningCurve[
+            (learningCurve.arrow == "up")
+            & (learningCurve.proba == p)
+            & (learningCurve.TD_prev == -1)
+        ].posOffSet,
+        np.ones(20) / 20,
+        mode="valid",
+    )
+    sns.lineplot(
+        x="trial",
+        y="posOffSet",
+        hue="TD_prev",
+        palette="viridis",
+        data=learningCurve[
+            (learningCurve.arrow == "up")
+            & (learningCurve.proba == p)
+            & (learningCurve.TD_prev == -1)
+        ],
+    )
+    plt.plot(y, label=f"Up: {p}, TD_prev=-1")
+    plt.legend()
+    plt.title("Learning Curve: Arrow UP")
+    plt.show()
+# %%
+print(df.dtypes)
+# %%
+df_prime = df[["trial", "proba", "arrow", "interaction", "posOffSet", "meanVelo"]]
+df_prime
+# %%
+learningCurveInteraction = (
+    df_prime.groupby(["proba", "arrow", "interaction"])
+    .mean()[["posOffSet", "meanVelo"]]
+    .reset_index()
+)
+
+
+learningCurveInteraction
+
+# %%
+sns.barplot(
+    x="proba",
+    y="posOffSet",
+    hue="interaction",
+    data=learningCurveInteraction[learningCurveInteraction.arrow == "up"],
+)
+plt.title("Position Offset: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interaction",
+    data=learningCurveInteraction[learningCurveInteraction.arrow == "up"],
+)
+plt.title("Position Offset: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+#
+for p in learningCurveInteraction.proba.unique():
+    # y = np.convolve(
+    #     learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == 1)
+    #     ].meanVelo,
+    #     np.ones(20) / 20,
+    #     mode="valid",
+    # )
+    sns.scatterplot(
+        x="trial",
+        y="posOffSet",
+        hue="interaction",
+        palette="viridis",
+        data=learningCurveInteraction[
+            (learningCurveInteraction.arrow == "up")
+            & (learningCurveInteraction.proba == p)
+        ],
+    )
+    # plt.plot(y, label=f"Up: {p}, TD_prev=1")
+    # y = np.convolve(
+    #     learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == -1)
+    #     ].meanVelo,
+    #     np.ones(20) / 20,
+    #     mode="valid",
+    # )
+    # sns.lineplot(
+    #     x="trial",
+    #     y="meanVelo",
+    #     hue="TD_prev",
+    #     palette="viridis",
+    #     data=learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == -1)
+    #     ],
+    # )
+    # plt.plot(y, label=f"Up: {p}, TD_prev=-1")
+    plt.legend()
+    plt.title(f"Learning Curve: Arrow UP,\n Average over participants P(Right|UP)={p}")
+    plt.show()
+# %%
+learningCurveInteraction = (
+    df_prime.groupby(["proba", "arrow", "interaction"])
+    .mean()[["posOffSet", "meanVelo"]]
+    .reset_index()
+)
+
+
+learningCurveInteraction
+
+# %%
+df_prime.groupby(["proba", "arrow", "interaction"]).count()[["posOffSet", "meanVelo"]]
+
+# %%
+# Convert the interaction column to strings
+learningCurveInteraction["interaction_str"] = learningCurveInteraction[
+    "interaction"
+].astype(str)
+
+for p in learningCurveInteraction.proba.unique():
+    sns.scatterplot(
+        x="interaction_str",
+        y="posOffSet",
+        hue="arrow",
+        palette="viridis",
+        data=learningCurveInteraction[(learningCurveInteraction.proba == p)],
+    )
+    plt.legend()
+    plt.title(f"Learning Curve: Arrow UP,\n Average over participants P(Right|UP)={p}")
+    plt.show()
+# %%
+# Plotting for each subject and each of their proba: the position offset across trials by taking into account thhe previous target
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub]["proba"].unique():
+        sns.scatterplot(
+            x="trial",
+            y="posOffSet",
+            hue="TD_prev",
+            data=df[
+                (df["sub"] == sub)
+                & (df["proba"] == p)
+                & (df["TD_prev"] == 1)
+                & (df["arrow"] == "up")
+            ],
+        )
+        sns.scatterplot(
+            x="trial",
+            y="posOffSet",
+            hue="TD_prev",
+            data=df[
+                (df["sub"] == sub)
+                & (df["proba"] == p)
+                & (df["TD_prev"] == -1)
+                & (df["arrow"] == "up")
+            ],
+        )
+        plt.title(f"Subject {sub}: Arrow UP, P(Right|UP)={p}")
+        plt.savefig(dirFig + f"sub{sub}ArrowUp{p}.png")
+        plt.show()
+# %%
+# Plot the data
+sns.lmplot(
+    x="proba",
+    y="posOffSet",
+    hue="arrow",
+    data=df,
+    scatter_kws={"alpha": 0.2},
+)
+
+# Show the plot
+plt.show()
+# %%
+
+bp = sns.boxplot(x="proba", y="posOffSet", hue="arrow", data=df)
+bp.legend(fontsize="larger")
+plt.xlabel("P(Right|Up)", fontsize=30)
+plt.ylabel("Position Offset", fontsize=30)
+
+plt.show()
+
+# %%
+# Merging probablity 1 and 0 together.
+# Replace proba 0 with 1 and invert the sign of the corresponding posOffset
+df.loc[df["proba"] == 0, "posOffSet"] = -df.loc[df["proba"] == 0, "posOffSet"]
+df.loc[df["proba"] == 0, "meanVelo"] = -df.loc[df["proba"] == 0, "meanVelo"]
+df.loc[df["proba"] == 0, "proba"] = 1
+
+# %%
+# Groupping the data
+df_melted = (
+    df.groupby(["sub", "proba", "arrow"])[["posOffSet", "meanVelo"]]
+    .mean()
+    .reset_index()
+)
+df_melted
+# %%
+bp = sns.boxplot(x="proba", y="posOffSet", hue="arrow", data=df_melted)
+bp.legend(fontsize="larger")
+plt.xlabel("P(Right|Up)", fontsize=30)
+plt.ylabel("Position Offset", fontsize=30)
+
+plt.savefig(dirFig + "cldcbp.png")
+plt.show()
+# %%
+bp = sns.boxplot(x="proba", y="meanVelo", hue="arrow", data=df_melted)
+bp.legend(fontsize="larger")
+plt.xlabel("P(Right|Up)", fontsize=30)
+plt.ylabel("Anticipatory Velocity", fontsize=30)
+
+plt.savefig(dirFig + "cldcbpvelo.png")
+plt.show()
+# %%
+lm = sns.lmplot(x="proba", y="posOffSet", hue="arrow", data=df_melted, height=8)
 # Adjust font size for axis labels
-lm.set_axis_labels("P(Right|Red)", "Anticipatory Velocity")
+lm.set_axis_labels("P(Right|Up)", "Position OffSet")
 # lm.ax.legend(fontsize='large')
-plt.savefig("clcclp.png")
+plt.savefig(dirFig + "cldclp.png")
+plt.show()
+# %%
 
-# |%%--%%| <3Dehis9z4T|WOTr1SVABI>
-
+lm = sns.lmplot(x="proba", y="meanVelo", hue="arrow", data=df_melted, height=8)
+# Adjust font size for axis labels
+lm.set_axis_labels("P(Right|Up)", "Anticipatory Velocity")
+# lm.ax.legend(fontsize='large')
+plt.savefig(dirFig + "cldclpvelo.png")
+plt.show()
+# %%
 
 # Create the box plot with transparent fill and black borders, and without legend
 bp = sns.boxplot(
     x="proba",
+    y="posOffSet",
+    hue="arrow",
+    data=df_melted,
+    boxprops=dict(facecolor="none", edgecolor="black"),
+    legend=False,
+)
+
+# Add scatter plot on top
+sns.stripplot(
+    x="proba",
+    y="posOffSet",
+    hue="arrow",
+    data=df_melted,
+    dodge=True,
+    jitter=True,
+    size=8,
+    alpha=0.7,
+)
+# Set labels for both top and bottom x-axes
+plt.xlabel("P(Right|UP)", fontsize=30)
+plt.ylabel("posOffSet", fontsize=30)
+plt.xticks(fontsize=30)
+plt.yticks(fontsize=30)
+# Overlay regplot on top of the boxplot and stripplot
+
+plt.twiny().set_xlabel("P(Right|DOWN)", fontsize=30)
+# Set the tick positions for both top and bottom x-axes
+tick_positions = [0.15, 0.4, 0.65, 0.85]
+tick_labels = [0, 0.25, 0.50, 0.75]
+
+# Set the ticks and labels for both top and bottom x-axes
+plt.xticks(tick_positions, tick_labels, fontsize=20)
+plt.xticks(fontsize=30)
+# Invert the top x-axis
+plt.gca().invert_xaxis()
+
+# # Manually add stars indicating statistical significance
+# # Adjust the coordinates based on your plot
+# plt.text(0.6, 0.6, "**", fontsize=30, ha="center", va="center", color="red")
+# plt.text(
+#     0.6, 0.65, "_______________", fontsize=30, ha="center", va="center", color="red"
+# )
+# # plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
+#
+# plt.text(0.75, 0.75, "***", fontsize=30, ha="center", va="center", color="green")
+# plt.text(
+#     0.75, 0.8, "_______________", fontsize=30, ha="center", va="center", color="green"
+# )
+#
+# # Right side
+#
+# plt.text(0.25, -1, "**", fontsize=30, ha="center", va="center", color="red")
+# plt.text(
+#     0.25, -0.95, "_______________", fontsize=30, ha="center", va="center", color="red"
+# )
+# # plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
+#
+# plt.text(0.45, -1, "***", fontsize=30, ha="center", va="center", color="green")
+# plt.text(
+#     0.45, -1, "_______________", fontsize=30, ha="center", va="center", color="green"
+# )
+
+# plt.text(0.333, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='green')
+# Adjust legend
+bp.legend(fontsize=25)
+
+
+# Save the plot
+plt.savefig(dirFig + "cldcbpsc.png")
+
+# Show the plot
+plt.show()
+
+# # %%
+#
+# Create the box plot with transparent fill and black borders, and without legend
+bp = sns.boxplot(
+    x="proba",
     y="meanVelo",
-    hue="color",
-    data=l,
-    palette=colors,
+    hue="arrow",
+    data=df_melted,
     boxprops=dict(facecolor="none", edgecolor="black"),
     legend=False,
 )
@@ -1528,25 +1931,24 @@ bp = sns.boxplot(
 sns.stripplot(
     x="proba",
     y="meanVelo",
-    hue="color",
-    data=l,
+    hue="arrow",
+    data=df_melted,
     dodge=True,
-    palette=colors,
     jitter=True,
     size=8,
     alpha=0.7,
 )
 # Set labels for both top and bottom x-axes
-plt.xlabel("P(Right|Red)", fontsize=30)
-plt.ylabel("Anticipatory Velocity", fontsize=30)
+plt.xlabel("P(Right|UP)", fontsize=30)
+plt.ylabel("meanVelo", fontsize=30)
 plt.xticks(fontsize=30)
 plt.yticks(fontsize=30)
 # Overlay regplot on top of the boxplot and stripplot
 
-plt.twiny().set_xlabel("P(Right|Green)", fontsize=30)
+plt.twiny().set_xlabel("P(Right|DOWN)", fontsize=30)
 # Set the tick positions for both top and bottom x-axes
-tick_positions = [0.2, 0.5, 0.8]
-tick_labels = [25, 50, 75]
+tick_positions = [0.15, 0.4, 0.65, 0.85]
+tick_labels = [0, 0.25, 0.50, 0.75]
 
 # Set the ticks and labels for both top and bottom x-axes
 plt.xticks(tick_positions, tick_labels, fontsize=20)
@@ -1554,31 +1956,31 @@ plt.xticks(fontsize=30)
 # Invert the top x-axis
 plt.gca().invert_xaxis()
 
-# Manually add stars indicating statistical significance
-# Adjust the coordinates based on your plot
-plt.text(0.6, 0.6, "**", fontsize=30, ha="center", va="center", color="red")
-plt.text(
-    0.6, 0.65, "_______________", fontsize=30, ha="center", va="center", color="red"
-)
-# plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
-
-plt.text(0.75, 0.75, "***", fontsize=30, ha="center", va="center", color="green")
-plt.text(
-    0.75, 0.8, "_______________", fontsize=30, ha="center", va="center", color="green"
-)
-
-# Right side
-
-plt.text(0.25, -1, "**", fontsize=30, ha="center", va="center", color="red")
-plt.text(
-    0.25, -0.95, "_______________", fontsize=30, ha="center", va="center", color="red"
-)
-# plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
-
-plt.text(0.45, -1, "***", fontsize=30, ha="center", va="center", color="green")
-plt.text(
-    0.45, -1, "_______________", fontsize=30, ha="center", va="center", color="green"
-)
+# # Manually add stars indicating statistical significance
+# # Adjust the coordinates based on your plot
+# plt.text(0.6, 0.6, "**", fontsize=30, ha="center", va="center", color="red")
+# plt.text(
+#     0.6, 0.65, "_______________", fontsize=30, ha="center", va="center", color="red"
+# )
+# # plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
+#
+# plt.text(0.75, 0.75, "***", fontsize=30, ha="center", va="center", color="green")
+# plt.text(
+#     0.75, 0.8, "_______________", fontsize=30, ha="center", va="center", color="green"
+# )
+#
+# # Right side
+#
+# plt.text(0.25, -1, "**", fontsize=30, ha="center", va="center", color="red")
+# plt.text(
+#     0.25, -0.95, "_______________", fontsize=30, ha="center", va="center", color="red"
+# )
+# # plt.text(0.6, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='red')
+#
+# plt.text(0.45, -1, "***", fontsize=30, ha="center", va="center", color="green")
+# plt.text(
+#     0.45, -1, "_______________", fontsize=30, ha="center", va="center", color="green"
+# )
 
 # plt.text(0.333, 0.6, 'p < 0.001', fontsize=15, ha='center', va='center', color='green')
 # Adjust legend
@@ -1586,106 +1988,199 @@ bp.legend(fontsize=25)
 
 
 # Save the plot
-plt.savefig("clccbp.png")
+plt.savefig(dirFig + "cldcbpscvelo.png")
 
 # Show the plot
 plt.show()
 
-# |%%--%%| <WOTr1SVABI|vYWDmNPJzF>
+# # %%
+# lm = sns.lmplot(
+#     x="arrow",
+#     y="posOffSet",
+#     hue="proba",
+#     data=df_melted,
+#     height=8,
+#     palette="viridis",
+# )
+# # Adjust font size for axis labels
+# lm.set_axis_labels("Arrow Chosen", "Position Offset", fontsize=20)
+#
+# %%
+# Create a figure and axis
+fig, ax = plt.subplots()
 
-lm = sns.lmplot(
-    x="trial_color_chosen",
-    y="meanVelo",
-    hue="proba",
-    data=l,
-    height=8,
-    palette="viridis",
-)
-# Adjust font size for axis labels
-lm.set_axis_labels("Color Chosen", "Anticipatory Velocity", fontsize=20)
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 
-# |%%--%%| <vYWDmNPJzF|9G9RNagTmD>
-
+# Show the plot
 bp = sns.boxplot(
-    x="color",
-    y="meanVelo",
+    x="arrow",
+    y="posOffSet",
     hue="proba",
-    data=l,
+    data=df_melted,
     palette="viridis",
 )
 
 bp.legend(fontsize=25)
-plt.xlabel("Color Chosen", fontsize=30)
+plt.xlabel("Arrow Chosen", fontsize=30)
+plt.ylabel("Position Offset", fontsize=30)
+plt.xticks(fontsize=30)
+plt.yticks(fontsize=30)
+plt.title(
+    "Position Offset vs Arrow Chosen \n for different $\mathbb{P}(Right|UP)$",
+    fontsize=30,
+)
+plt.savefig(dirFig + "antihueproba.png")
+plt.show()
+
+# %%
+
+# %%
+# Create a figure and axis
+fig = plt.figure()
+
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+
+# Show the plot
+bp = sns.boxplot(
+    x="arrow",
+    y="meanVelo",
+    hue="proba",
+    data=df_melted,
+    palette="viridis",
+)
+
+bp.legend(fontsize=25)
+plt.xlabel("Arrow Chosen", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
-plt.savefig("antihueproba.png")
-# |%%--%%| <9G9RNagTmD|j4gIYm7cNG>
+plt.xticks(fontsize=30)
+plt.yticks(fontsize=30)
+plt.title(
+    "Position Offset vs Arrow Chosen \n for different $\mathbb{P}(Right|UP)$= $\mathbb{P}(Left|DOWN)$",
+    fontsize=30,
+)
+plt.savefig(dirFig + "antihueprobavelo.png")
+plt.show()
 
-df[(df.sub_number == 8)].trial_color_chosen
+# %%
+# %%
 
-# |%%--%%| <j4gIYm7cNG|mHmPSwy3tt>
-
-model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "red"])
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(proba) ",
+    data=df_melted[(df_melted["arrow"] == "up") & (df_melted["proba"] != 1)],
+)
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <mHmPSwy3tt|W079IjXLEt>
+# %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "green"])
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(proba) ",
+    data=df_melted[(df_melted["arrow"] == "down") & (df_melted["proba"] != 1)],
+)
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <W079IjXLEt|F41ctrwqmO>
+# %%
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(proba) ", data=df_melted[df_melted["arrow"] == "down"]
+)
+result = model.fit()
 
-model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 25])
+print(result.summary())
+# %%
+
+# %%
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(proba) ", data=df_melted[df_melted["arrow"] == "up"]
+)
+result = model.fit()
+
+print(result.summary())
+# %%
+
+# %%
+model = sm.OLS.from_formula(
+    "meanVelo ~ C(proba) ", data=df_melted[df_melted["arrow"] == "down"]
+)
+result = model.fit()
+
+print(result.summary())
+# %%
+
+# %%
+model = sm.OLS.from_formula(
+    "meanVelo ~ C(proba) ", data=df_melted[df_melted["arrow"] == "up"]
+)
+result = model.fit()
+
+print(result.summary())
+# %%
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(arrow) ", data=df_melted[df_melted.proba == 0.25]
+)
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <F41ctrwqmO|rBfpoY7fA0>
+# %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 75])
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(arrow) ", data=df_melted[df_melted.proba == 0.75]
+)
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <rBfpoY7fA0|HrAfkXEm6J>
+# %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 50])
+model = sm.OLS.from_formula(
+    "posOffSet ~ C(arrow) ", data=df_melted[df_melted.proba == 0.5]
+)
 result = model.fit()
 
 print(result.summary())
 
-# |%%--%%| <HrAfkXEm6J|gHJgT14rWA>
 
-model = ols("meanVelo ~ C(proba) ", data=df[df.trial_color_chosen == 1]).fit()
+# %%
+rp.summary_cont(df.groupby(["sub", "proba", "arrow"])["posOffSet"])
+# %%
+model = ols("meanVelo ~ C(proba)*C(arrow) ", data=df).fit()
 anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
 
-# |%%--%%| <gHJgT14rWA|NcL5QtSuQu>
+# %%
 
-rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
-
-# |%%--%%| <NcL5QtSuQu|Kff2OUFdNo>
-
-model = ols("meanVelo ~ C(proba):C(color) ", data=df).fit()
-anova_table = sm.stats.anova_lm(model, typ=3)
-
-print(anova_table)
-
-# |%%--%%| <Kff2OUFdNo|25TLqU3Ffh>
-
+# Perform repeated measures ANOVA
+aovrm = AnovaRM(
+    df_melted[df_melted["sub"] != 1], "posOffSet", "sub", within=["proba", "arrow"]
+)
+print(aovrm.fit())
+# %%
 model = smf.mixedlm(
-    "meanVelo ~ C(color)*C(proba)",
+    "posOffSet ~C(proba)*C(arrow)",
     data=df,
-    groups=df["sub_number"],
+    groups=df["sub"],
 ).fit()
 model.summary()
 
-# |%%--%%| <25TLqU3Ffh|0egQ5Pt63g>
+# %%
 
+model = smf.mixedlm(
+    "meanVelo ~C(proba)*C(arrow)",
+    data=df,
+    groups=df["sub"],
+    re_formula="C(proba)",
+).fit(method=["lbfgs"])
+model.summary()
+
+# %%
 summary = rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
 

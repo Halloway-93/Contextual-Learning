@@ -9,6 +9,10 @@ def read_file(filepath):
         print(f"Read data from {filepath}")
         data = pd.read_csv(filepath)
         return data
+    elif filepath.suffix == ".tsv":
+        print(f"Read data from {filepath}")
+        data = pd.read_csv(filepath, sep="\t")
+        return data
     elif filepath.suffix == ".json":
         print(f"Read data from {filepath}")
         with open(filepath, "r") as f:
@@ -29,8 +33,11 @@ def process_all_events(data_dir, filename="allEvents.csv"):
 
     for filepath in sorted(data_dir_path.rglob("*")):
         if filepath.is_file():
-            if filepath.suffix == ".csv" and filepath.name != "rawData.csv":
+            if (
+                filepath.suffix == ".csv" or filepath.suffix == ".tsv"
+            ) and filepath.name != "rawData.csv":
                 df = read_file(filepath)
+                df["trial"] = [i + 1 for i in range(len(df))]
                 all_events.append(df)
             elif filepath.suffix == ".json" and filepath.name != "slopes.json":
                 metadata = read_file(filepath)
