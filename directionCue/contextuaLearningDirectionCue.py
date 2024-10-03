@@ -1456,6 +1456,14 @@ df["meanVelo"] = pd.to_numeric(df["meanVelo"], errors="coerce")
 # Print the resulting DataFrame
 print(df)
 # %%
+balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
+balance
+# %%
+for sub in balance["sub"].unique():
+    sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
+    plt.title(f"Subject {sub}")
+    plt.show()
+# %%
 # getting previous TD for each trial for each subject and each proba
 for sub in df["sub"].unique():
     for p in df[df["sub"] == sub]["proba"].unique():
@@ -1505,6 +1513,17 @@ plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
 
+# %%
+sns.barplot(
+    x="proba",
+    y="posOffSet",
+    data=learningCurve[learningCurve.arrow == "up"],
+)
+plt.title("Position Offset: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+
 
 sns.barplot(
     x="proba",
@@ -1528,6 +1547,15 @@ plt.show()
 # %%
 sns.barplot(
     x="proba",
+    y="posOffSet",
+    data=learningCurve[learningCurve.arrow == "down"],
+)
+plt.title("Position Offset: Arrow DOWN")
+plt.xlabel("P(Left|DOWN)")
+plt.show()
+# %%
+sns.barplot(
+    x="proba",
     y="meanVelo",
     hue="TD_prev",
     data=learningCurve[learningCurve.arrow == "down"],
@@ -1535,6 +1563,13 @@ sns.barplot(
 plt.title("meanVelo: Arrow DOWN")
 plt.xlabel("P(Left|DOWN)")
 plt.show()
+# %%
+learningCurve = (
+    df_prime.groupby(["trial", "proba", "arrow", "TD_prev"])
+    .mean()[["posOffSet", "meanVelo"]]
+    .reset_index()
+)
+learningCurve
 # %%
 for p in learningCurve.proba.unique():
     # y = np.convolve(
@@ -1546,18 +1581,7 @@ for p in learningCurve.proba.unique():
     #     np.ones(5) / 5,
     #     mode="valid",
     # )
-    sns.scatterplot(
-        x="trial",
-        y="posOffSet",
-        hue="TD_prev",
-        palette="coolwarm",
-        data=learningCurve[
-            (learningCurve.arrow == "up")
-            & (learningCurve.proba == p)
-            & (learningCurve.TD_prev == 1)
-        ],
-    )
-    # plt.plot(y, label=f"P(Right|UP): {p}, TD_prev=1")
+    # plt.plot(y, label=f"Up: {p}, TD_prev=1")
     # y = np.convolve(
     #     learningCurve[
     #         (learningCurve.arrow == "up")
@@ -1572,69 +1596,57 @@ for p in learningCurve.proba.unique():
         y="posOffSet",
         hue="TD_prev",
         palette="viridis",
-        data=learningCurve[
-            (learningCurve.arrow == "up")
-            & (learningCurve.proba == p)
-            & (learningCurve.TD_prev == -1)
-        ],
+        data=learningCurve[(learningCurve.arrow == "up") & (learningCurve.proba == p)],
     )
-    # plt.plot(y, label=f"P(Right|UP)= {p}, TD_prev=-1")
+    # plt.plot(y, label=f"Up: {p}, TD_prev=-1")
     plt.legend()
-    plt.title("Learning Curve: Arrow UP")
+    plt.title(f"Learning Curve: Arrow UP P(Right|UP)={p}")
     plt.show()
 # %%
-# %%
-for p in learningCurve.proba.unique():
-    y = np.convolve(
-        learningCurve[
-            (learningCurve.arrow == "up")
-            & (learningCurve.proba == p)
-            & (learningCurve.TD_prev == 1)
-        ].posOffSet,
-        np.ones(20) / 20,
-        mode="valid",
-    )
-    sns.lineplot(
-        x="trial",
-        y="posOffSet",
-        hue="TD_prev",
-        palette="tab10",
-        data=learningCurve[
-            (learningCurve.arrow == "up")
-            & (learningCurve.proba == p)
-            & (learningCurve.TD_prev == 1)
-        ],
-    )
-    plt.plot(y, label=f"Up: {p}, TD_prev=1")
-    y = np.convolve(
-        learningCurve[
-            (learningCurve.arrow == "up")
-            & (learningCurve.proba == p)
-            & (learningCurve.TD_prev == -1)
-        ].posOffSet,
-        np.ones(20) / 20,
-        mode="valid",
-    )
-    sns.lineplot(
-        x="trial",
-        y="posOffSet",
-        hue="TD_prev",
-        palette="viridis",
-        data=learningCurve[
-            (learningCurve.arrow == "up")
-            & (learningCurve.proba == p)
-            & (learningCurve.TD_prev == -1)
-        ],
-    )
-    plt.plot(y, label=f"Up: {p}, TD_prev=-1")
-    plt.legend()
-    plt.title("Learning Curve: Arrow UP")
-    plt.show()
-# %%
-print(df.dtypes)
 # %%
 df_prime = df[["trial", "proba", "arrow", "interaction", "posOffSet", "meanVelo"]]
 df_prime
+# %%
+# %%
+learningCurve = (
+    df_prime.groupby(["trial", "proba", "arrow", "interaction"])
+    .mean()[["posOffSet", "meanVelo"]]
+    .reset_index()
+)
+learningCurve
+# %%
+for p in learningCurve.proba.unique():
+    # y = np.convolve(
+    #     learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == 1)
+    #     ].posOffSet,
+    #     np.ones(5) / 5,
+    #     mode="valid",
+    # )
+    # plt.plot(y, label=f"Up: {p}, TD_prev=1")
+    # y = np.convolve(
+    #     learningCurve[
+    #         (learningCurve.arrow == "up")
+    #         & (learningCurve.proba == p)
+    #         & (learningCurve.TD_prev == -1)
+    #     ].posOffSet,
+    #     np.ones(5) / 5,
+    #     mode="valid",
+    # )
+    sns.scatterplot(
+        x="trial",
+        y="posOffSet",
+        hue="interaction",
+        palette="viridis",
+        data=learningCurve[(learningCurve.arrow == "up") & (learningCurve.proba == p)],
+    )
+    # plt.plot(y, label=f"Up: {p}, TD_prev=-1")
+    plt.legend()
+    plt.title(f"Learning Curve: Arrow UP P(Right|UP)={p}")
+    plt.show()
+
 # %%
 learningCurveInteraction = (
     df_prime.groupby(["proba", "arrow", "interaction"])
@@ -1665,6 +1677,27 @@ sns.barplot(
 plt.title("Position Offset: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
+# %%
+sns.barplot(
+    x="proba",
+    y="posOffSet",
+    hue="interaction",
+    data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
+)
+plt.title("Position Offset: Arrow DOWN")
+plt.xlabel("P(Left|DOWN)")
+plt.show()
+# %%
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interaction",
+    data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
+)
+plt.title("Position Offset: Arrow DOWN")
+plt.xlabel("P(Left|DOWN)")
+plt.show()
+# %%
 #
 for p in learningCurveInteraction.proba.unique():
     # y = np.convolve(
@@ -1712,36 +1745,6 @@ for p in learningCurveInteraction.proba.unique():
     plt.title(f"Learning Curve: Arrow UP,\n Average over participants P(Right|UP)={p}")
     plt.show()
 # %%
-learningCurveInteraction = (
-    df_prime.groupby(["proba", "arrow", "interaction"])
-    .mean()[["posOffSet", "meanVelo"]]
-    .reset_index()
-)
-
-
-learningCurveInteraction
-
-# %%
-df_prime.groupby(["proba", "arrow", "interaction"]).count()[["posOffSet", "meanVelo"]]
-
-# %%
-# Convert the interaction column to strings
-learningCurveInteraction["interaction_str"] = learningCurveInteraction[
-    "interaction"
-].astype(str)
-
-for p in learningCurveInteraction.proba.unique():
-    sns.scatterplot(
-        x="interaction_str",
-        y="posOffSet",
-        hue="arrow",
-        palette="viridis",
-        data=learningCurveInteraction[(learningCurveInteraction.proba == p)],
-    )
-    plt.legend()
-    plt.title(f"Learning Curve: Arrow UP,\n Average over participants P(Right|UP)={p}")
-    plt.show()
-# %%
 # Plotting for each subject and each of their proba: the position offset across trials by taking into account thhe previous target
 for sub in df["sub"].unique():
     for p in df[df["sub"] == sub]["proba"].unique():
@@ -1749,24 +1752,9 @@ for sub in df["sub"].unique():
             x="trial",
             y="posOffSet",
             hue="TD_prev",
-            data=df[
-                (df["sub"] == sub)
-                & (df["proba"] == p)
-                & (df["TD_prev"] == 1)
-                & (df["arrow"] == "up")
-            ],
+            data=df[(df["sub"] == sub) & (df["proba"] == p) & (df["arrow"] == "up")],
         )
-        sns.scatterplot(
-            x="trial",
-            y="posOffSet",
-            hue="TD_prev",
-            data=df[
-                (df["sub"] == sub)
-                & (df["proba"] == p)
-                & (df["TD_prev"] == -1)
-                & (df["arrow"] == "up")
-            ],
-        )
+
         plt.title(f"Subject {sub}: Arrow UP, P(Right|UP)={p}")
         plt.savefig(dirFig + f"sub{sub}ArrowUp{p}.png")
         plt.show()
