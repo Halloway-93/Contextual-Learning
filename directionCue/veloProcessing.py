@@ -1,11 +1,84 @@
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 import io
 import json
 import os
 import re
 from datetime import datetime
 from pathlib import Path
-import numpy as np
-import pandas as pd
+
+
+def detect_saccades(data, mono=True):
+    sample_window = 0.001  # 1 kHz eye tracking
+    deg = 27.28  # pixel to degree conversion
+    tVel = 22  # default velocity threshola in deg/s
+    tDist = 5  # minimum distance threshold for saccades in pixels
+    trials = data.trial.unique()
+    saccades = []
+    for iTrial in trials:
+        if mono:
+            xPos = data[data.trial == iTrial].xp.values
+            yPos = data[data.trial == iTrial].yp.values
+        else:
+            xPos = data[data.trial == iTrial].xpr.values
+            yPos = data[data.trial == iTrial].ypr.values
+        # Calculate instantaneous eye position and time derivative
+        xVel = np.zeros_like(xPos)
+        yVel = np.zeros_like(yPos)
+        for ii in range(2, len(xPos) - 2):
+            xVel[ii] = (xPos[ii + 2] + xPos[ii + 1] - xPos[ii - 1] - xPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+            yVel[ii] = (yPos[ii + 2] + yPos[ii + 1] - yPos[ii - 1] - yPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+        euclidVel = np.sqrt(xVel**2 + yVel**2)
+        xAcc = np.zeros_like(xPos)
+        yAcc = np.zeros_like(yPos)
+        for ii in range(2, len(xVel) - 2):
+            xAcc[ii] = (xVel[ii + 2] + xVel[ii + 1] - xVel[ii - 1] - xVel[ii - 2]) / (
+                6 * sample_window
+            )
+            yAcc[ii] = (yVel[ii + 2] + yVel[ii + 1] - yVel[ii - 1] - yVel[ii - 2]) / (
+                6 * sample_window
+            )
+
+        # euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
+        candidates = np.where(euclidVel > tVel)[0]
+        if len(candidates) > 0:
+            diffCandidates = np.diff(candidates)
+            breaks = np.concatenate(
+                ([0], np.where(diffCandidates > 1)[0] + 1, [len(candidates)])
+            )
+
+            for jj in range(len(breaks) - 1):
+                saccade = [candidates[breaks[jj]], candidates[breaks[jj + 1] - 1]]
+                xDist = xPos[saccade[1]] - xPos[saccade[0]]
+                yDist = yPos[saccade[1]] - yPos[saccade[0]]
+                euclidDist = np.sqrt(xDist**2 + yDist**2)
+                if euclidDist > tDist:
+                    peakVelocity = np.max(euclidVel[saccade[0] : saccade[1] + 1])
+                    start_time = data[data.trial == iTrial].time.values[saccade[0]]
+                    end_time = data[data.trial == iTrial].time.values[saccade[1]]
+                    saccades.append(
+                        {
+                            "trial": iTrial,
+                            "start": start_time,
+                            "end": end_time,
+                            "dur": end_time - start_time,
+                            "xDist": xDist,
+                            "yDist": yDist,
+                            "euclidDist": euclidDist,
+                            "peakVelocity": peakVelocity,
+                        }
+                    )
+        # plt.plot(xVel)
+        # plt.show()
+
+    saccades_df = pd.DataFrame(saccades)
+    return saccades_df
 
 
 def process_events(rows, blocks, colnames):
@@ -448,10 +521,11 @@ def process_raw_data(data):
     for t in blinks.trial.unique():
         blinks.loc[blinks.trial == t, ["stime", "etime"]] -= Zero.loc[
             Zero.trial == t, "time"
-        ].values[0]
+        ].values
 
     for t in Zero.trial.unique():
-        df.loc[df["trial"] == t, "time"] -= Zero.loc[Zero.trial == t, "time"].values[0]
+        df.loc[df["trial"] == t, "time"] -= Zero.loc[Zero.trial == t, "time"]
+
     # getting rid of the blinks by deleting 50 ms before and after
     for t in blinks.trial.unique():
         start = blinks[blinks["trial"] == t]["stime"].values
@@ -460,15 +534,15 @@ def process_raw_data(data):
             if not mono:
                 df.loc[
                     (df.trial == t)
-                    & (df.time >= start[i] - 50)
-                    & (df.time <= end[i] + 50),
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
                     "xpr",
                 ] = np.nan
             else:
                 df.loc[
                     (df.trial == t)
-                    & (df.time >= start[i] - 50)
-                    & (df.time <= end[i] + 50),
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
                     "xp",
                 ] = np.nan
     numeric_columns = ["trial", "time"]
@@ -480,9 +554,6 @@ def process_raw_data(data):
     df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
     return df
-
-
-# Assuming read_asc and process_raw_data are defined elsewhere
 
 
 def read_file(filepath):
@@ -524,15 +595,72 @@ def process_all_raw_data(data_dir, filename="rawData.csv"):
     big_df.to_csv(os.path.join(data_dir, filename), index=False)
 
 
-# Example usage
-# data_dir = "path/to/your/data"
-# big_df = process_all_raw_data(data_dir)
-
-
-# Running the code on the server
-dirPath1 = (
-    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection"
+# %%
+df = pd.read_csv(
+    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv"
 )
-process_all_raw_data(dirPath1)
-# dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-# process_all_raw_data(dirPath2)
+df.head()
+# %%
+df.columns
+# %%
+# Getting the region of interest
+fixOff = -200
+endOftrial = 600
+df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
+# %%
+df
+# %%
+# Getting rid of the saccades by deleting 20 ms before and after
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub].proba.unique():
+        sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
+        print(sacc)
+        if not sacc.empty:
+            for t in sacc.trial.unique():
+                start = sacc[sacc["trial"] == t]["start"].values
+                end = sacc[sacc["trial"] == t]["end"].values
+                for i in range(len(start)):
+                    df.loc[
+                        (df["sub"] == sub)
+                        & (df["proba"] == p)
+                        & (df.trial == t)
+                        & (df.time >= start[i] - 20)
+                        & (df.time <= end[i] + 20),
+                        "xp",
+                    ] = np.nan
+
+
+# %%
+df.drop(columns=["cr.info"], inplace=True)
+# %%
+df
+# %%
+# Saving the data without the sacc
+# %%
+# plotting the trials
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub].proba.unique():
+        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
+            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
+            # velo = np.gradient(trial["xp"])
+            plt.plot(trial["time"], trial["xp"])
+            plt.title(f"sub: {sub}, proba: {p}, trial: {t}")
+            plt.show()
+# %%
+# Computing the velocity
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub].proba.unique():
+        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
+            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
+            trial["velo"] = np.gradient(trial["xp"].values, 1)
+            df.loc[
+                (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
+            ] = trial["velo"].values
+# %%
+# velocity in deg/s
+df["velo"] = df["velo"] * 1000 / 27.28
+df.to_csv(
+    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection/rawDataNoSacc.csv",
+    index=False,
+)
+# %%
