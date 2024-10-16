@@ -1,4 +1,5 @@
 import io
+import matplotlib.animation as animation
 import os
 import re
 from datetime import datetime
@@ -605,9 +606,6 @@ def preprocess_data_file(filename):
     # Drop rows where trial is equal to 1
     df = df[df["trial"] != 1]
 
-    # Decrement the values in the 'trial' column by 1
-    # df.loc[:, "trial"] = df["trial"] - 1
-
     # Reset index after dropping rows and modifying the 'trial' column
     # df = df.reset_index(drop=True)
 
@@ -676,12 +674,21 @@ def preprocess_data_file(filename):
                     & (df.time <= end.iloc[i] + 20),
                     "xp",
                 ] = np.nan
+
+    # Decrement the values in the 'trial' column by 1
+    df.loc[:, "trial"] = df["trial"] - 1
+
     return df
 
 
 def process_data(
-    df, frequencyRate=1000, pixToDeg=27.28, fOFF=80, latency=120, mono=True
+    df, frequencyRate=1000, degToPix=27.28, fOFF=80, latency=120, mono=True
 ):
+    """
+    Process the data without  filtering
+
+    Returns the value of velocity and postion offset on the window chosen between fOFF and latency
+    """
     # Extract position and velocity data
     selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
 
@@ -703,7 +710,7 @@ def process_data(
                 )
             )
             * frequencyRate
-            / pixToDeg
+            / degToPix
         )
 
     # velo[(velo > 20) | (velo < -20)] = np.nan
@@ -716,7 +723,7 @@ def process_data(
                 )
             )
             * frequencyRate
-            / pixToDeg
+            / degToPix
         )
 
     print(velo.shape)
@@ -729,7 +736,7 @@ def process_data(
                     for t in pos.trial.unique()
                 ]
             )
-            / pixToDeg
+            / degToPix
         )
     else:
         posOffSet = (
@@ -740,7 +747,7 @@ def process_data(
                     for t in pos.trial.unique()
                 ]
             )
-            / pixToDeg
+            / degToPix
         )
     meanVelo = np.nanmean(velo, axis=1)
     # stdVelo = np.std(velo, axis=1)
@@ -749,20 +756,7 @@ def process_data(
     # SaccD = saccDir
     # SACC = Sacc
 
-    return pd.DataFrame(
-        {
-            # "SON": SON,
-            # "SOFF": SOFF,
-            "posOffSet": posOffSet,
-            # "stdPos": stdPos,
-            "meanVelo": meanVelo,
-            # "stdVelo": stdVelo,
-            # "meanVSS": meanVSS,
-            # "TS": TS,
-            # "SaccD": SaccD,
-            # "SACC": SACC
-        }
-    )
+    return pd.DataFrame({"posOffSet": posOffSet, "meanVelo": meanVelo})
 
 
 def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
@@ -801,7 +795,7 @@ def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
 
 
 def calculate_velocity(
-    position, sampling_freq=1000, velocity_cutoff=20, pixToDeg=27.28
+    position, sampling_freq=1000, velocity_cutoff=20, degToPix=27.28
 ):
     """
     Calculate velocity from position data, with additional filtering
@@ -823,7 +817,7 @@ def calculate_velocity(
     # Filter velocity
     filtered_velocity = signal.filtfilt(b, a, velocity)
 
-    return filtered_velocity * sampling_freq / pixToDeg
+    return filtered_velocity * sampling_freq / degToPix
 
 
 def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
@@ -866,77 +860,99 @@ def analyze_smooth_pursuit(position, velocity, target_velocity=11.0):
     return mean_gain, gain_std, pursuit_gain
 
 
-def process_filtered_data(df, mono=True, pixToDeg=27.28, fOFF=80, latency=120):
+def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
+    """
+    Process the filtered data.
+    Returns the position offset and the velocity on the desired window[fOFF,latency].
+    """
     data = df[["trial", "time", "xp"]]
     data = data.apply(pd.to_numeric, errors="coerce")
-    data
-    filtered_data = process_eye_movement(data.xp)
-    filtered_data
+    if mono:
+        filtered_data = process_eye_movement(data.xp)
+    else:
+        filtered_data = process_eye_movement(data.xpr)
     data["filtered_pos"] = filtered_data["filtPos"].values
     data["filtered_velo"] = filtered_data["filtVelo"].values
     # Extract position and velocity data
     selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
 
-    pos = (
-        selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
+    pos = selected_values[["trial", "filtered_pos"]]
+    posOffSet = (
+        np.array(
+            [
+                pos[pos["trial"] == t]["filtered_pos"].values[-1]
+                - pos[pos["trial"] == t]["filtered_pos"].values[0]
+                for t in pos.trial.unique()
+            ]
+        )
+        / degToPix
     )
-    if mono:
-        posOffSet = (
-            np.array(
-                [
-                    pos[pos["trial"] == t].xp.values[-1]
-                    - pos[pos["trial"] == t].xp.values[0]
-                    for t in pos.trial.unique()
-                ]
-            )
-            / pixToDeg
-        )
-    else:
-        posOffSet = (
-            np.array(
-                [
-                    pos[pos["trial"] == t].xpr.values[-1]
-                    - pos[pos["trial"] == t].xpr.values[0]
-                    for t in pos.trial.unique()
-                ]
-            )
-            / pixToDeg
-        )
     meanVelo = np.array(
         [
             np.nanmean(data[data["trial"] == t]["filtered_velo"])
             for t in data.trial.unique()
         ]
     )
-    # stdVelo = np.std(velo, axis=1)
-    # meanVSS = np.nanmean(veloSteadyState, axis=1)
-    # TS = trialSacc
-    # SaccD = saccDir
-    # SACC = Sacc
 
-    return pd.DataFrame(
-        {
-            # "SON": SON,
-            # "SOFF": SOFF,
-            "posOffSet": posOffSet,
-            # "stdPos": stdPos,
-            "meanVelo": meanVelo,
-            # "stdVelo": stdVelo,
-            # "meanVSS": meanVSS,
-            # "TS": TS,
-            # "SaccD": SaccD,
-            # "SACC": SACC
-        }
-    )
+    return pd.DataFrame({"posOffSet": posOffSet, "meanVelo": meanVelo})
 
 
+# %%
 def process_all_asc_files(data_dir):
+    """
+    Go across the data_dir and combine the processed data(Position offset and ASEM) with events tsv file.
+    This gives us the information about the chosen cue in each trial and its target direction.
+    """
     allDFs = []
     allEvents = []
 
     for root, _, files in sorted(os.walk(data_dir)):
         for filename in sorted(files):
-            print(filename)
+            if filename.endswith(".asc"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                df = preprocess_data_file(filepath)
+                data = process_data(df)
+                # Extract proba from filename
+                proba = int(re.search(r"dir(\d+)", filename).group(1))
+                data["proba"] = proba
+
+                allDFs.append(data)
+                print(len(data))
+
+            if filename.endswith(".tsv"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                events = pd.read_csv(filepath, sep="\t")
+                # Extract proba from filename
+                # proba = int(re.search(r"dir(\d+)", filename).group(1))
+                # events['proba'] = proba
+                # print(len(events))
+                allEvents.append(events)
+
+    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
+    # print(len(bigDF))
+    bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
+    # print(len(bigEvents))
+    # Merge DataFrames based on 'proba'
+    merged_data = pd.concat([bigEvents, bigDF], axis=1)
+    # print(len(merged_data))
+
+    merged_data.to_csv(os.path.join(data_dir, "results.csv"), index=False)
+    return merged_data
+
+
+# %%
+def process_all_filtered_files(data_dir):
+    """
+    Go across the data_dir and combine the processed data(Position offset and ASEM) with events tsv file.
+    This gives us the information about the chosen cue in each trial and its target direction.
+    """
+    allDFs = []
+    allEvents = []
+
+    for root, _, files in sorted(os.walk(data_dir)):
+        for filename in sorted(files):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
@@ -967,6 +983,7 @@ def process_all_asc_files(data_dir):
     merged_data = pd.concat([bigEvents, bigDF], axis=1)
     # print(len(merged_data))
 
+    merged_data.to_csv(os.path.join(data_dir, "filtered_results.csv"), index=False)
     return merged_data
 
 
@@ -975,11 +992,56 @@ path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 
 # %%
 filename = (
-    "/Users/mango/contextuaLearning/ColorCue/data/sub-01/sub-01_col50-dir25_eyeData.asc"
+    "/Users/mango/contextuaLearning/ColorCue/data/sub-06/sub-06_col50-dir50_eyeData.asc"
 )
 # %%
+data = read_asc(filename)
+df = data["raw"]
+df.head()
+# %%
+firsTrial = df[df.trial == 2]
+firsTrial = firsTrial.apply(pd.to_numeric, errors="coerce")
+plt.plot(firsTrial.time, firsTrial.xp)
+plt.plot(firsTrial.time, firsTrial.yp)
+plt.show()
+# %%
+
+# Sample DataFrame
+# Create a figure and axis
+fig, ax = plt.subplots()
+
+# Initialize the line object
+(line,) = ax.plot([], [], "bo-")
+
+# Set the limits of the plot
+# Set the limits of the plot
+ax.set_xlim(firsTrial["xp"].min() - 1, firsTrial["xp"].max() + 1)
+ax.set_ylim(firsTrial["yp"].min() - 1, firsTrial["yp"].max() + 1)
+
+
+# Initialization function: plot the background of each frame
+def init():
+    line.set_data([], [])
+    return (line,)
+
+
+# Animation function: update the line with new data
+def animate(i):
+    line.set_data(firsTrial["xp"].values[:i], firsTrial["yp"].values[:i])
+    return (line,)
+
+
+# Create the animation
+ani = animation.FuncAnimation(
+    fig, animate, init_func=init, frames=len(firsTrial.time), interval=5, blit=True
+)
+
+# Show the plot
+plt.show()
+
+# %%
 df = preprocess_data_file(filename)
-df = df[df["trial"] != 1]
+# df = df[df["trial"] != 1]
 df.trial.unique()
 # %%
 df
@@ -995,7 +1057,7 @@ data["filtered_pos"] = filtered_data["filtPos"].values
 data["filtered_velo"] = filtered_data["filtVelo"].values
 data
 # %%
-data = data[(data.time > -200) & (data.time < 120)]
+data = data[(data.time > -200) & (data.time < 600)]
 data
 # %%
 for t in data.trial.unique():
@@ -1012,16 +1074,12 @@ for t in data.trial.unique():
     plt.title(f"Butteworth Filter on Velocity: Trial {t}")
     plt.show()
 # %%
-# %%
 
-# %%
-# %%
 # %%
 df = process_all_asc_files(path)
-
 # %%
-
-df.head()
+process_all_filtered_files(path)
+# %%
 
 # %%
 df.columns
@@ -1032,9 +1090,6 @@ df.meanVelo.isna().sum()
 # %%
 df.posOffSet.isna().sum()
 # %%
-data = df.copy()
-df.to_csv(os.path.join(path, "filtered_results.csv"), index=False)
-data
 # %%
 r"""°°°
 # Start Running the code from Here
@@ -1056,7 +1111,7 @@ df.head()
 df.meanVelo.isna().sum()
 # %%
 
-df = df[df["sub_number"] != 9]
+# df = df[df["sub_number"] != 9]
 
 # %%
 

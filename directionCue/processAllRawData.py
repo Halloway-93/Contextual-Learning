@@ -438,7 +438,10 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
 
 def process_raw_data(data):
-
+    '''
+    Preprocess the data.
+    Getting rid of the blinks. Cutting 50ms before and after the blinks.
+    '''
     df = data["raw"]
     mono = data["info"]["mono"]
     MSG = data["msg"]
@@ -448,10 +451,11 @@ def process_raw_data(data):
     for t in blinks.trial.unique():
         blinks.loc[blinks.trial == t, ["stime", "etime"]] -= Zero.loc[
             Zero.trial == t, "time"
-        ].values[0]
+        ].values
 
     for t in Zero.trial.unique():
-        df.loc[df["trial"] == t, "time"] -= Zero.loc[Zero.trial == t, "time"].values[0]
+        df.loc[df["trial"] == t, "time"] -= Zero.loc[Zero.trial == t, "time"]
+
     # getting rid of the blinks by deleting 50 ms before and after
     for t in blinks.trial.unique():
         start = blinks[blinks["trial"] == t]["stime"].values
@@ -460,15 +464,15 @@ def process_raw_data(data):
             if not mono:
                 df.loc[
                     (df.trial == t)
-                    & (df.time >= start[i] - 50)
-                    & (df.time <= end[i] + 50),
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
                     "xpr",
                 ] = np.nan
             else:
                 df.loc[
                     (df.trial == t)
-                    & (df.time >= start[i] - 50)
-                    & (df.time <= end[i] + 50),
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
                     "xp",
                 ] = np.nan
     numeric_columns = ["trial", "time"]
@@ -530,9 +534,7 @@ def process_all_raw_data(data_dir, filename="rawData.csv"):
 
 
 # Running the code on the server
-dirPath1 = (
-    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection"
-)
+dirPath1 = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 process_all_raw_data(dirPath1)
 # dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 # process_all_raw_data(dirPath2)

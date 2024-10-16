@@ -29,8 +29,9 @@ df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "r
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
 df = df[(df["sub_number"] != 8) & (df["sub_number"] != 11)]
-df.dropna(subset=["meanVelo"], inplace=True)
+# df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
+df
 # %%
 colors = ["green", "red"]
 # %%
@@ -54,10 +55,10 @@ dd[np.abs(dd.meanVelo.values) > 1.93]
 # Statisitcal test
 
 
-model = sm.OLS.from_formula("meanVelo~ C(proba)*C(color) ", data=dd)
-result = model.fit()
-
-print(result.summary())
+# model = sm.OLS.from_formula("meanVelo~ C(proba)*C(color) ", data=dd)
+# result = model.fit()
+#
+# print(result.summary())
 # %%
 
 meanVelo = dd[dd.color == "red"]["meanVelo"]
@@ -65,7 +66,7 @@ proba = dd[dd.color == "red"]["proba"]
 
 # Spearman's rank correlation
 correlation, p_value = spearmanr(meanVelo, proba)
-print(f"Spearman's correlation: {correlation}, p-value: {p_value}")
+print(f"Spearman's correlation(RED): {correlation}, p-value: {p_value}")
 # %%
 meanVelo = dd[dd.color == "green"]["meanVelo"]
 proba = dd[dd.color == "green"]["proba"]
@@ -80,7 +81,7 @@ color = dd[dd.proba == 75]["color"]
 
 # Spearman's rank correlation
 correlation, p_value = spearmanr(meanVelo, color)
-print(f"Spearman's correlation: {correlation}, p-value: {p_value}")
+print(f"Spearman's correlation(Proba 75): {correlation}, p-value: {p_value}")
 
 
 # %%
@@ -90,7 +91,7 @@ color = dd[dd.proba == 25]["color"]
 
 # Spearman's rank correlation
 correlation, p_value = spearmanr(meanVelo, color)
-print(f"Spearman's correlation: {correlation}, p-value: {p_value}")
+print(f"Spearman's correlation(Proba 25): {correlation}, p-value: {p_value}")
 
 
 # %%
@@ -100,7 +101,7 @@ color = dd[dd.proba == 50]["color"]
 
 # Spearman's rank correlation
 correlation, p_value = spearmanr(meanVelo, color)
-print(f"Spearman's correlation: {correlation}, p-value: {p_value}")
+print(f"Spearman's correlation(Proba 50): {correlation}, p-value: {p_value}")
 
 
 # %%
@@ -114,7 +115,6 @@ pg.friedman(
 pg.friedman(
     data=df[df.color == "green"], dv="meanVelo", within="proba", subject="sub_number"
 )
-# %%
 # %%
 # Wilcoxon Test to see whether the color has an effect within each proba
 # It is the equivalent of paired t-test
@@ -135,7 +135,7 @@ pg.wilcoxon(
 )
 # %%
 # Pivot the data for proba
-pivot_proba = dd[dd.color == "green"].pivot(
+pivot_proba = dd[dd.color == "red"].pivot(
     index="sub_number", columns="proba", values="meanVelo"
 )
 pivot_proba
@@ -204,7 +204,6 @@ sns.histplot(
 )
 plt.show()
 # %%
-# %%
 # Early trials
 sns.histplot(
     data=df[(df.proba == 75) & (df.trial_number <= 40)],
@@ -267,7 +266,7 @@ facet_grid = sns.FacetGrid(
     data=df,
     col="proba",
     col_wrap=3,
-    height=5,
+    height=8,
     aspect=1.5,
 )
 
@@ -316,7 +315,7 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="sd",
+    errorbar="se",
     hue="color",
     palette=colors,
 )
@@ -328,40 +327,39 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="sd",
+    errorbar="se",
     hue="sub_number",
+    palette="dark:salmon",
 )
-_ = plt.title("asem across porba")
+_ = plt.title("ASEM  across porba: Red")
 plt.show()
 # %%
 
 # %%
-pg.normality(df[df.color == "red"], group="proba", dv="meanVelo")
+sns.pointplot(
+    data=df[df.color == "green"],
+    x="proba",
+    y="meanVelo",
+    capsize=0.1,
+    errorbar="se",
+    hue="sub_number",
+    palette="Set2",
+)
+_ = plt.title("asem across porba: Green")
+plt.show()
+# %%
+# pg.normality(df[df.color == "red"], group="proba", dv="meanVelo")
 # %%
 anova_results = pg.rm_anova(
     dv="meanVelo",
     within=["proba", "color"],
     subject="sub_number",
-    data=dd,
+    data=df,
 )
 
 print(anova_results)
 # %%
 
-# Pivot the data
-pivot = dd[dd.color == "green"].pivot(
-    index="sub_number", columns="proba", values="meanVelo"
-)
-pivot.head().round(3)
-
-# %%
-# %%
-# Plot the variance-covariance matrix
-plt.figure(figsize=(7, 5))
-ax = sns.heatmap(pivot.cov(), annot=True, fmt=".2f", linewidths=1)
-_ = plt.title("Variance-Covariance matrix")
-plt.show()
-# %%
 df.sub_number.unique()
 # %%
 model = smf.mixedlm(
@@ -372,10 +370,6 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 
-
-# %%
-
-# %%
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(proba)",
@@ -396,7 +390,7 @@ sns.barplot(
     y="meanVelo",
     hue="color",
     palette=colors,
-    data=dd,
+    data=df,
 )
 plt.title("ASEM over 3 different probabilites for Green & Red.")
 plt.xlabel("P(Right|RED)=P(Left|Green)")
@@ -424,7 +418,8 @@ plt.show()
 df.columns
 # %%
 # Adding the column of the color of the  previous trial
-
+df.trial_direction
+# %%
 # getting previous TD for each trial for each subject and each proba
 for sub in df["sub_number"].unique():
     for p in df[df["sub_number"] == sub]["proba"].unique():
@@ -435,10 +430,19 @@ for sub in df["sub_number"].unique():
             (df["sub_number"] == sub) & (df["proba"] == p), "color"
         ].shift(1)
 # %%
-df.columns
+df.TD_prev
 # %%
 df_prime = df[
-    ["sub_number", "trial_number", "proba", "color", "TD_prev", "posOffSet", "meanVelo"]
+    [
+        "sub_number",
+        "trial_number",
+        "proba",
+        "color",
+        "trial_direction",
+        "TD_prev",
+        "posOffSet",
+        "meanVelo",
+    ]
 ]
 learningCurve = (
     df_prime.groupby(["sub_number", "proba", "color", "TD_prev"])
@@ -463,7 +467,7 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     color="red",
-    data=learningCurve[learningCurve.color == "red"],
+    data=df_prime[df_prime.color == "red"],
 )
 plt.title("Position Offset: Color Red", fontsize=30)
 plt.xlabel("P(Right|RED)")
@@ -497,13 +501,15 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     color="red",
-    data=learningCurve[learningCurve.color == "red"],
+    data=df_prime[df_prime.color == "red"],
 )
 plt.title("ASEM: Color Red", fontsize=30)
 plt.xlabel("P(Right|RED)", fontsize=20)
 plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
 plt.savefig(pathFig + "/meanVeloRed.png")
 plt.show()
+# %%
+df_prime[df_prime["TD_prev"].isna()]
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -514,7 +520,7 @@ sns.barplot(
     y="meanVelo",
     hue="TD_prev",
     palette=redColorsPalette,
-    data=learningCurve[learningCurve.color == "red"],
+    data=df_prime[df_prime.color == "red"],
 )
 plt.legend(fontsize=20)
 plt.title("Anticipatory Velocity Given Previous TD: Color Red ", fontsize=30)
