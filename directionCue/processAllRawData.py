@@ -438,50 +438,64 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
 
 def process_raw_data(data):
-    '''
+    """
     Preprocess the data.
     Getting rid of the blinks. Cutting 50ms before and after the blinks.
-    '''
+    """
+    # Extract relevant data from the DataFrame
     df = data["raw"]
     mono = data["info"]["mono"]
+
+    df = df.apply(pd.to_numeric, errors="coerce")
+
+    # Extract messages from eyelink
     MSG = data["msg"]
+    # tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
+    # t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
     Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
-    blinks = data["blinks"]
-
-    for t in blinks.trial.unique():
-        blinks.loc[blinks.trial == t, ["stime", "etime"]] -= Zero.loc[
-            Zero.trial == t, "time"
-        ].values
-
+    # Reset time based on 'Zero' time
     for t in Zero.trial.unique():
-        df.loc[df["trial"] == t, "time"] -= Zero.loc[Zero.trial == t, "time"]
+        df.loc[df["trial"] == t, "time"] = (
+            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
+        )
+    # tON.loc[:, "time"] = tON.time.values - Zero.time.values
+    # t0.loc[:, "time"] = t0.time.values - Zero.time.values
 
-    # getting rid of the blinks by deleting 50 ms before and after
-    for t in blinks.trial.unique():
-        start = blinks[blinks["trial"] == t]["stime"].values
-        end = blinks[blinks["trial"] == t]["etime"].values
-        for i in range(len(start)):
-            if not mono:
-                df.loc[
-                    (df.trial == t)
-                    & (df.time >= start.iloc[i] - 50)
-                    & (df.time <= end.iloc[i] + 50),
-                    "xpr",
-                ] = np.nan
-            else:
-                df.loc[
-                    (df.trial == t)
-                    & (df.time >= start.iloc[i] - 50)
-                    & (df.time <= end.iloc[i] + 50),
-                    "xp",
-                ] = np.nan
-    numeric_columns = ["trial", "time"]
-    if not mono:
-        numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
-    else:
-        numeric_columns.extend(["xp", "yp", "ps"])
+    # Extract the blinks
+    blinks = data["blinks"]
+    if len(blinks) > 0:
+        # Reset blinks time
+        for t in blinks["trial"].unique():
+            blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
+                blinks.loc[blinks.trial == t, ["stime", "etime"]].values
+                - Zero.loc[Zero.trial == t, "time"].values
+            )
 
-    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
+        # Preocessing the blinks.
+        for t in blinks["trial"].unique():
+            start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
+            end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
+
+            for i in range(len(start)):
+                if not mono:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 50)
+                        & (df.time <= end.iloc[i] + 50),
+                        "xpr",
+                    ] = np.nan
+                else:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 50)
+                        & (df.time <= end.iloc[i] + 50),
+                        "xp",
+                    ] = np.nan
+    # numeric_columns = ["trial", "time"]
+    # if not mono:
+    #     numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
+    # else:
+    #     numeric_columns.extend(["xp", "yp", "ps"])
 
     return df
 

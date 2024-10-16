@@ -582,7 +582,7 @@ def detect_asp_onset(velocity, threshold=2.0):  # deg/s
 
 
 # %%
-def preprocess_data_file(filename):
+def preprocess_data_file(filename, removeSaccades=True):
     """
     Preprocessing the blinks and the saccades from the asc file.
     Returning a dataframe for that containes the raw data.
@@ -653,27 +653,27 @@ def preprocess_data_file(filename):
                     & (df.time <= end.iloc[i] + 50),
                     "xp",
                 ] = np.nan
+    if removeSaccades:
+        sacc = detect_saccades(df, mono)
+        for t in sacc.trial.unique():
+            start = sacc.loc[(sacc.trial == t), "start"]
+            end = sacc.loc[(sacc.trial == t), "end"]
 
-    sacc = detect_saccades(df, mono)
-    for t in sacc.trial.unique():
-        start = sacc.loc[(sacc.trial == t), "start"]
-        end = sacc.loc[(sacc.trial == t), "end"]
-
-        for i in range(len(start)):
-            if not mono:
-                df.loc[
-                    (df.trial == t)
-                    & (df.time >= start.iloc[i] - 20)
-                    & (df.time <= end.iloc[i] + 20),
-                    "xpr",
-                ] = np.nan
-            else:
-                df.loc[
-                    (df.trial == t)
-                    & (df.time >= start.iloc[i] - 20)
-                    & (df.time <= end.iloc[i] + 20),
-                    "xp",
-                ] = np.nan
+            for i in range(len(start)):
+                if not mono:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 20)
+                        & (df.time <= end.iloc[i] + 20),
+                        "xpr",
+                    ] = np.nan
+                else:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 20)
+                        & (df.time <= end.iloc[i] + 20),
+                        "xp",
+                    ] = np.nan
 
     # Decrement the values in the 'trial' column by 1
     df.loc[:, "trial"] = df["trial"] - 1
@@ -682,7 +682,7 @@ def preprocess_data_file(filename):
 
 
 def process_data(
-    df, frequencyRate=1000, degToPix=27.28, fOFF=80, latency=120, mono=True
+    df, frequencyRate=1000, degToPix=27.28, fOFF=-200, latency=120, mono=True
 ):
     """
     Process the data without  filtering
@@ -911,7 +911,7 @@ def process_all_asc_files(data_dir):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                df = preprocess_data_file(filepath)
+                df = preprocess_data_file(filepath,removeSaccades=False)
                 data = process_data(df)
                 # Extract proba from filename
                 proba = int(re.search(r"dir(\d+)", filename).group(1))

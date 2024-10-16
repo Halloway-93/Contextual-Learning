@@ -14,7 +14,7 @@ import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
-fileName = "filtered_results.csv"
+fileName = "results.csv"
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
