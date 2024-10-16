@@ -2,7 +2,6 @@ import io
 import os
 import re
 from datetime import datetime
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,7 +9,7 @@ import researchpy as rp
 import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from scipy import stats
+from scipy import stats, signal
 from scipy.stats import kruskal
 from statsmodels.formula.api import ols
 from statsmodels.stats.diagnostic import het_white
@@ -393,8 +392,8 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     )
 
     # Do some extra processing/sanitizing if there's HTARG info in the file
-    if info["htarg"]:
-        inp, info = handle_htarg(inp, info, is_raw)
+    # if info["htarg"]:
+    #     inp, info = handle_htarg(inp, info, is_raw)
 
     # Find blocks and mark lines between block ENDs and next block STARTs
     dividers = starts + [len(inp)]
@@ -463,9 +462,132 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
 
 # %%
-def process_data_file(f):
+def detect_saccades(data, mono=True):
+    sample_window = 0.001  # 1 kHz eye tracking
+    deg = 27.28  # pixel to degree conversion
+    tVel = 22  # default velocity threshola in deg/s
+    tDist = 5  # minimum distance threshold for saccades in pixels
+    trials = data.trial.unique()
+    saccades = []
+    for iTrial in trials:
+        if mono:
+            xPos = data[data.trial == iTrial].xp.values
+            yPos = data[data.trial == iTrial].yp.values
+        else:
+            xPos = data[data.trial == iTrial].xpr.values
+            yPos = data[data.trial == iTrial].ypr.values
+        # Calculate instantaneous eye position and time derivative
+        xVel = np.zeros_like(xPos)
+        yVel = np.zeros_like(yPos)
+        for ii in range(2, len(xPos) - 2):
+            xVel[ii] = (xPos[ii + 2] + xPos[ii + 1] - xPos[ii - 1] - xPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+            yVel[ii] = (yPos[ii + 2] + yPos[ii + 1] - yPos[ii - 1] - yPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+        euclidVel = np.sqrt(xVel**2 + yVel**2)
+        xAcc = np.zeros_like(xPos)
+        yAcc = np.zeros_like(yPos)
+        for ii in range(2, len(xVel) - 2):
+            xAcc[ii] = (xVel[ii + 2] + xVel[ii + 1] - xVel[ii - 1] - xVel[ii - 2]) / (
+                6 * sample_window
+            )
+            yAcc[ii] = (yVel[ii + 2] + yVel[ii + 1] - yVel[ii - 1] - yVel[ii - 2]) / (
+                6 * sample_window
+            )
+
+        # euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
+        candidates = np.where(euclidVel > tVel)[0]
+        if len(candidates) > 0:
+            diffCandidates = np.diff(candidates)
+            breaks = np.concatenate(
+                ([0], np.where(diffCandidates > 1)[0] + 1, [len(candidates)])
+            )
+
+            for jj in range(len(breaks) - 1):
+                saccade = [candidates[breaks[jj]], candidates[breaks[jj + 1] - 1]]
+                xDist = xPos[saccade[1]] - xPos[saccade[0]]
+                yDist = yPos[saccade[1]] - yPos[saccade[0]]
+                euclidDist = np.sqrt(xDist**2 + yDist**2)
+                if euclidDist > tDist:
+                    peakVelocity = np.max(euclidVel[saccade[0] : saccade[1] + 1])
+                    start_time = data[data.trial == iTrial].time.values[saccade[0]]
+                    end_time = data[data.trial == iTrial].time.values[saccade[1]]
+                    saccades.append(
+                        {
+                            "trial": iTrial,
+                            "start": start_time,
+                            "end": end_time,
+                            "dur": end_time - start_time,
+                            "xDist": xDist,
+                            "yDist": yDist,
+                            "euclidDist": euclidDist,
+                            "peakVelocity": peakVelocity,
+                        }
+                    )
+        # plt.plot(xVel)
+        # plt.show()
+
+    saccades_df = pd.DataFrame(saccades)
+    return saccades_df
+
+
+def filter_asp_data(eye_position, sampling_freq=1000, cutoff_freq=30):
+    # For ASP, we typically want a slightly higher cutoff
+    # to preserve the subtle movements
+    # Use a lower order filter to minimize ringing
+    order = 2
+
+    nyquist = sampling_freq * 0.5
+    normalized_cutoff = cutoff_freq / nyquist
+
+    # Design filter
+    b, a = signal.butter(order, normalized_cutoff, btype="low")
+
+    # Use filtfilt for zero-phase filtering
+    filtered_pos = signal.filtfilt(b, a, eye_position)
+
+    # Calculate velocity (using central difference)
+    velocity = np.zeros_like(filtered_pos)
+    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
+
+    # Filter velocity separately with lower cutoff
+    vel_cutoff = 20  # Hz
+    normalized_vel_cutoff = vel_cutoff / nyquist
+    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
+    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
+
+    return pd.DataFrame(
+        dict({"filtered_pos": filtered_pos, "filtered_vel": filtered_vel})
+    )
+
+
+# Example velocity threshold for ASP detection
+def detect_asp_onset(velocity, threshold=2.0):  # deg/s
+    """
+    Detect ASP onset using a conservative velocity threshold
+    Returns the index of ASP onset
+    """
+    # Look for sustained velocity above threshold
+    sustained_samples = 10  # Number of samples to confirm it's not noise
+    above_threshold = np.where(velocity > threshold)[0]
+
+    for i in range(len(above_threshold) - sustained_samples):
+        if np.all(velocity[above_threshold[i : i + sustained_samples]] > threshold):
+            return above_threshold[i]
+
+    return None
+
+
+# %%
+def preprocess_data_file(filename):
+    """
+    Preprocessing the blinks and the saccades from the asc file.
+    Returning a dataframe for that containes the raw data.
+    """
     # Read data from file
-    data = read_asc(f)
+    data = read_asc(filename)
 
     # Extract relevant data from the DataFrame
     df = data["raw"]
@@ -484,7 +606,7 @@ def process_data_file(f):
     df = df[df["trial"] != 1]
 
     # Decrement the values in the 'trial' column by 1
-    df.loc[:, "trial"] = df["trial"] - 1
+    # df.loc[:, "trial"] = df["trial"] - 1
 
     # Reset index after dropping rows and modifying the 'trial' column
     # df = df.reset_index(drop=True)
@@ -496,40 +618,48 @@ def process_data_file(f):
     Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
 
     # Reset time based on 'Zero' time
-    for i in range(len(Zero)):
-        df.loc[df["trial"] == i + 1, "time"] = (
-            df.loc[df["trial"] == i + 1, "time"] - Zero.time.values[i]
+    for t in Zero.trial.unique():
+        df.loc[df["trial"] == t, "time"] = (
+            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
         )
     tON.loc[:, "time"] = tON.time.values - Zero.time.values
     t0.loc[:, "time"] = t0.time.values - Zero.time.values
 
-    SON = tON.time.values - Zero.time.values
-    SOFF = t0.time.values - Zero.time.values
-    # ZEROS = Zero.time.values
+    # Extract the blinks
+    blinks = data["blinks"]
+    blinks = blinks[blinks["trial"] != 1]
 
-    # Extract saccades data
-    Sacc = data["sacc"]
-
-    # Drop rows where trial is equal to 1
-    Sacc = Sacc[Sacc["trial"] != 1]
-
-    # Decrement the values in the 'trial' column by 1
-    Sacc.loc[:, "trial"] = Sacc["trial"] - 1
-
-    # Reset saccade times
-    for t in Zero.trial:
-        Sacc.loc[Sacc.trial == t, ["stime", "etime"]] = (
-            Sacc.loc[Sacc.trial == t, ["stime", "etime"]].values
+    # Reset blinks time
+    for t in blinks["trial"].unique():
+        blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
+            blinks.loc[blinks.trial == t, ["stime", "etime"]].values
             - Zero.loc[Zero.trial == t, "time"].values
         )
+    # Preocessing the blinks.
+    for t in blinks["trial"].unique():
+        start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
+        end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
 
-    # Sacc = drop_bad_trials(Sacc, badTrials)
+        for i in range(len(start)):
+            if not mono:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
+                    "xpr",
+                ] = np.nan
+            else:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
+                    "xp",
+                ] = np.nan
 
-    # Extract trials with saccades within the time window [0, 80ms]
-
-    for t in Sacc.trial.unique():
-        start = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "stime"]
-        end = Sacc.loc[(Sacc.trial == t) & (Sacc.eye == "R"), "etime"]
+    sacc = detect_saccades(df, mono)
+    for t in sacc.trial.unique():
+        start = sacc.loc[(sacc.trial == t), "start"]
+        end = sacc.loc[(sacc.trial == t), "end"]
 
         for i in range(len(start)):
             if not mono:
@@ -546,55 +676,253 @@ def process_data_file(f):
                     & (df.time <= end.iloc[i] + 20),
                     "xp",
                 ] = np.nan
+    return df
 
-    # Extract first bias
-    # first_bias = np.where(bias == 1)[0][0]
 
+def process_data(
+    df, frequencyRate=1000, pixToDeg=27.28, fOFF=80, latency=120, mono=True
+):
     # Extract position and velocity data
-    fOFF = -200
-    latency = 120
-    selected_values = (
-        df.xpr[(df.time >= fOFF) & (df.time <= latency)]
-        if not mono
-        else df.xp[(df.time >= fOFF) & (df.time <= latency)]
+    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
+
+    pos = (
+        selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
     )
-    posSteadyState = df.xpr[(df.time >= 300)] if not mono else df.xp[(df.time >= 300)]
-    veloSteadyState = (
-        np.gradient(posSteadyState.values) * 1000 / 27.28
-    )  # Rescale position
 
-    time_dim = latency - fOFF + 1
-    trial_dim = len(selected_values) // time_dim
+    # stdPos = np.std(pos, axis=1) / 27.28
+    # # Reshaping veloSteadyState
+    # veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
+    #     trial_dim, time_dim
+    # )
+    if mono:
+        velo = (
+            np.array(
+                np.gradient(
+                    np.array([pos[pos["trial"] == t].xp for t in pos.trial.unique()]),
+                    axis=1,
+                )
+            )
+            * frequencyRate
+            / pixToDeg
+        )
 
-    pos = np.array(selected_values[: time_dim * trial_dim]).reshape(trial_dim, time_dim)
-    stdPos = np.std(pos, axis=1) / 27.28
+    # velo[(velo > 20) | (velo < -20)] = np.nan
+    else:
+        velo = (
+            (
+                np.gradient(
+                    np.array([pos[pos["trial"] == t].xpr for t in pos.trial.unique()]),
+                    axis=1,
+                )
+            )
+            * frequencyRate
+            / pixToDeg
+        )
 
-    # Reshaping veloSteadyState
-    veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
-        trial_dim, time_dim
-    )
-    velo = np.gradient(pos, axis=1) * 1000 / 27.28
-    velo[(velo > 20) | (velo < -20)] = np.nan
-
-    # pos[(pos > 3) | (pos < -3)] = np.nan
-
-    posOffSet = pos[:, -1] - pos[:, 0]
-    meanVelo = np.nanmean(velo[:, -(latency - 40) :], axis=1)
-    stdVelo = np.std(velo, axis=1)
-    meanVSS = np.nanmean(veloSteadyState, axis=1)
+    print(velo.shape)
+    if mono:
+        posOffSet = (
+            np.array(
+                [
+                    pos[pos["trial"] == t].xp.values[-1]
+                    - pos[pos["trial"] == t].xp.values[0]
+                    for t in pos.trial.unique()
+                ]
+            )
+            / pixToDeg
+        )
+    else:
+        posOffSet = (
+            np.array(
+                [
+                    pos[pos["trial"] == t].xpr.values[-1]
+                    - pos[pos["trial"] == t].xpr.values[0]
+                    for t in pos.trial.unique()
+                ]
+            )
+            / pixToDeg
+        )
+    meanVelo = np.nanmean(velo, axis=1)
+    # stdVelo = np.std(velo, axis=1)
+    # meanVSS = np.nanmean(veloSteadyState, axis=1)
     # TS = trialSacc
     # SaccD = saccDir
     # SACC = Sacc
 
     return pd.DataFrame(
         {
-            "SON": SON,
-            "SOFF": SOFF,
+            # "SON": SON,
+            # "SOFF": SOFF,
             "posOffSet": posOffSet,
-            "stdPos": stdPos,
+            # "stdPos": stdPos,
             "meanVelo": meanVelo,
-            "stdVelo": stdVelo,
-            "meanVSS": meanVSS,
+            # "stdVelo": stdVelo,
+            # "meanVSS": meanVSS,
+            # "TS": TS,
+            # "SaccD": SaccD,
+            # "SACC": SACC
+        }
+    )
+
+
+def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
+    """
+    Process eye position data with NaN values (from blinks/saccades)
+    """
+    # First interpolate across NaN values
+    valid_indices = ~np.isnan(eye_position)
+
+    # Get all indices
+    all_indices = np.arange(len(eye_position))
+
+    # Interpolate only if we have some valid data
+    if np.any(valid_indices):
+        # Use linear interpolation
+        interpolated_data = np.interp(
+            all_indices, all_indices[valid_indices], eye_position[valid_indices]
+        )
+
+        # Apply butterworth filter
+        nyquist = sampling_freq * 0.5
+        normalized_cutoff = cutoff_freq / nyquist
+        b, a = signal.butter(2, normalized_cutoff, btype="low")
+
+        # Apply filter
+        filtered_data = signal.filtfilt(b, a, interpolated_data)
+
+        # Put NaN values back in their original positions
+        # This is important if you want to exclude these periods from analysis
+        final_data = filtered_data.copy()
+        final_data[~valid_indices] = np.nan
+
+        return final_data, interpolated_data
+    else:
+        return np.full_like(eye_position, np.nan), np.full_like(eye_position, np.nan)
+
+
+def calculate_velocity(
+    position, sampling_freq=1000, velocity_cutoff=20, pixToDeg=27.28
+):
+    """
+    Calculate velocity from position data, with additional filtering
+    """
+    # First calculate raw velocity using central difference
+    # We do this before filtering to avoid edge effects from the filter
+    # velocity = np.zeros_like(position)
+    # velocity[1:-1] = (position[2:] - position[:-2]) * (sampling_freq / 2)
+    #
+    # # Handle edges
+    # velocity[0] = (position[1] - position[0]) * sampling_freq
+    # velocity[-1] = (position[-1] - position[-2]) * sampling_freq
+    velocity = np.gradient(position)
+    # Filter velocity separately with lower cutoff
+    nyquist = sampling_freq * 0.5
+    normalized_cutoff = velocity_cutoff / nyquist
+    b, a = signal.butter(2, normalized_cutoff, btype="low")
+
+    # Filter velocity
+    filtered_velocity = signal.filtfilt(b, a, velocity)
+
+    return filtered_velocity * sampling_freq / pixToDeg
+
+
+def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
+    """
+    Complete processing pipeline including velocity calculation
+    """
+    # 1. First handle the NaN values and filter position
+    filtered_pos, interpolated_pos = prepare_and_filter_data(
+        eye_position, sampling_freq, cutoff_freq  # Position cutoff
+    )
+
+    # 2. Calculate velocity from the interpolated position
+    # (we use interpolated to avoid NaN issues in velocity calculation)
+    velocity = calculate_velocity(
+        interpolated_pos,
+        sampling_freq=sampling_freq,
+        velocity_cutoff=20,  # Typically lower cutoff for velocity
+    )
+
+    # 3. Put NaN back in velocity where position was NaN
+    velocity[np.isnan(eye_position)] = np.nan
+
+    return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
+
+
+def analyze_smooth_pursuit(position, velocity, target_velocity=11.0):
+    """
+    Analyze smooth pursuit performance
+    """
+    # Get valid samples (non-NaN)
+    valid_samples = ~np.isnan(position)
+
+    # Calculate gain during valid samples
+    pursuit_gain = velocity[valid_samples] / target_velocity
+
+    # Basic metrics
+    mean_gain = np.mean(pursuit_gain)
+    gain_std = np.std(pursuit_gain)
+
+    return mean_gain, gain_std, pursuit_gain
+
+
+def process_filtered_data(df, mono=True, pixToDeg=27.28, fOFF=80, latency=120):
+    data = df[["trial", "time", "xp"]]
+    data = data.apply(pd.to_numeric, errors="coerce")
+    data
+    filtered_data = process_eye_movement(data.xp)
+    filtered_data
+    data["filtered_pos"] = filtered_data["filtPos"].values
+    data["filtered_velo"] = filtered_data["filtVelo"].values
+    # Extract position and velocity data
+    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
+
+    pos = (
+        selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
+    )
+    if mono:
+        posOffSet = (
+            np.array(
+                [
+                    pos[pos["trial"] == t].xp.values[-1]
+                    - pos[pos["trial"] == t].xp.values[0]
+                    for t in pos.trial.unique()
+                ]
+            )
+            / pixToDeg
+        )
+    else:
+        posOffSet = (
+            np.array(
+                [
+                    pos[pos["trial"] == t].xpr.values[-1]
+                    - pos[pos["trial"] == t].xpr.values[0]
+                    for t in pos.trial.unique()
+                ]
+            )
+            / pixToDeg
+        )
+    meanVelo = np.array(
+        [
+            np.nanmean(data[data["trial"] == t]["filtered_velo"])
+            for t in data.trial.unique()
+        ]
+    )
+    # stdVelo = np.std(velo, axis=1)
+    # meanVSS = np.nanmean(veloSteadyState, axis=1)
+    # TS = trialSacc
+    # SaccD = saccDir
+    # SACC = Sacc
+
+    return pd.DataFrame(
+        {
+            # "SON": SON,
+            # "SOFF": SOFF,
+            "posOffSet": posOffSet,
+            # "stdPos": stdPos,
+            "meanVelo": meanVelo,
+            # "stdVelo": stdVelo,
+            # "meanVSS": meanVSS,
             # "TS": TS,
             # "SaccD": SaccD,
             # "SACC": SACC
@@ -612,7 +940,8 @@ def process_all_asc_files(data_dir):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                data = process_data_file(filepath)
+                df = preprocess_data_file(filepath)
+                data = process_filtered_data(df)
                 # Extract proba from filename
                 proba = int(re.search(r"dir(\d+)", filename).group(1))
                 data["proba"] = proba
@@ -642,16 +971,60 @@ def process_all_asc_files(data_dir):
 
 
 # %%
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 
 # %%
+filename = (
+    "/Users/mango/contextuaLearning/ColorCue/data/sub-01/sub-01_col50-dir25_eyeData.asc"
+)
+# %%
+df = preprocess_data_file(filename)
+df = df[df["trial"] != 1]
+df.trial.unique()
+# %%
+df
+# %%
+data = df[["trial", "time", "xp"]]
+data = data.apply(pd.to_numeric, errors="coerce")
+data
+# %%
+filtered_data = process_eye_movement(data.xp)
+filtered_data
+# %%
+data["filtered_pos"] = filtered_data["filtPos"].values
+data["filtered_velo"] = filtered_data["filtVelo"].values
+data
+# %%
+data = data[(data.time > -200) & (data.time < 120)]
+data
+# %%
+for t in data.trial.unique():
+    plt.plot(data[data.trial == t].time, data[data.trial == t].filtered_velo)
+    plt.xlabel("Time in ms")
+    plt.ylabel("Filtered Velocity")
+    plt.title(f"Butteworth Filter on Velocity: Trial {t}")
+    plt.show()
+# %%
+for t in data.trial.unique():
+    plt.plot(data[data.trial == t].time, data[data.trial == t].filtered_pos)
+    plt.xlabel("Time in ms")
+    plt.ylabel("Filtered Velocity")
+    plt.title(f"Butteworth Filter on Velocity: Trial {t}")
+    plt.show()
+# %%
+# %%
 
+# %%
+# %%
+# %%
 df = process_all_asc_files(path)
 
 # %%
 
 df.head()
 
+# %%
+df.columns
 # %%
 
 df.meanVelo.isna().sum()
@@ -660,16 +1033,14 @@ df.meanVelo.isna().sum()
 df.posOffSet.isna().sum()
 # %%
 data = df.copy()
-df.to_csv("data.csv", index=False)
+df.to_csv(os.path.join(path, "filtered_results.csv"), index=False)
 data
-
-
 # %%
 r"""°°°
 # Start Running the code from Here
 °°°"""
 
-df = pd.read_csv("data.csv")
+df = pd.read_csv(path + "/results.csv")
 # [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
 df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
@@ -741,7 +1112,7 @@ l
 
 # %%
 
-bp = sns.boxplot(x="proba", y="meanVelo", hue="color", data=l, palette=colors)
+bp = sns.barplot(x="proba", y="meanVelo", hue="color", data=l, palette=colors)
 bp.legend(fontsize="larger")
 plt.xlabel("P(Right|Red)", fontsize=30)
 plt.ylabel("Anticipatory Velocity", fontsize=30)
@@ -765,6 +1136,8 @@ lm.set_axis_labels("P(Right|Red)", "Anticipatory Velocity")
 plt.savefig("clcclp.png")
 plt.show()
 
+# %%
+df.columns
 # %%
 
 # Create the box plot with transparent fill and black borders, and without legend
@@ -859,7 +1232,7 @@ lm.set_axis_labels("Color Chosen", "Anticipatory Velocity", fontsize=20)
 
 # %%
 
-bp = sns.boxplot(
+bp = sns.barplot(
     x="color",
     y="meanVelo",
     hue="proba",
@@ -876,43 +1249,48 @@ plt.show()
 df[(df.sub_number == 8)].trial_color_chosen
 
 # %%
-
-model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "red"])
+dd = (
+    df.groupby(["sub_number", "color", "proba"])[["meanVelo", "posOffSet"]]
+    .mean()
+    .reset_index()
+)
+# %%
+model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=dd[dd.color == "red"])
 result = model.fit()
 
 print(result.summary())
 
 # %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=df[df.color == "green"])
+model = sm.OLS.from_formula("meanVelo ~ C(proba) ", data=dd[dd.color == "green"])
 result = model.fit()
 
 print(result.summary())
 
 # %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 25])
+model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=dd[dd.proba == 25])
 result = model.fit()
 
 print(result.summary())
 
 # %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 75])
+model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=dd[dd.proba == 75])
 result = model.fit()
 
 print(result.summary())
 
 # %%
 
-model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=df[df.proba == 50])
+model = sm.OLS.from_formula("meanVelo ~ C(color) ", data=dd[dd.proba == 50])
 result = model.fit()
 
 print(result.summary())
 
 # %%
 
-model = ols("meanVelo ~ C(proba) ", data=df[df.trial_color_chosen == 1]).fit()
+model = ols("meanVelo ~ C(proba) ", data=dd[dd.color == "green"]).fit()
 anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
@@ -923,19 +1301,38 @@ rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
 
 # %%
 
-model = ols("meanVelo ~ C(proba):C(color) ", data=df).fit()
+model = ols("meanVelo ~ C(proba)*C(color) ", data=dd).fit()
 anova_table = sm.stats.anova_lm(model, typ=3)
 
 print(anova_table)
 # %%
 
 model = smf.mixedlm(
+    "posOffSet ~ C(color)*C(proba)",
+    data=dd,
+    groups=dd["sub_number"],
+).fit()
+model.summary()
+# %%
+model = smf.mixedlm(
     "meanVelo ~ C(color)*C(proba)",
-    data=df,
-    groups=df["sub_number"],
+    data=dd,
+    groups=dd["sub_number"],
+).fit()
+model.summary()
+# %%
+model = smf.mixedlm(
+    "meanVelo ~ C(color)*C(proba)",
+    data=dd,
+    groups=dd["sub_number"],
 ).fit()
 model.summary()
 
+# %%
+# Plottign the model
+
+sns.barplot(data=dd, x="proba", y="meanVelo", hue="color", palette=["green", "red"])
+plt.show()
 # %%
 
 summary = rp.summary_cont(df.groupby(["sub_number", "color", "proba"])["meanVelo"])
@@ -1024,7 +1421,7 @@ sm.qqplot(model.resid, dist=stats.norm, line="s", ax=ax)
 
 ax.set_title("Q-Q Plot")
 
-
+plt.show()
 # %%
 labels = ["Statistic", "p-value"]
 
@@ -1042,7 +1439,7 @@ ax = sns.boxplot(x=model.model.groups, y=model.resid)
 ax.set_title("Distribution of Residuals for Anticipatory Velocity by Subject")
 ax.set_ylabel("Residuals")
 ax.set_xlabel("Subject")
-
+plt.show()
 # %%
 
 het_white_res = het_white(model.resid, model.model.exog)
@@ -1056,30 +1453,47 @@ for key, val in dict(zip(labels, het_white_res)).items():
 
 # t test to comprare proba 25/red and proba75/green
 stats.ttest_ind(
-    l[(l.proba == 25) & (l.color == "red")].meanVelo,
-    l[(l.proba == 75) & (l.color == "green")].meanVelo,
+    dd[(l.proba == 25) & (dd.color == "red")].meanVelo,
+    dd[(l.proba == 75) & (dd.color == "green")].meanVelo,
 )
 
 # %%
 
+# %%
 
 # t test to comprare proba 25/red and proba75/green
 stats.ttest_ind(
-    l[(l.proba == 75) & (l.color == "red")].meanVelo,
-    l[(l.proba == 75) & (l.color == "green")].meanVelo,
+    dd[(l.proba == 75) & (dd.color == "red")].meanVelo,
+    dd[(l.proba == 25) & (dd.color == "green")].meanVelo,
+)
+
+# %%
+
+# t test to comprare proba 25/red and proba75/green
+stats.ttest_ind(
+    dd[(dd.proba == 75) & (dd.color == "red")].meanVelo,
+    dd[(dd.proba == 75) & (dd.color == "green")].meanVelo,
+)
+
+# %%
+
+# %%
+
+# t test to comprare proba 25/red and proba75/green
+stats.ttest_ind(
+    dd[(dd.proba == 25) & (dd.color == "red")].meanVelo,
+    dd[(dd.proba == 25) & (dd.color == "green")].meanVelo,
 )
 
 # %%
 
 
 stats.ttest_ind(
-    df[(df.proba == 50) & (df.color == "red")].meanVelo,
-    df[(df.proba == 50) & (df.color == "green")].meanVelo,
+    dd[(dd.proba == 50) & (dd.color == "red")].meanVelo,
+    dd[(dd.proba == 50) & (dd.color == "green")].meanVelo,
 )
 
 # %%
-# |%%--%%| <9chAimtOga|ORF419I7zO>
-
 
 stats.ttest_ind(
     df[(df.proba == 50) & (df.color == "green")].meanVelo,
@@ -1087,7 +1501,6 @@ stats.ttest_ind(
 )
 
 # %%
-# |%%--%%| <ORF419I7zO|7Pnq20YKvY>
 
 # Example assuming 'proba' and 'color' are categorical variables in your DataFrame
 colors = df["color"].unique()
@@ -1098,6 +1511,7 @@ for color in colors:
 
     # Group data by 'proba' and get meanVelo for each group
     grouped_data = [group["meanVelo"] for proba, group in color_data.groupby("proba")]
+    print(grouped_data)
 
     # Perform Kruskal-Wallis test
     statistic, p_value = kruskal(*grouped_data)
@@ -1118,12 +1532,18 @@ for color in colors:
         )
     print("\n")
 
-# |%%--%%| <7Pnq20YKvY|fsmlwWdIC0>
+# %%
+sns.histplot(
+    data=dd[dd.color == "red"],
+    x="meanVelo",
+    hue="proba",
+    kde=True,
+)
+plt.show()
 # %%
 r"""
 # Analysis of subject who did Vanessa's task
 """
-# |%%--%%| <fsmlwWdIC0|9e6bJW7zSd>
 # %%
 
 df_prime = df[(df.sub_number > 12)]

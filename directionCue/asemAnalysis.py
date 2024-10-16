@@ -9,9 +9,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # %%
-dirPath = (
-    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection/"
-)
+dirPath = "/Users/mango/contextuaLearning/directionCue/results_voluntaryDirection/"
+# %%
 df = pd.read_csv(dirPath + "RawDataNoSacc.csv")
 allEvents = pd.read_csv(dirPath + "allEvents.csv")
 allEvents
@@ -143,6 +142,25 @@ learningCurve
 df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
 
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="arrow",
+    data=learningCurve,
+)
+plt.title("Position Offset: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
@@ -152,6 +170,10 @@ plt.title("Position Offset: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
@@ -165,6 +187,10 @@ plt.show()
 
 
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
@@ -174,6 +200,10 @@ plt.title("ASEM: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
@@ -184,6 +214,10 @@ plt.title("Anticipatory Velocity: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
@@ -193,6 +227,10 @@ plt.title("Position Offset: Arrow DOWN")
 plt.xlabel("P(Left|DOWN)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
@@ -203,6 +241,10 @@ plt.title("Position Offset: Arrow DOWN")
 plt.xlabel("P(Left|DOWN)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
@@ -212,6 +254,10 @@ plt.title("ASEM: Arrow DOWN")
 plt.xlabel("P(Left|DOWN)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
@@ -227,24 +273,24 @@ plt.show()
 # %%
 df["interaction"] = list(zip(df["TD_prev"], df["arrow_prev"]))
 df_prime = df[["trial", "proba", "arrow", "interaction", "posOffSet", "meanVelo"]]
-df_prime
+# %%
+valueToKeep = df_prime.interaction.unique()[1:]
+valueToKeep
+# %%
+df_prime = df_prime[df_prime["interaction"].isin(valueToKeep)]
+df_prime.interaction.unique()
 # %%
 learningCurveInteraction = (
     df_prime.groupby(["proba", "interaction", "arrow"])
     .mean()[["posOffSet", "meanVelo"]]
     .reset_index()
 )
-
-
 learningCurveInteraction
 # %%
-# %%
-learningCurveInteraction = learningCurveInteraction[
-    learningCurveInteraction["interaction"]
-    != learningCurveInteraction.interaction.unique()[0]
-]
-learningCurveInteraction
-# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
@@ -255,6 +301,10 @@ plt.title("Position Offset: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
@@ -265,6 +315,10 @@ plt.title("ASEM: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
@@ -275,6 +329,10 @@ plt.title("Position Offset: Arrow DOWN")
 plt.xlabel("P(Left|DOWN)")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",

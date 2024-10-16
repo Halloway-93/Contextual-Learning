@@ -7,6 +7,55 @@ import re
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
+from scipy import signal
+
+
+def filter_asp_data(eye_position, sampling_freq=1000):
+    # For ASP, we typically want a slightly higher cutoff
+    # to preserve the subtle movements
+    cutoff_freq = 30  # Hz
+
+    # Use a lower order filter to minimize ringing
+    order = 2
+
+    nyquist = sampling_freq * 0.5
+    normalized_cutoff = cutoff_freq / nyquist
+
+    # Design filter
+    b, a = signal.butter(order, normalized_cutoff, btype="low")
+
+    # Use filtfilt for zero-phase filtering
+    filtered_pos = signal.filtfilt(b, a, eye_position)
+
+    # Calculate velocity (using central difference)
+    velocity = np.zeros_like(filtered_pos)
+    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
+
+    # Filter velocity separately with lower cutoff
+    vel_cutoff = 20  # Hz
+    normalized_vel_cutoff = vel_cutoff / nyquist
+    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
+    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
+
+    return filtered_pos, filtered_vel
+
+
+# Example velocity threshold for ASP detection
+def detect_asp_onset(velocity, threshold=2.0):  # deg/s
+    """
+    Detect ASP onset using a conservative velocity threshold
+    Returns the index of ASP onset
+    """
+    # Look for sustained velocity above threshold
+    sustained_samples = 10  # Number of samples to confirm it's not noise
+    above_threshold = np.where(velocity > threshold)[0]
+
+    for i in range(len(above_threshold) - sustained_samples):
+        if np.all(velocity[above_threshold[i : i + sustained_samples]] > threshold):
+            return above_threshold[i]
+
+    return None
+
 
 def detect_saccades(data, mono=True):
     sample_window = 0.001  # 1 kHz eye tracking
@@ -594,9 +643,11 @@ def process_all_raw_data(data_dir, filename="rawData.csv"):
 
 
 # %%
-df = pd.read_csv(
-    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection/rawData.csv"
-)
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+fileName = "rawData.csv"
+# %%
+df = pd.read_csv(os.path.join(path, fileName))
+
 df.head()
 # %%
 df.columns
@@ -607,6 +658,8 @@ endOftrial = 600
 df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
 # %%
 df
+# %%
+df.drop(columns=["cr.info"], inplace=True)
 # %%
 # Getting rid of the saccades by deleting 20 ms before and after
 for sub in df["sub"].unique():
@@ -629,11 +682,8 @@ for sub in df["sub"].unique():
 
 
 # %%
-df.drop(columns=["cr.info"], inplace=True)
-# %%
 df
 # %%
-# Saving the data without the sacc
 # %%
 # plotting the trials
 for sub in df["sub"].unique():
@@ -650,15 +700,13 @@ for sub in df["sub"].unique():
     for p in df[df["sub"] == sub].proba.unique():
         for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
             trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-            trial["velo"] = np.gradient(trial["xp"].values, 1)
+            trial_velo = np.gradient(trial["xp"].values, 1)
             df.loc[
                 (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
-            ] = trial["velo"].values
+            ] = trial_velo
 # %%
 # velocity in deg/s
 df["velo"] = df["velo"] * 1000 / 27.28
-df.to_csv(
-    "/Users/mango/boubou/contextuaLearning/directionCue/results_voluntaryDirection/rawDataNoSacc.csv",
-    index=False,
-)
+newFileName = "rawData_noSacc.csv"
+df.to_csv(os.path.join(path, newFileName), index=False)
 # %%
