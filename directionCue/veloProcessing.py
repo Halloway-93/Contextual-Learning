@@ -664,14 +664,22 @@ def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
     data = df[["trial", "time", "xp"]]
     data = data.apply(pd.to_numeric, errors="coerce")
     if mono:
-        filtered_data = process_eye_movement(data.xp)
+        filtered_data = [
+            process_eye_movement(data[data["trial"] == t].xp)
+            for t in data.trial.unique()
+        ]
     else:
-        filtered_data = process_eye_movement(data.xpr)
+        filtered_data = [
+            process_eye_movement(data[data["trial"] == t].xpr)
+            for t in data.trial.unique()
+        ]
+    filtered_data = pd.concat(filtered_data, axis=0)
     data["filtered_pos"] = filtered_data["filtPos"].values
     data["filtered_velo"] = filtered_data["filtVelo"].values
-    # Extract position and velocity data
-    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
 
+    # Extract position and velocity data
+
+    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
     pos = selected_values[["trial", "filtered_pos"]]
     posOffSet = (
         np.array(
@@ -735,6 +743,23 @@ for sub in df["sub"].unique():
 # %%
 df
 # %%
+# Getting the filtered pos and velocity for each sub condition and trial
+filtered_data = []
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub].proba.unique():
+        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
+            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
+            filtered_data.append(process_eye_movement(trial.xp))
+filtered_data = pd.concat(filtered_data, axis=0)
+# %%
+filtered_data
+# %%
+df = df.reset_index(drop=True)
+filtered_data = filtered_data.reset_index(drop=True)
+
+df = pd.concat([df, filtered_data], axis=1)
+# %%
+df
 # %%
 # plotting the trials
 for sub in df["sub"].unique():
@@ -757,7 +782,6 @@ for sub in df["sub"].unique():
             ] = trial_velo
 # %%
 # velocity in deg/s
-df["velo"] = df["velo"] * 1000 / 27.28
 newFileName = "rawData_noSacc.csv"
 df.to_csv(os.path.join(path, newFileName), index=False)
 # %%
