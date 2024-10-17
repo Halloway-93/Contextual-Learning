@@ -749,7 +749,7 @@ def processAllRawData(path, filename, newFileName, fixOff=-200, endOftrial=600):
         for p in df[df["sub"] == sub].proba.unique():
             for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
                 trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-                trial_velo = np.gradient(trial["xp"].values, 1)* 1000 / 27.28
+                trial_velo = np.gradient(trial["xp"].values, 1) * 1000 / 27.28
                 df.loc[
                     (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
                 ] = trial_velo
