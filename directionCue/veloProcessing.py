@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import io
 import os
 import re
@@ -702,86 +701,64 @@ def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
 
 
 # %%
+def processAllRawData(path, filename, newFileName, fixOff=-200, endOftrial=600):
+    """
+    Function that takwes all rawddata from all participants.
+    Gets rid off the saccades.
+    Applies the butterworth filter.
+    computes the filtered positon and filtered and raw velocity.
+    """
+    df = pd.read_csv(os.path.join(path, fileName))
+    # Getting the region of interest
+    df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
+    df.drop(columns=["cr.info"], inplace=True)
+    # Getting rid of the saccades by deleting 20 ms before and after
+    for sub in df["sub"].unique():
+        for p in df[df["sub"] == sub].proba.unique():
+            sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
+            print(sacc)
+            if not sacc.empty:
+                for t in sacc.trial.unique():
+                    start = sacc[sacc["trial"] == t]["start"].values
+                    end = sacc[sacc["trial"] == t]["end"].values
+                    for i in range(len(start)):
+                        df.loc[
+                            (df["sub"] == sub)
+                            & (df["proba"] == p)
+                            & (df.trial == t)
+                            & (df.time >= start[i] - 20)
+                            & (df.time <= end[i] + 20),
+                            "xp",
+                        ] = np.nan
+
+    # Getting the filtered pos and velocity for each sub condition and trial
+    filtered_data = []
+    for sub in df["sub"].unique():
+        for p in df[df["sub"] == sub].proba.unique():
+            for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
+                trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
+                filtered_data.append(process_eye_movement(trial.xp))
+    # Merging the filtered data into the dataframe
+    filtered_data = pd.concat(filtered_data, axis=0)
+    df = df.reset_index(drop=True)
+    filtered_data = filtered_data.reset_index(drop=True)
+    df = pd.concat([df, filtered_data], axis=1)
+
+    # Computing the velocity
+    for sub in df["sub"].unique():
+        for p in df[df["sub"] == sub].proba.unique():
+            for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
+                trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
+                trial_velo = np.gradient(trial["xp"].values, 1)* 1000 / 27.28
+                df.loc[
+                    (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
+                ] = trial_velo
+
+    df.to_csv(os.path.join(path, newFileName), index=False)
+
+
+# %%
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 fileName = "rawData.csv"
-# %%
-df = pd.read_csv(os.path.join(path, fileName))
-
-df.head()
-# %%
-df.columns
-# %%
-# Getting the region of interest
-fixOff = -200
-endOftrial = 600
-df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
-# %%
-df
-# %%
-df.drop(columns=["cr.info"], inplace=True)
-# %%
-# Getting rid of the saccades by deleting 20 ms before and after
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
-        print(sacc)
-        if not sacc.empty:
-            for t in sacc.trial.unique():
-                start = sacc[sacc["trial"] == t]["start"].values
-                end = sacc[sacc["trial"] == t]["end"].values
-                for i in range(len(start)):
-                    df.loc[
-                        (df["sub"] == sub)
-                        & (df["proba"] == p)
-                        & (df.trial == t)
-                        & (df.time >= start[i] - 20)
-                        & (df.time <= end[i] + 20),
-                        "xp",
-                    ] = np.nan
-
-
-# %%
-df
-# %%
-# Getting the filtered pos and velocity for each sub condition and trial
-filtered_data = []
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-            filtered_data.append(process_eye_movement(trial.xp))
-filtered_data = pd.concat(filtered_data, axis=0)
-# %%
-filtered_data
-# %%
-df = df.reset_index(drop=True)
-filtered_data = filtered_data.reset_index(drop=True)
-
-df = pd.concat([df, filtered_data], axis=1)
-# %%
-df
-# %%
-# plotting the trials
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-            # velo = np.gradient(trial["xp"])
-            plt.plot(trial["time"], trial["xp"])
-            plt.title(f"sub: {sub}, proba: {p}, trial: {t}")
-            plt.show()
-# %%
-# Computing the velocity
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-            trial_velo = np.gradient(trial["xp"].values, 1)
-            df.loc[
-                (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
-            ] = trial_velo
-# %%
-# velocity in deg/s
-newFileName = "rawData_noSacc.csv"
-df.to_csv(os.path.join(path, newFileName), index=False)
-# %%
+newFileName = "rawAndFiltereDataNoSacc.csv"
+processAllRawData(path, fileName, newFileName)
