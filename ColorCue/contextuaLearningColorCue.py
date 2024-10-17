@@ -911,7 +911,7 @@ def process_all_asc_files(data_dir):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                df = preprocess_data_file(filepath,removeSaccades=False)
+                df = preprocess_data_file(filepath, removeSaccades=False)
                 data = process_data(df)
                 # Extract proba from filename
                 proba = int(re.search(r"dir(\d+)", filename).group(1))

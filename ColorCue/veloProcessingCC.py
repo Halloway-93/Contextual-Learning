@@ -1,129 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import io
 import os
 import re
 from datetime import datetime
+import numpy as np
 import pandas as pd
 from scipy import signal
 
-
-def filter_asp_data(eye_position, sampling_freq=1000):
-    # For ASP, we typically want a slightly higher cutoff
-    # to preserve the subtle movements
-    cutoff_freq = 30  # Hz
-
-    # Use a lower order filter to minimize ringing
-    order = 2
-
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = cutoff_freq / nyquist
-
-    # Design filter
-    b, a = signal.butter(order, normalized_cutoff, btype="low")
-
-    # Use filtfilt for zero-phase filtering
-    filtered_pos = signal.filtfilt(b, a, eye_position)
-
-    # Calculate velocity (using central difference)
-    velocity = np.zeros_like(filtered_pos)
-    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
-
-    # Filter velocity separately with lower cutoff
-    vel_cutoff = 20  # Hz
-    normalized_vel_cutoff = vel_cutoff / nyquist
-    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
-    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
-
-    return filtered_pos, filtered_vel
-
-
-# Example velocity threshold for ASP detection
-def detect_asp_onset(velocity, threshold=2.0):  # deg/s
-    """
-    Detect ASP onset using a conservative velocity threshold
-    Returns the index of ASP onset
-    """
-    # Look for sustained velocity above threshold
-    sustained_samples = 10  # Number of samples to confirm it's not noise
-    above_threshold = np.where(velocity > threshold)[0]
-
-    for i in range(len(above_threshold) - sustained_samples):
-        if np.all(velocity[above_threshold[i : i + sustained_samples]] > threshold):
-            return above_threshold[i]
-
-    return None
-
-
-def detect_saccades(data, mono=True):
-    sample_window = 0.001  # 1 kHz eye tracking
-    deg = 27.28  # pixel to degree conversion
-    tVel = 22  # default velocity threshola in deg/s
-    tDist = 5  # minimum distance threshold for saccades in pixels
-    trials = data.trial.unique()
-    saccades = []
-    for iTrial in trials:
-        if mono:
-            xPos = data[data.trial == iTrial].xp.values
-            yPos = data[data.trial == iTrial].yp.values
-        else:
-            xPos = data[data.trial == iTrial].xpr.values
-            yPos = data[data.trial == iTrial].ypr.values
-        # Calculate instantaneous eye position and time derivative
-        xVel = np.zeros_like(xPos)
-        yVel = np.zeros_like(yPos)
-        for ii in range(2, len(xPos) - 2):
-            xVel[ii] = (xPos[ii + 2] + xPos[ii + 1] - xPos[ii - 1] - xPos[ii - 2]) / (
-                6 * sample_window * deg
-            )
-            yVel[ii] = (yPos[ii + 2] + yPos[ii + 1] - yPos[ii - 1] - yPos[ii - 2]) / (
-                6 * sample_window * deg
-            )
-        euclidVel = np.sqrt(xVel**2 + yVel**2)
-        xAcc = np.zeros_like(xPos)
-        yAcc = np.zeros_like(yPos)
-        for ii in range(2, len(xVel) - 2):
-            xAcc[ii] = (xVel[ii + 2] + xVel[ii + 1] - xVel[ii - 1] - xVel[ii - 2]) / (
-                6 * sample_window
-            )
-            yAcc[ii] = (yVel[ii + 2] + yVel[ii + 1] - yVel[ii - 1] - yVel[ii - 2]) / (
-                6 * sample_window
-            )
-
-        # euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
-        candidates = np.where(euclidVel > tVel)[0]
-        if len(candidates) > 0:
-            diffCandidates = np.diff(candidates)
-            breaks = np.concatenate(
-                ([0], np.where(diffCandidates > 1)[0] + 1, [len(candidates)])
-            )
-
-            for jj in range(len(breaks) - 1):
-                saccade = [candidates[breaks[jj]], candidates[breaks[jj + 1] - 1]]
-                xDist = xPos[saccade[1]] - xPos[saccade[0]]
-                yDist = yPos[saccade[1]] - yPos[saccade[0]]
-                euclidDist = np.sqrt(xDist**2 + yDist**2)
-                if euclidDist > tDist:
-                    peakVelocity = np.max(euclidVel[saccade[0] : saccade[1] + 1])
-                    start_time = data[data.trial == iTrial].time.values[saccade[0]]
-                    end_time = data[data.trial == iTrial].time.values[saccade[1]]
-                    saccades.append(
-                        {
-                            "trial": iTrial,
-                            "start": start_time,
-                            "end": end_time,
-                            "dur": end_time - start_time,
-                            "xDist": xDist,
-                            "yDist": yDist,
-                            "euclidDist": euclidDist,
-                            "peakVelocity": peakVelocity,
-                        }
-                    )
-        # plt.plot(xVel)
-        # plt.show()
-
-    saccades_df = pd.DataFrame(saccades)
-    return saccades_df
+# %%
 
 
 def process_events(rows, blocks, colnames):
@@ -136,7 +19,7 @@ def process_events(rows, blocks, colnames):
         list(rows).append("")
     # first col is event type, which we drop later
     colnames = ["type"] + colnames
-    get_coltypes(colnames)
+    coltypes = get_coltypes(colnames)
     df = pd.read_csv(
         io.StringIO("\n".join(rows)),
         delimiter=r"\s+",
@@ -176,7 +59,7 @@ def process_messages(msgs, blocks):
     # Process messages from tracker
     msg_mat = [msg.split(" ", 1) for msg in msgs]
     msg_mat = [[msg[0][4:], msg[1].rstrip()] for msg in msg_mat]
-    msg_df = pd.DataFrame(msg_mat, columns=np.array(["time", "text"]))
+    msg_df = pd.DataFrame(msg_mat, columns=["time", "text"])
     msg_df["time"] = pd.to_numeric(msg_df["time"])
 
     # Append trial numbers to beginning of data frame
@@ -197,7 +80,7 @@ def from_header(header, field):
     pattern = r"\*\* {}\s*: (.*)".format(re.escape(field))
     matches = [re.findall(pattern, line) for line in header]
     matches = [match for match in matches if match]
-    return matches[0][0]
+    return matches[0][0] if matches else None
 
 
 def get_resolution(nonsample):
@@ -346,9 +229,9 @@ def is_float(string):
 def get_info(nonsample, firstcol):
     header = [f for f in nonsample if f.startswith("**")]
     info = {}
-    hh = from_header(header, "DATE")
+
     # Get date/time of recording from file
-    datetime.strptime(hh, "%a %b %d %H:%M:%S %Y")
+    datetime.strptime(from_header(header, "DATE"), "%a %b %d %H:%M:%S %Y")
     # Get tracker model/version info
     version_info = get_model(header)
     info["model"] = version_info[0]
@@ -417,24 +300,30 @@ def get_info(nonsample, firstcol):
     return info
 
 
-def get_raw(raw, blocks, info):
+def process_raw(raw, blocks, info):
     if len(raw) == 0:
         # If no sample data in file, create empty raw DataFrame w/ all applicable columns
         raw = ["", ""]
         blocks = pd.Series([], dtype=int)
         colnames = get_raw_header(info)
-        get_coltypes(colnames, float_time=False)
+        coltypes = get_coltypes(colnames, float_time=False)
     else:
         # Determine if timestamps stored as floats (edf2asc option -ftime, useful for 2000 Hz)
         float_time = is_float(re.split(r"\s+", raw[0])[0])
         # Generate column names and types based in info in header
         colnames = get_raw_header(info)
-        get_coltypes(colnames, float_time)
+        coltypes = get_coltypes(colnames, float_time)
         # Discard any rows with too many or too few columns (usually rows where eye is missing)
         row_length = [len(re.split(r"\t", r)) for r in raw]
         med_length = np.median(row_length)
-        raw = [r for r, l in zip(raw, row_length) if l == med_length]  # noqa: E741
+        raw = [r for r, l in zip(raw, row_length) if l == med_length]
         blocks = blocks[row_length == med_length]
+        # Verify that generated columns match up with actual maximum row length
+        length_diff = med_length - len(colnames)
+        # if length_diff > 0:
+        #    warnings.warn("Unknown columns in raw data. Assuming first one is time, please check the others")
+        #    colnames = ["time"] + [f"X{i+1}" for i in range(med_length-1)]
+        #    coltypes = "i" + "?"*(med_length-1)
     # Process raw sample data using pandas
     if len(raw) == 1:
         raw.append("")
@@ -463,6 +352,7 @@ def get_raw(raw, blocks, info):
     return raw_df
 
 
+# %%
 def read_asc(fname, samples=True, events=True, parse_all=False):
     with open(fname, "r", encoding="ISO-8859-1", errors="ignore") as f:
         inp = f.readlines()
@@ -473,6 +363,14 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     # Get strings prior to first tab for each line for faster string matching
     inp_first = [re.split(r"\s", s)[0] for s in inp]
 
+    # # Get the Trial info for each trial:
+    # bias = [
+    #     s.split()[4] for s in inp if len(s.split()) > 4 and s.split()[2] == "Trialinfo:"
+    # ]
+    # direct = [
+    #     s.split()[5] for s in inp if len(s.split()) > 4 and s.split()[2] == "Trialinfo:"
+    # ]
+    # Check if any actual data recorded in file
     starts = [i for i, x in enumerate(inp_first) if x == "START"]
     if not starts:
         raise ValueError("No samples or events found in .asc file.")
@@ -487,7 +385,7 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
     # Do some extra processing/sanitizing if there's HTARG info in the file
     # if info["htarg"]:
-    #     inp, info = handle_htarg(inp, info, is_raw)  # noqa: F821
+    #     inp, info = handle_htarg(inp, info, is_raw)
 
     # Find blocks and mark lines between block ENDs and next block STARTs
     dividers = starts + [len(inp)]
@@ -517,7 +415,7 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     # Initialize dictionary of data output and process different data types
     out = {}
     if samples:
-        out["raw"] = get_raw(
+        out["raw"] = process_raw(
             [line for line, raw in zip(inp, is_raw) if raw], block[is_raw], info
         )
     if events:
@@ -553,6 +451,303 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     out["info"] = info
 
     return out
+
+
+# %%
+def detect_saccades(data, mono=True):
+    sample_window = 0.001  # 1 kHz eye tracking
+    deg = 27.28  # pixel to degree conversion
+    tVel = 22  # default velocity threshola in deg/s
+    tDist = 5  # minimum distance threshold for saccades in pixels
+    trials = data.trial.unique()
+    saccades = []
+    for iTrial in trials:
+        if mono:
+            xPos = data[data.trial == iTrial].xp.values
+            yPos = data[data.trial == iTrial].yp.values
+        else:
+            xPos = data[data.trial == iTrial].xpr.values
+            yPos = data[data.trial == iTrial].ypr.values
+        # Calculate instantaneous eye position and time derivative
+        xVel = np.zeros_like(xPos)
+        yVel = np.zeros_like(yPos)
+        for ii in range(2, len(xPos) - 2):
+            xVel[ii] = (xPos[ii + 2] + xPos[ii + 1] - xPos[ii - 1] - xPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+            yVel[ii] = (yPos[ii + 2] + yPos[ii + 1] - yPos[ii - 1] - yPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+        euclidVel = np.sqrt(xVel**2 + yVel**2)
+        xAcc = np.zeros_like(xPos)
+        yAcc = np.zeros_like(yPos)
+        for ii in range(2, len(xVel) - 2):
+            xAcc[ii] = (xVel[ii + 2] + xVel[ii + 1] - xVel[ii - 1] - xVel[ii - 2]) / (
+                6 * sample_window
+            )
+            yAcc[ii] = (yVel[ii + 2] + yVel[ii + 1] - yVel[ii - 1] - yVel[ii - 2]) / (
+                6 * sample_window
+            )
+
+        # euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
+        candidates = np.where(euclidVel > tVel)[0]
+        if len(candidates) > 0:
+            diffCandidates = np.diff(candidates)
+            breaks = np.concatenate(
+                ([0], np.where(diffCandidates > 1)[0] + 1, [len(candidates)])
+            )
+
+            for jj in range(len(breaks) - 1):
+                saccade = [candidates[breaks[jj]], candidates[breaks[jj + 1] - 1]]
+                xDist = xPos[saccade[1]] - xPos[saccade[0]]
+                yDist = yPos[saccade[1]] - yPos[saccade[0]]
+                euclidDist = np.sqrt(xDist**2 + yDist**2)
+                if euclidDist > tDist:
+                    peakVelocity = np.max(euclidVel[saccade[0] : saccade[1] + 1])
+                    start_time = data[data.trial == iTrial].time.values[saccade[0]]
+                    end_time = data[data.trial == iTrial].time.values[saccade[1]]
+                    saccades.append(
+                        {
+                            "trial": iTrial,
+                            "start": start_time,
+                            "end": end_time,
+                            "dur": end_time - start_time,
+                            "xDist": xDist,
+                            "yDist": yDist,
+                            "euclidDist": euclidDist,
+                            "peakVelocity": peakVelocity,
+                        }
+                    )
+        # plt.plot(xVel)
+        # plt.show()
+
+    saccades_df = pd.DataFrame(saccades)
+    return saccades_df
+
+
+def filter_asp_data(eye_position, sampling_freq=1000, cutoff_freq=30):
+    # For ASP, we typically want a slightly higher cutoff
+    # to preserve the subtle movements
+    # Use a lower order filter to minimize ringing
+    order = 2
+
+    nyquist = sampling_freq * 0.5
+    normalized_cutoff = cutoff_freq / nyquist
+
+    # Design filter
+    b, a = signal.butter(order, normalized_cutoff, btype="low")
+
+    # Use filtfilt for zero-phase filtering
+    filtered_pos = signal.filtfilt(b, a, eye_position)
+
+    # Calculate velocity (using central difference)
+    velocity = np.zeros_like(filtered_pos)
+    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
+
+    # Filter velocity separately with lower cutoff
+    vel_cutoff = 20  # Hz
+    normalized_vel_cutoff = vel_cutoff / nyquist
+    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
+    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
+
+    return pd.DataFrame(
+        dict({"filtered_pos": filtered_pos, "filtered_vel": filtered_vel})
+    )
+
+
+# Example velocity threshold for ASP detection
+def detect_asp_onset(velocity, threshold=2.0):  # deg/s
+    """
+    Detect ASP onset using a conservative velocity threshold
+    Returns the index of ASP onset
+    """
+    # Look for sustained velocity above threshold
+    sustained_samples = 10  # Number of samples to confirm it's not noise
+    above_threshold = np.where(velocity > threshold)[0]
+
+    for i in range(len(above_threshold) - sustained_samples):
+        if np.all(velocity[above_threshold[i : i + sustained_samples]] > threshold):
+            return above_threshold[i]
+
+    return None
+
+
+# %%
+def preprocess_data_file(filename, removeSaccades=True):
+    """
+    Preprocessing the blinks and the saccades from the asc file.
+    Returning a dataframe for that containes the raw data.
+    """
+    # Read data from file
+    data = read_asc(filename)
+
+    # Extract relevant data from the DataFrame
+    df = data["raw"]
+    mono = data["info"]["mono"]
+
+    # Convert columns to numeric
+    numeric_columns = ["trial", "time", "input"]
+    if not mono:
+        numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
+    else:
+        numeric_columns.extend(["xp", "yp", "ps"])
+
+    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
+
+    # Drop rows where trial is equal to 1
+    df = df[df["trial"] != 1]
+
+    # Reset index after dropping rows and modifying the 'trial' column
+    # df = df.reset_index(drop=True)
+
+    # Extract messages from eyelink
+    MSG = data["msg"]
+    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
+    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
+    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
+
+    # Reset time based on 'Zero' time
+    for t in Zero.trial.unique():
+        df.loc[df["trial"] == t, "time"] = (
+            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
+        )
+    tON.loc[:, "time"] = tON.time.values - Zero.time.values
+    t0.loc[:, "time"] = t0.time.values - Zero.time.values
+
+    # Extract the blinks
+    blinks = data["blinks"]
+    blinks = blinks[blinks["trial"] != 1]
+
+    # Reset blinks time
+    for t in blinks["trial"].unique():
+        blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
+            blinks.loc[blinks.trial == t, ["stime", "etime"]].values
+            - Zero.loc[Zero.trial == t, "time"].values
+        )
+    # Preocessing the blinks.
+    for t in blinks["trial"].unique():
+        start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
+        end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
+
+        for i in range(len(start)):
+            if not mono:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
+                    "xpr",
+                ] = np.nan
+            else:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
+                    "xp",
+                ] = np.nan
+    if removeSaccades:
+        sacc = detect_saccades(df, mono)
+        for t in sacc.trial.unique():
+            start = sacc.loc[(sacc.trial == t), "start"]
+            end = sacc.loc[(sacc.trial == t), "end"]
+
+            for i in range(len(start)):
+                if not mono:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 20)
+                        & (df.time <= end.iloc[i] + 20),
+                        "xpr",
+                    ] = np.nan
+                else:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 20)
+                        & (df.time <= end.iloc[i] + 20),
+                        "xp",
+                    ] = np.nan
+
+    # Decrement the values in the 'trial' column by 1
+    df.loc[:, "trial"] = df["trial"] - 1
+
+    return df
+
+
+def process_data(
+    df, frequencyRate=1000, degToPix=27.28, fOFF=80, latency=120, mono=True
+):
+    """
+    Process the data without  filtering
+
+    Returns the value of velocity and postion offset on the window chosen between fOFF and latency
+    """
+    # Extract position and velocity data
+    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
+
+    pos = (
+        selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
+    )
+
+    # stdPos = np.std(pos, axis=1) / 27.28
+    # # Reshaping veloSteadyState
+    # veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
+    #     trial_dim, time_dim
+    # )
+    if mono:
+        velo = (
+            np.array(
+                np.gradient(
+                    np.array([pos[pos["trial"] == t].xp for t in pos.trial.unique()]),
+                    axis=1,
+                )
+            )
+            * frequencyRate
+            / degToPix
+        )
+
+    # velo[(velo > 20) | (velo < -20)] = np.nan
+    else:
+        velo = (
+            (
+                np.gradient(
+                    np.array([pos[pos["trial"] == t].xpr for t in pos.trial.unique()]),
+                    axis=1,
+                )
+            )
+            * frequencyRate
+            / degToPix
+        )
+
+    print(velo.shape)
+    if mono:
+        posOffSet = (
+            np.array(
+                [
+                    pos[pos["trial"] == t].xp.values[-1]
+                    - pos[pos["trial"] == t].xp.values[0]
+                    for t in pos.trial.unique()
+                ]
+            )
+            / degToPix
+        )
+    else:
+        posOffSet = (
+            np.array(
+                [
+                    pos[pos["trial"] == t].xpr.values[-1]
+                    - pos[pos["trial"] == t].xpr.values[0]
+                    for t in pos.trial.unique()
+                ]
+            )
+            / degToPix
+        )
+    meanVelo = np.nanmean(velo, axis=1)
+    # stdVelo = np.std(velo, axis=1)
+    # meanVSS = np.nanmean(veloSteadyState, axis=1)
+    # TS = trialSacc
+    # SaccD = saccDir
+    # SACC = Sacc
+
+    return pd.DataFrame({"posOffSet": posOffSet, "meanVelo": meanVelo})
 
 
 def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
@@ -694,70 +889,98 @@ def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
 
 
 # %%
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
-fileName = "rawData.csv"
-# %%
-df = pd.read_csv(os.path.join(path, fileName))
+def process_all_asc_files(data_dir):
+    """
+    Go across the data_dir and combine the processed data(Position offset and ASEM) with events tsv file.
+    This gives us the information about the chosen cue in each trial and its target direction.
+    """
+    allDFs = []
+    allEvents = []
 
-df.head()
-# %%
-df.columns
-# %%
-# Getting the region of interest
-fixOff = -200
-endOftrial = 600
-df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
-# %%
-df
-# %%
-df.drop(columns=["cr.info"], inplace=True)
-# %%
-# Getting rid of the saccades by deleting 20 ms before and after
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
-        print(sacc)
-        if not sacc.empty:
-            for t in sacc.trial.unique():
-                start = sacc[sacc["trial"] == t]["start"].values
-                end = sacc[sacc["trial"] == t]["end"].values
-                for i in range(len(start)):
-                    df.loc[
-                        (df["sub"] == sub)
-                        & (df["proba"] == p)
-                        & (df.trial == t)
-                        & (df.time >= start[i] - 20)
-                        & (df.time <= end[i] + 20),
-                        "xp",
-                    ] = np.nan
+    for root, _, files in sorted(os.walk(data_dir)):
+        for filename in sorted(files):
+            if filename.endswith(".asc"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                df = preprocess_data_file(filepath, removeSaccades=False)
+                data = process_data(df)
+                # Extract proba from filename
+                proba = int(re.search(r"dir(\d+)", filename).group(1))
+                data["proba"] = proba
+
+                allDFs.append(data)
+                print(len(data))
+
+            if filename.endswith(".tsv"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                events = pd.read_csv(filepath, sep="\t")
+                # Extract proba from filename
+                # proba = int(re.search(r"dir(\d+)", filename).group(1))
+                # events['proba'] = proba
+                # print(len(events))
+                allEvents.append(events)
+
+    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
+    # print(len(bigDF))
+    bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
+    # print(len(bigEvents))
+    # Merge DataFrames based on 'proba'
+    merged_data = pd.concat([bigEvents, bigDF], axis=1)
+    # print(len(merged_data))
+
+    merged_data.to_csv(os.path.join(data_dir, "results.csv"), index=False)
+    return merged_data
 
 
 # %%
-df
+def process_all_filtered_files(data_dir):
+    """
+    Go across the data_dir and combine the processed data(Position offset and ASEM) with events tsv file.
+    This gives us the information about the chosen cue in each trial and its target direction.
+    """
+    allDFs = []
+    allEvents = []
+
+    for root, _, files in sorted(os.walk(data_dir)):
+        for filename in sorted(files):
+            if filename.endswith(".asc"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                df = preprocess_data_file(filepath)
+                data = process_filtered_data(df)
+                # Extract proba from filename
+                proba = int(re.search(r"dir(\d+)", filename).group(1))
+                data["proba"] = proba
+
+                allDFs.append(data)
+                print(len(data))
+
+            if filename.endswith(".tsv"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                events = pd.read_csv(filepath, sep="\t")
+                # Extract proba from filename
+                # proba = int(re.search(r"dir(\d+)", filename).group(1))
+                # events['proba'] = proba
+                # print(len(events))
+                allEvents.append(events)
+
+    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
+    # print(len(bigDF))
+    bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
+    # print(len(bigEvents))
+    # Merge DataFrames based on 'proba'
+    merged_data = pd.concat([bigEvents, bigDF], axis=1)
+    # print(len(merged_data))
+
+    merged_data.to_csv(os.path.join(data_dir, "filtered_results.csv"), index=False)
+    return merged_data
+
+
 # %%
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 # %%
-# plotting the trials
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-            # velo = np.gradient(trial["xp"])
-            plt.plot(trial["time"], trial["xp"])
-            plt.title(f"sub: {sub}, proba: {p}, trial: {t}")
-            plt.show()
+df = process_all_asc_files(path)
 # %%
-# Computing the velocity
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub].proba.unique():
-        for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-            trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-            trial_velo = np.gradient(trial["xp"].values, 1)
-            df.loc[
-                (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
-            ] = trial_velo
-# %%
-# velocity in deg/s
-df["velo"] = df["velo"] * 1000 / 27.28
-newFileName = "rawData_noSacc.csv"
-df.to_csv(os.path.join(path, newFileName), index=False)
-# %%
+process_all_filtered_files(path)
