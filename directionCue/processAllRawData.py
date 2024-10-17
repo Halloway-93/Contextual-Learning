@@ -491,11 +491,6 @@ def process_raw_data(data):
                         & (df.time <= end.iloc[i] + 50),
                         "xp",
                     ] = np.nan
-    # numeric_columns = ["trial", "time"]
-    # if not mono:
-    #     numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
-    # else:
-    #     numeric_columns.extend(["xp", "yp", "ps"])
 
     return df
 
