@@ -585,14 +585,7 @@ def preprocess_data_file(filename, removeSaccades=True):
     df = data["raw"]
     mono = data["info"]["mono"]
 
-    # Convert columns to numeric
-    numeric_columns = ["trial", "time", "input"]
-    if not mono:
-        numeric_columns.extend(["xpl", "ypl", "psl", "xpr", "ypr", "psr"])
-    else:
-        numeric_columns.extend(["xp", "yp", "ps"])
-
-    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
+    df = df.apply(pd.to_numeric, errors="coerce")
 
     # Drop rows where trial is equal to 1
     df = df[df["trial"] != 1]
@@ -687,11 +680,6 @@ def process_data(
         selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
     )
 
-    # stdPos = np.std(pos, axis=1) / 27.28
-    # # Reshaping veloSteadyState
-    # veloSteadyState = np.array(veloSteadyState[: trial_dim * time_dim]).reshape(
-    #     trial_dim, time_dim
-    # )
     if mono:
         velo = (
             np.array(
@@ -859,14 +847,22 @@ def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
     data = df[["trial", "time", "xp"]]
     data = data.apply(pd.to_numeric, errors="coerce")
     if mono:
-        filtered_data = process_eye_movement(data.xp)
+        filtered_data = [
+            process_eye_movement(data[data["trial"] == t].xp)
+            for t in data.trial.unique()
+        ]
     else:
-        filtered_data = process_eye_movement(data.xpr)
+        filtered_data = [
+            process_eye_movement(data[data["trial"] == t].xpr)
+            for t in data.trial.unique()
+        ]
+    filtered_data = pd.concat(filtered_data, axis=0)
     data["filtered_pos"] = filtered_data["filtPos"].values
     data["filtered_velo"] = filtered_data["filtVelo"].values
-    # Extract position and velocity data
-    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
 
+    # Extract position and velocity data
+
+    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
     pos = selected_values[["trial", "filtered_pos"]]
     posOffSet = (
         np.array(
