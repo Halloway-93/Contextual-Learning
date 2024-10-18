@@ -636,7 +636,7 @@ def preprocess_data_file(filename, removeSaccades=True):
 
 
 def process_data(
-    df, frequencyRate=1000, degToPix=27.28, fOFF=80, latency=120, mono=True
+    df, frequencyRate=1000, degToPix=27.28, fOFF=-50, latency=50, mono=True
 ):
     """
     Process the data without  filtering
@@ -811,7 +811,7 @@ def analyze_smooth_pursuit(position, velocity, target_velocity=11.0):
 
 
 def process_filtered_data(
-    df, mono=True, sampling_freq=1000, degToPix=27.28, fOFF=80, latency=120
+    df, mono=True,  degToPix=27.28, fOFF=-50, latency=50
 ):
     """
     Process the filtered data.
