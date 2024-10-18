@@ -14,7 +14,7 @@ import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
-fileName = "results.csv"
+fileName = "filtered_results.csv"
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
@@ -59,6 +59,7 @@ dd[np.abs(dd.meanVelo.values) > 1.93]
 # result = model.fit()
 #
 # print(result.summary())
+dd
 # %%
 
 meanVelo = dd[dd.color == "red"]["meanVelo"]
@@ -195,7 +196,7 @@ result = model.fit()
 print(result.summary())
 # %%
 sns.histplot(
-    data=df[df.proba == 75],
+    data=df[df.proba == 25],
     x="meanVelo",
     hue="color",
     alpha=0.5,
