@@ -525,24 +525,6 @@ def detect_saccades(data, mono=True):
     return saccades_df
 
 
-# Example velocity threshold for ASP detection
-def detect_asp_onset(velocity, threshold=2.0):  # deg/s
-    """
-    Detect ASP onset using a conservative velocity threshold
-    Returns the index of ASP onset
-    """
-    # Look for sustained velocity above threshold
-    sustained_samples = 10  # Number of samples to confirm it's not noise
-    above_threshold = np.where(velocity > threshold)[0]
-
-    for i in range(len(above_threshold) - sustained_samples):
-        if np.all(velocity[above_threshold[i : i + sustained_samples]] > threshold):
-            return above_threshold[i]
-
-    return None
-
-
-# %%
 def preprocess_data_file(filename, removeSaccades=True):
     """
     Preprocessing the blinks and the saccades from the asc file.
@@ -635,79 +617,7 @@ def preprocess_data_file(filename, removeSaccades=True):
     return df
 
 
-def process_data(
-    df, frequencyRate=1000, degToPix=27.28, fOFF=-50, latency=50, mono=True
-):
-    """
-    Process the data without  filtering
-
-    Returns the value of velocity and postion offset on the window chosen between fOFF and latency
-    Converting position in degree and velocity in deg/s
-    """
-    # Extract position and velocity data
-    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
-
-    pos = (
-        selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
-    )
-    # Computing the velocity for each trial
-    if mono:
-        velo = (
-            np.array(
-                np.gradient(
-                    np.array([pos[pos["trial"] == t].xp for t in pos.trial.unique()]),
-                    axis=1,
-                )
-            )
-            * frequencyRate
-            / degToPix
-        )
-
-    else:
-        velo = (
-            (
-                np.gradient(
-                    np.array([pos[pos["trial"] == t].xpr for t in pos.trial.unique()]),
-                    axis=1,
-                )
-            )
-            * frequencyRate
-            / degToPix
-        )
-    # Looking at the offset of the position but also at the mean velocity of the
-    if mono:
-        posOffSet = (
-            np.array(
-                [
-                    pos[pos["trial"] == t].xp.values[-1]
-                    - pos[pos["trial"] == t].xp.values[0]
-                    for t in pos.trial.unique()
-                ]
-            )
-            / degToPix
-        )
-    else:
-        posOffSet = (
-            np.array(
-                [
-                    pos[pos["trial"] == t].xpr.values[-1]
-                    - pos[pos["trial"] == t].xpr.values[0]
-                    for t in pos.trial.unique()
-                ]
-            )
-            / degToPix
-        )
-
-    meanVelo = np.nanmean(velo, axis=1)
-    # stdVelo = np.std(velo, axis=1)
-    # meanVSS = np.nanmean(veloSteadyState, axis=1)
-    # TS = trialSacc
-    # SaccD = saccDir
-    # SACC = Sacc
-
-    return pd.DataFrame({"posOffSet": posOffSet, "meanVelo": meanVelo})
-
-
+# %%
 def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
     """
     Process eye position data with NaN values (from blinks/saccades)
@@ -763,7 +673,7 @@ def calculate_velocity(
     return velocity * sampling_freq / degToPix
 
 
-def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
+def procesRaws_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     """
     Complete processing pipeline including velocity calculation
     """
@@ -793,80 +703,11 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
 
-def analyze_smooth_pursuit(position, velocity, target_velocity=11.0):
-    """
-    Analyze smooth pursuit performance
-    """
-    # Get valid samples (non-NaN)
-    valid_samples = ~np.isnan(position)
-
-    # Calculate gain during valid samples
-    pursuit_gain = velocity[valid_samples] / target_velocity
-
-    # Basic metrics
-    mean_gain = np.mean(pursuit_gain)
-    gain_std = np.std(pursuit_gain)
-
-    return mean_gain, gain_std, pursuit_gain
-
-
-def process_filtered_data(
-    df, mono=True,  degToPix=27.28, fOFF=-50, latency=50
-):
-    """
-    Process the filtered data.
-    Returns the position offset and the velocity on the desired window[fOFF,latency].
-    """
-    if mono:
-        data = df[["trial", "time", "xp"]]
-    else:
-
-        data = df[["trial", "time", "xpr"]]
-
-    data = data.apply(pd.to_numeric, errors="coerce")
-    if mono:
-        filtered_data = [
-            process_eye_movement(data[data["trial"] == t].xp)
-            for t in data.trial.unique()
-        ]
-    else:
-        filtered_data = [
-            process_eye_movement(data[data["trial"] == t].xpr)
-            for t in data.trial.unique()
-        ]
-    filtered_data = pd.concat(filtered_data, axis=0)
-    data["filtered_pos"] = filtered_data["filtPos"].values
-    data["filtered_velo"] = filtered_data["filtVelo"].values
-
-    # Extract position and velocity data
-
-    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
-    pos = selected_values[["trial", "filtered_pos"]]
-    posOffSet = (
-        np.array(
-            [
-                pos[pos["trial"] == t]["filtered_pos"].values[-1]
-                - pos[pos["trial"] == t]["filtered_pos"].values[0]
-                for t in pos.trial.unique()
-            ]
-        )
-        / degToPix
-    )
-    meanVelo = np.array(
-        [
-            np.nanmean(data[data["trial"] == t]["filtered_velo"])
-            for t in data.trial.unique()
-        ]
-    )
-
-    return pd.DataFrame({"posOffSet": posOffSet, "meanVelo": meanVelo})
-
-
 # %%
-def process_all_asc_files(data_dir):
+def getAllRawData(data_dir):
     """
-    Go across the data_dir and combine the processed data(Position offset and ASEM) with events tsv file.
-    This gives us the information about the chosen cue in each trial and its target direction.
+    - This is to concatenate all the raw data from all participants and all conditions together.
+    - Adding a column for filtered pos and fileterd velocity.
     """
     allDFs = []
     allEvents = []
@@ -877,13 +718,11 @@ def process_all_asc_files(data_dir):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
                 df = preprocess_data_file(filepath, removeSaccades=False)
-                data = process_data(df)
                 # Extract proba from filename
                 proba = int(re.search(r"dir(\d+)", filename).group(1))
-                data["proba"] = proba
+                df["proba"] = proba
 
-                allDFs.append(data)
-                print(len(data))
+                allDFs.append(df)
 
             if filename.endswith(".tsv"):
                 filepath = os.path.join(root, filename)
@@ -899,58 +738,5 @@ def process_all_asc_files(data_dir):
     merged_data = pd.concat([bigEvents, bigDF], axis=1)
     # print(len(merged_data))
 
-    merged_data.to_csv(os.path.join(data_dir, "results.csv"), index=False)
+    merged_data.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
     return merged_data
-
-
-# %%
-def process_all_filtered_files(data_dir):
-    """
-    Go across the data_dir and combine the processed data(Position offset and ASEM) with events tsv file.
-    This gives us the information about the chosen cue in each trial and its target direction.
-    """
-    allDFs = []
-    allEvents = []
-
-    for root, _, files in sorted(os.walk(data_dir)):
-        for filename in sorted(files):
-            if filename.endswith(".asc"):
-                filepath = os.path.join(root, filename)
-                print(f"Read data from {filepath}")
-                df = preprocess_data_file(filepath)
-                data = process_filtered_data(df)
-                # Extract proba from filename
-                proba = int(re.search(r"dir(\d+)", filename).group(1))
-                data["proba"] = proba
-
-                allDFs.append(data)
-                print(len(data))
-
-            if filename.endswith(".tsv"):
-                filepath = os.path.join(root, filename)
-                print(f"Read data from {filepath}")
-                events = pd.read_csv(filepath, sep="\t")
-                # Extract proba from filename
-                # proba = int(re.search(r"dir(\d+)", filename).group(1))
-                # events['proba'] = proba
-                # print(len(events))
-                allEvents.append(events)
-
-    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
-    # print(len(bigDF))
-    bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
-    # print(len(bigEvents))
-    # Merge DataFrames based on 'proba'
-    merged_data = pd.concat([bigEvents, bigDF], axis=1)
-    # print(len(merged_data))
-
-    merged_data.to_csv(os.path.join(data_dir, "filtered_results.csv"), index=False)
-    return merged_data
-
-
-# %%
-path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
-# %%
-df = process_all_asc_files(path)
-# %%
-process_all_filtered_files(path)
