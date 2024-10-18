@@ -7,17 +7,41 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pingouin as pg
 
 # %%
 dirPath = "/Users/mango/contextuaLearning/directionCue/results_voluntaryDirection/"
+fileName = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/rawAndFiltereDataNoSacc.csv"
 # %%
-df = pd.read_csv(dirPath + "RawDataNoSacc.csv")
+df = pd.read_csv(fileName)
 allEvents = pd.read_csv(dirPath + "allEvents.csv")
 allEvents
 # %%
+df
+# %%
+example = df[(df["sub"] == 6.0) & (df["proba"] == 1.0)]
+example
+# %%
+# Plotting one example
+for t in example.trial.unique():
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].filtVelo,
+        alpha=0.5,
+    )
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].velo,
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+# %%
 # Getting the Position Offset for each Participant and each proba
 df_results = []
-filtered_data = df[(df["time"] >= -50) & (df["time"] <= 50)]
+filtered_data = df[(df["time"] >= 80) & (df["time"] <= 120)]
 unique_sub = df["sub"].unique()
 for sub in unique_sub:
     unique_prob = allEvents[allEvents["sub"] == sub]["proba"].unique()
@@ -37,6 +61,7 @@ for sub in unique_sub:
                 & (filtered_data["proba"] == p)
             ]
             meanVelo = np.nanmean(roi["velo"])  # print(meanVelo)
+            meanFiltVelo = np.nanmean(roi["filtVelo"])  # print(meanVelo)
             posOffset = (
                 roi.xp.values[-1] - roi.xp.values[0]
             )  # Append the result to the DataFrame
@@ -47,6 +72,7 @@ for sub in unique_sub:
                     "proba": p,
                     "posOffSet": posOffset,
                     "meanVelo": meanVelo,
+                    "meanFiltVelo": meanFiltVelo,
                 }
             )
 # %%
@@ -127,35 +153,48 @@ for sub in df["sub"].unique():
             (df["sub"] == sub) & (df["proba"] == p), "arrow"
         ].shift(1)
 # %%
-
+df.columns
 # %%
-df_prime = df[["trial", "proba", "arrow", "TD_prev", "posOffSet", "meanVelo"]]
+df_prime = df[
+    [
+        "sub",
+        "trial",
+        "proba",
+        "arrow",
+        "TD_prev",
+        "posOffSet",
+        "meanVelo",
+        "meanFiltVelo",
+    ]
+]
 learningCurve = (
-    df_prime.groupby(["proba", "arrow", "TD_prev"])
-    .mean()[["posOffSet", "meanVelo"]]
+    df_prime.groupby(["sub", "proba", "arrow", "TD_prev"])
+    .mean()[["posOffSet", "meanVelo", "meanFiltVelo"]]
     .reset_index()
 )
 
 
 learningCurve
 # %%
-df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
+df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[
+    ["posOffSet", "meanVelo", "meanFiltVelo"]
+]
 
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
-sns.barplot(
+sns.pointplot(
     x="proba",
-    y="meanVelo",
+    y="meanFiltVelo",
     hue="arrow",
+    errorbar="se",
     data=learningCurve,
 )
-plt.title("Position Offset: Arrow UP")
+plt.title("ASEM for all Participants")
 plt.xlabel("P(Right|UP)")
 plt.show()
-# %%
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -164,7 +203,7 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    data=learningCurve[learningCurve.arrow == "up"],
+    data=df[df.arrow == "up"],
 )
 plt.title("Position Offset: Arrow UP")
 plt.xlabel("P(Right|UP)")
@@ -178,13 +217,19 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     hue="TD_prev",
-    data=learningCurve[learningCurve.arrow == "up"],
+    data=df[df.arrow == "up"],
 )
 plt.title("Position Offset: Arrow UP")
 plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
 
+pg.friedman(
+    data=df[df["arrow"] == "up"],
+    dv="meanVelo",
+    within="proba",
+    subject="sub",
+)
 
 # %%
 fig = plt.figure()
@@ -193,8 +238,8 @@ figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
-    y="meanVelo",
-    data=learningCurve[learningCurve.arrow == "up"],
+    y="meanFiltVelo",
+    data=df[df.arrow == "up"],
 )
 plt.title("ASEM: Arrow UP")
 plt.xlabel("P(Right|UP)")
@@ -204,9 +249,24 @@ fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
+sns.pointplot(
+    x="proba",
+    y="meanFiltVelo",
+    hue="TD_prev",
+    errorbar="se",
+    data=learningCurve[learningCurve.arrow == "up"],
+)
+plt.title("Anticipatory Velocity: Arrow UP")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
-    y="meanVelo",
+    y="meanFiltVelo",
     hue="TD_prev",
     data=learningCurve[learningCurve.arrow == "up"],
 )
@@ -252,6 +312,21 @@ sns.barplot(
 )
 plt.title("ASEM: Arrow DOWN")
 plt.xlabel("P(Left|DOWN)")
+plt.show()
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.pointplot(
+    x="proba",
+    y="meanVelo",
+    hue="TD_prev",
+    errorbar="se",
+    data=learningCurve[learningCurve.arrow == "down"],
+)
+plt.title("Anticipatory Velocity: Arrow DOWN")
+plt.xlabel("P(Right|UP)")
 plt.show()
 # %%
 fig = plt.figure()

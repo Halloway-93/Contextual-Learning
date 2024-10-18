@@ -525,36 +525,6 @@ def detect_saccades(data, mono=True):
     return saccades_df
 
 
-def filter_asp_data(eye_position, sampling_freq=1000, cutoff_freq=30):
-    # For ASP, we typically want a slightly higher cutoff
-    # to preserve the subtle movements
-    # Use a lower order filter to minimize ringing
-    order = 2
-
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = cutoff_freq / nyquist
-
-    # Design filter
-    b, a = signal.butter(order, normalized_cutoff, btype="low")
-
-    # Use filtfilt for zero-phase filtering
-    filtered_pos = signal.filtfilt(b, a, eye_position)
-
-    # Calculate velocity (using central difference)
-    velocity = np.zeros_like(filtered_pos)
-    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
-
-    # Filter velocity separately with lower cutoff
-    vel_cutoff = 20  # Hz
-    normalized_vel_cutoff = vel_cutoff / nyquist
-    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
-    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
-
-    return pd.DataFrame(
-        dict({"filtered_pos": filtered_pos, "filtered_vel": filtered_vel})
-    )
-
-
 # Example velocity threshold for ASP detection
 def detect_asp_onset(velocity, threshold=2.0):  # deg/s
     """
@@ -647,15 +617,15 @@ def preprocess_data_file(filename, removeSaccades=True):
                 if not mono:
                     df.loc[
                         (df.trial == t)
-                        & (df.time >= start.iloc[i] - 20)
-                        & (df.time <= end.iloc[i] + 20),
+                        & (df.time >= start.iloc[i] - 25)
+                        & (df.time <= end.iloc[i] + 25),
                         "xpr",
                     ] = np.nan
                 else:
                     df.loc[
                         (df.trial == t)
-                        & (df.time >= start.iloc[i] - 20)
-                        & (df.time <= end.iloc[i] + 20),
+                        & (df.time >= start.iloc[i] - 25)
+                        & (df.time <= end.iloc[i] + 25),
                         "xp",
                     ] = np.nan
 
@@ -672,6 +642,7 @@ def process_data(
     Process the data without  filtering
 
     Returns the value of velocity and postion offset on the window chosen between fOFF and latency
+    Converting position in degree and velocity in deg/s
     """
     # Extract position and velocity data
     selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
@@ -679,7 +650,7 @@ def process_data(
     pos = (
         selected_values[["trial", "xp"]] if mono else selected_values[["trial", "xpr"]]
     )
-
+    # Computing the velocity for each trial
     if mono:
         velo = (
             np.array(
@@ -692,7 +663,6 @@ def process_data(
             / degToPix
         )
 
-    # velo[(velo > 20) | (velo < -20)] = np.nan
     else:
         velo = (
             (
@@ -704,8 +674,7 @@ def process_data(
             * frequencyRate
             / degToPix
         )
-
-    print(velo.shape)
+    #Looking at the offset of the position but also at the mean velocity of the 
     if mono:
         posOffSet = (
             np.array(
@@ -728,6 +697,7 @@ def process_data(
             )
             / degToPix
         )
+    
     meanVelo = np.nanmean(velo, axis=1)
     # stdVelo = np.std(velo, axis=1)
     # meanVSS = np.nanmean(veloSteadyState, axis=1)
@@ -741,6 +711,7 @@ def process_data(
 def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
     """
     Process eye position data with NaN values (from blinks/saccades)
+    Filter the position with the chosen cutoff.
     """
     # First interpolate across NaN values
     valid_indices = ~np.isnan(eye_position)
@@ -779,24 +750,17 @@ def calculate_velocity(
     """
     Calculate velocity from position data, with additional filtering
     """
-    # First calculate raw velocity using central difference
-    # We do this before filtering to avoid edge effects from the filter
-    # velocity = np.zeros_like(position)
-    # velocity[1:-1] = (position[2:] - position[:-2]) * (sampling_freq / 2)
-    #
-    # # Handle edges
-    # velocity[0] = (position[1] - position[0]) * sampling_freq
-    # velocity[-1] = (position[-1] - position[-2]) * sampling_freq
     velocity = np.gradient(position)
     # Filter velocity separately with lower cutoff
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = velocity_cutoff / nyquist
-    b, a = signal.butter(2, normalized_cutoff, btype="low")
+    # nyquist = sampling_freq * 0.5
+    # normalized_cutoff = velocity_cutoff / nyquist
+    # b, a = signal.butter(2, normalized_cutoff, btype="low")
+    #
+    # # Filter velocity
+    # filtered_velocity = signal.filtfilt(b, a, velocity)
 
-    # Filter velocity
-    filtered_velocity = signal.filtfilt(b, a, velocity)
-
-    return filtered_velocity * sampling_freq / degToPix
+    # return filtered_velocity * sampling_freq / degToPix
+    return velocity * sampling_freq / degToPix
 
 
 def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
@@ -810,14 +774,21 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
 
     # 2. Calculate velocity from the interpolated position
     # (we use interpolated to avoid NaN issues in velocity calculation)
+    # velocity = calculate_velocity(
+    #     interpolated_pos,
+    #     sampling_freq=sampling_freq,
+    #     velocity_cutoff=20,  # Typically lower cutoff for velocity
+    # )
+
+    # # 3. Put NaN back in velocity where position was NaN
+    # velocity[np.isnan(eye_position)] = np.nan
+
+    # Calculate eh velocity on the filtered positon
     velocity = calculate_velocity(
-        interpolated_pos,
+        filtered_pos,
         sampling_freq=sampling_freq,
         velocity_cutoff=20,  # Typically lower cutoff for velocity
     )
-
-    # 3. Put NaN back in velocity where position was NaN
-    velocity[np.isnan(eye_position)] = np.nan
 
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
@@ -839,7 +810,9 @@ def analyze_smooth_pursuit(position, velocity, target_velocity=11.0):
     return mean_gain, gain_std, pursuit_gain
 
 
-def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
+def process_filtered_data(
+    df, mono=True, sampling_freq=1000, degToPix=27.28, fOFF=80, latency=120
+):
     """
     Process the filtered data.
     Returns the position offset and the velocity on the desired window[fOFF,latency].
@@ -975,7 +948,7 @@ def process_all_filtered_files(data_dir):
 
 
 # %%
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
+path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 # %%
 df = process_all_asc_files(path)
 # %%
