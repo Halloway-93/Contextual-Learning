@@ -14,7 +14,7 @@ import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
-fileName = "filtered_results.csv"
+fileName = "results.csv"
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
@@ -45,7 +45,7 @@ dd
 # %%
 np.abs(dd.meanVelo.values).max()
 # %%
-dd[np.abs(dd.meanVelo.values) > 1.93]
+dd[np.abs(dd.meanVelo.values) > 1.8]
 # %%
 # df[(df.meanVelo > 15) | (df.meanVelo < -15)]
 # %%
@@ -365,9 +365,9 @@ df.sub_number.unique()
 # %%
 model = smf.mixedlm(
     "meanVelo~ C( proba )",
-    data=df[df.color == "red"],
+    data=dd[dd.color == "red"],
     # re_formula="~proba",
-    groups=df[df.color == "red"]["sub_number"],
+    groups=dd[dd.color == "red"]["sub_number"],
 ).fit()
 model.summary()
 
@@ -509,8 +509,6 @@ plt.xlabel("P(Right|RED)", fontsize=20)
 plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
 plt.savefig(pathFig + "/meanVeloRed.png")
 plt.show()
-# %%
-df_prime[df_prime["TD_prev"].isna()]
 # %%
 fig = plt.figure()
 # Toggle full screen mode
