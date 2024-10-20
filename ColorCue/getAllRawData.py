@@ -673,7 +673,7 @@ def calculate_velocity(
     return velocity * sampling_freq / degToPix
 
 
-def procesRaws_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
+def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     """
     Complete processing pipeline including velocity calculation
     """
@@ -710,33 +710,56 @@ def getAllRawData(data_dir):
     - Adding a column for filtered pos and fileterd velocity.
     """
     allDFs = []
-    allEvents = []
+    # allEvents = []
 
     for root, _, files in sorted(os.walk(data_dir)):
         for filename in sorted(files):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                df = preprocess_data_file(filepath, removeSaccades=False)
+                df = preprocess_data_file(filepath, removeSaccades=True)
                 # Extract proba from filename
                 proba = int(re.search(r"dir(\d+)", filename).group(1))
+                sub = re.search(r"sub-(\d+)", filename).group(1)
                 df["proba"] = proba
+                df["sub"] = sub
+                # Adding the filtered postition and the filtered velocity.
+
+                filtered_data = [
+                    process_eye_movement(
+                        df[df["trial"] == t], sampling_freq=1000, cutoff_freq=30
+                    )
+                    for t in df.trial.unique()
+                ]
+                allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
+                # Ensure the original DataFrame and the filtered DataFrame have the same length
+                if len(df) == len(allFiltData):
+                    df[["filtPos", "filtVelo"]] = allFiltData
+                else:
+                    print(
+                        "Error: The lengths of the original DataFrame and the filtered DataFrame do not match."
+                    )
 
                 allDFs.append(df)
 
-            if filename.endswith(".tsv"):
-                filepath = os.path.join(root, filename)
-                print(f"Read data from {filepath}")
-                events = pd.read_csv(filepath, sep="\t")
-                allEvents.append(events)
+            # if filename.endswith(".tsv"):
+            #     filepath = os.path.join(root, filename)
+            #     print(f"Read data from {filepath}")
+            #     events = pd.read_csv(filepath, sep="\t")
+            #     allEvents.append(events)
 
     bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
     # print(len(bigDF))
-    bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
+    # bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
     # print(len(bigEvents))
     # Merge DataFrames based on 'proba'
-    merged_data = pd.concat([bigEvents, bigDF], axis=1)
+    # merged_data = pd.concat([bigEvents, bigDF], axis=1)
     # print(len(merged_data))
 
-    merged_data.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
-    return merged_data
+    bigDF.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
+    return bigDF
+
+
+# Executing the code:
+data_dir = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+getAllRawData(data_dir)
