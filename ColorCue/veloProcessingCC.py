@@ -950,7 +950,12 @@ def process_all_filtered_files(data_dir):
 
 # %%
 path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
+path2='/envau/work/brainets/oueld.h/attentionalTask/data/'
 # %%
-df = process_all_asc_files(path)
+process_all_asc_files(path)
 # %%
 process_all_filtered_files(path)
+# %%
+process_all_asc_files(path2)
+# %%
+process_all_filtered_files(path2)
