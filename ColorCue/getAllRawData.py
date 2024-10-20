@@ -454,6 +454,9 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 
 
 # %%
+
+
+# %%
 def detect_saccades(data, mono=True):
     sample_window = 0.001  # 1 kHz eye tracking
     deg = 27.28  # pixel to degree conversion
@@ -727,7 +730,7 @@ def getAllRawData(data_dir):
 
                 filtered_data = [
                     process_eye_movement(
-                        df[df["trial"] == t], sampling_freq=1000, cutoff_freq=30
+                        df[df["trial"] == t]['xp'], sampling_freq=1000, cutoff_freq=30
                     )
                     for t in df.trial.unique()
                 ]
