@@ -14,7 +14,7 @@ import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
-fileName = "results.csv"
+fileName = "filtered_results.csv"
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
@@ -136,7 +136,7 @@ pg.wilcoxon(
 )
 # %%
 # Pivot the data for proba
-pivot_proba = dd[dd.color == "red"].pivot(
+pivot_proba = dd[dd.color == "green"].pivot(
     index="sub_number", columns="proba", values="meanVelo"
 )
 pivot_proba
@@ -157,7 +157,7 @@ pivot_color = dd[dd.proba == 75].pivot(
 )
 pivot_color
 
-# %%
+# a %%
 # Perform the wilcoxon Test for color
 statistic_color, p_value_color = wilcoxon(pivot_color["green"], pivot_color["red"])
 print(
@@ -312,11 +312,11 @@ anova_results = pg.rm_anova(
 print(anova_results)
 # %%
 sns.pointplot(
-    data=df,
+    data=dd,
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="se",
+    errorbar="sd",
     hue="color",
     palette=colors,
 )
@@ -336,7 +336,6 @@ _ = plt.title("ASEM  across porba: Red")
 plt.show()
 # %%
 
-# %%
 sns.pointplot(
     data=df[df.color == "green"],
     x="proba",
@@ -409,7 +408,7 @@ sns.barplot(
     y="posOffSet",
     hue="color",
     palette=colors,
-    data=dd,
+    data=df,
 )
 plt.title("ASEM over 3 different probabilites for Green & Red.")
 plt.xlabel("P(Right|RED)=P(Left|Green)")
