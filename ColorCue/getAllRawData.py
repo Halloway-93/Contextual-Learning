@@ -726,7 +726,6 @@ def getAllRawData(data_dir):
                 sub = re.search(r"sub-(\d+)", filename).group(1)
                 df["proba"] = proba
                 df["sub"] = sub
-                df["velo"] = np.gradient(df["xp"])
                 # Adding the filtered postition and the filtered velocity.
 
                 filtered_data = [

@@ -20,6 +20,8 @@ rawFileName = "allRawData.csv"
 rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
+rawData.columns
+# %%
 example = rawData[(rawData["sub"] == 6.0) & (rawData["proba"] == 75)]
 example
 # %%
