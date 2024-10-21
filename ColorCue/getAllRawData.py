@@ -707,14 +707,14 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
 
 
 # %%
-def getAllRawData(data_dir):
+def getAllRawData(data_dir,sampling_freq=1000, degToPix=27.28):
     """
     - This is to concatenate all the raw data from all participants and all conditions together.
     - Adding a column for filtered pos and fileterd velocity.
     """
     allDFs = []
     # allEvents = []
-
+    
     for root, _, files in sorted(os.walk(data_dir)):
         for filename in sorted(files):
             if filename.endswith(".asc"):
@@ -735,7 +735,7 @@ def getAllRawData(data_dir):
                     for t in df.trial.unique()
                 ]
                 velo = [
-                    np.gradient(df[df["trial"] == t]["xp"]) for t in df.trial.unique()
+                    pd.Series(np.gradient(df[df["trial"] == t]["xp"])*sampling_freq/degToPix for t in df.trial.unique())
                 ]
                 allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
                 allVelo = pd.concat(velo, axis=0, ignore_index=True)
