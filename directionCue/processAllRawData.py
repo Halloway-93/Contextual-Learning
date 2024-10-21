@@ -519,7 +519,7 @@ def process_metadata(df, metadata):
     return df
 
 
-def process_all_raw_data(data_dir, filename="rawData.csv"):
+def process_all_raw_data(data_dir, filename="allRawData.csv"):
     all_raw_data = []
     data_dir_path = Path(data_dir)
 
@@ -545,5 +545,3 @@ def process_all_raw_data(data_dir, filename="rawData.csv"):
 # Running the code on the server
 dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 process_all_raw_data(dirPath1)
-# dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-# process_all_raw_data(dirPath2)

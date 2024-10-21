@@ -701,13 +701,14 @@ def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
 
 
 # %%
-def processAllRawData(path, filename, newFileName, fixOff=-200, endOftrial=600):
+def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     """
     Function that takes all rawdata from all participants.
     Gets rid off the saccades.
     Applies the butterworth filter.
     computes the filtered positon and filtered and raw velocity.
     """
+    print("Reading data from ", os.path.join(path, fileName))
     df = pd.read_csv(os.path.join(path, fileName))
     # Getting the region of interest
     df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
