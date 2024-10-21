@@ -726,18 +726,24 @@ def getAllRawData(data_dir):
                 sub = re.search(r"sub-(\d+)", filename).group(1)
                 df["proba"] = proba
                 df["sub"] = sub
+                df["velo"] = np.gradient(df["xp"])
                 # Adding the filtered postition and the filtered velocity.
 
                 filtered_data = [
                     process_eye_movement(
-                        df[df["trial"] == t]['xp'], sampling_freq=1000, cutoff_freq=30
+                        df[df["trial"] == t]["xp"], sampling_freq=1000, cutoff_freq=30
                     )
                     for t in df.trial.unique()
                 ]
+                velo = [
+                    np.gradient(df[df["trial"] == t]["xp"]) for t in df.trial.unique()
+                ]
                 allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
+                allVelo = pd.concat(velo, axis=0, ignore_index=True)
                 # Ensure the original DataFrame and the filtered DataFrame have the same length
                 if len(df) == len(allFiltData):
                     df[["filtPos", "filtVelo"]] = allFiltData
+                    df["velo"] = allVelo
                 else:
                     print(
                         "Error: The lengths of the original DataFrame and the filtered DataFrame do not match."

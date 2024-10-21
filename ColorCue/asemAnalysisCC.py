@@ -15,6 +15,31 @@ import numpy as np
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
 fileName = "filtered_results.csv"
+rawFileName = "allRawData.csv"
+# %%
+rawData = pd.read_csv(os.path.join(path, rawFileName))
+
+# %%
+example = rawData[(rawData["sub"] == 6.0) & (rawData["proba"] == 75)]
+example
+# %%
+# Plotting one example
+for t in example.trial.unique():
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].filtVelo,
+        alpha=0.5,
+    )
+    # plt.plot(
+    #     example[example["trial"] == t].time,
+    #     example[example["trial"] == t].velo,
+    #     alpha=0.5,
+    # )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+# %%
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
