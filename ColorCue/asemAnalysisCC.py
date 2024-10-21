@@ -20,9 +20,12 @@ rawFileName = "allRawData.csv"
 rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
+roi=rawData[(rawData["time"] > -200) & (rawData["time"] <600)]
+
+# %%
 rawData.columns
 # %%
-example = rawData[(rawData["sub"] == 6.0) & (rawData["proba"] == 75)]
+example = roi[(roi["sub"] == 6.0) & (roi["proba"] == 75)]
 example
 # %%
 # Plotting one example
@@ -39,6 +42,22 @@ for t in example.trial.unique():
     )
     plt.xlabel("Time in ms", fontsize=20)
     plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+# %%
+for t in example.trial.unique():
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].xp,
+        alpha=0.5,
+    )
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].filtPos,
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Eye Position", fontsize=20)
     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
     plt.show()
 # %%

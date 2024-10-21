@@ -707,20 +707,20 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
 
 
 # %%
-def getAllRawData(data_dir,sampling_freq=1000, degToPix=27.28):
+def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
     """
     - This is to concatenate all the raw data from all participants and all conditions together.
     - Adding a column for filtered pos and fileterd velocity.
     """
     allDFs = []
     # allEvents = []
-    
+
     for root, _, files in sorted(os.walk(data_dir)):
         for filename in sorted(files):
             if filename.endswith(".asc"):
                 filepath = os.path.join(root, filename)
                 print(f"Read data from {filepath}")
-                df = preprocess_data_file(filepath, removeSaccades=True)
+                df = preprocess_data_file(filepath, removeSaccades=False)
                 # Extract proba from filename
                 proba = int(re.search(r"dir(\d+)", filename).group(1))
                 sub = re.search(r"sub-(\d+)", filename).group(1)
@@ -728,23 +728,24 @@ def getAllRawData(data_dir,sampling_freq=1000, degToPix=27.28):
                 df["sub"] = sub
                 # Adding the filtered postition and the filtered velocity.
 
-                filtered_data = [
-                    process_eye_movement(
-                        df[df["trial"] == t]["xp"], sampling_freq=1000, cutoff_freq=30
-                    )
+                # filtered_data = [
+                #     process_eye_movement(
+                #         df[df["trial"] == t]["xp"], sampling_freq=1000, cutoff_freq=30
+                #     )
+                #     for t in df.trial.unique()
+                # ]
+                velo = [
+                    np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
                     for t in df.trial.unique()
                 ]
-                velo =  [
-                    np.gradient(df[df["trial"] == t]["xp"])*sampling_freq/degToPix  for t in df.trial.unique()
-                    ]
                 # Concatenate the list of arrays into a single array
-                allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
-                allVelo =np.concatenate(velo)
+                # allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
+                allVelo = np.concatenate(velo)
                 print(len(allVelo))
-                
+
                 # Ensure the original DataFrame and the filtered DataFrame have the same length
-                if len(df) == len(allFiltData):
-                    df[["filtPos", "filtVelo"]] = allFiltData
+                if len(df) == len(allVelo):
+                    # df[["filtPos", "filtVelo"]] = allFiltData
                     df["velo"] = allVelo
                 else:
                     print(
