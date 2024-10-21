@@ -605,14 +605,14 @@ def calculate_velocity(
     # velocity[-1] = (position[-1] - position[-2]) * sampling_freq
     velocity = np.gradient(position)
     # Filter velocity separately with lower cutoff
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = velocity_cutoff / nyquist
-    b, a = signal.butter(2, normalized_cutoff, btype="low")
+    # nyquist = sampling_freq * 0.5
+    # normalized_cutoff = velocity_cutoff / nyquist
+    # b, a = signal.butter(2, normalized_cutoff, btype="low")
+    #
+    # # Filter velocity
+    # filtered_velocity = signal.filtfilt(b, a, velocity)
 
-    # Filter velocity
-    filtered_velocity = signal.filtfilt(b, a, velocity)
-
-    return filtered_velocity * sampling_freq / degToPix
+    return velocity * sampling_freq / degToPix
 
 
 def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
@@ -627,13 +627,13 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     # 2. Calculate velocity from the interpolated position
     # (we use interpolated to avoid NaN issues in velocity calculation)
     velocity = calculate_velocity(
-        interpolated_pos,
+        filtered_pos,
         sampling_freq=sampling_freq,
         velocity_cutoff=20,  # Typically lower cutoff for velocity
     )
 
     # 3. Put NaN back in velocity where position was NaN
-    velocity[np.isnan(eye_position)] = np.nan
+    # velocity[np.isnan(eye_position)] = np.nan
 
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
@@ -703,7 +703,7 @@ def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
 # %%
 def processAllRawData(path, filename, newFileName, fixOff=-200, endOftrial=600):
     """
-    Function that takwes all rawddata from all participants.
+    Function that takes all rawdata from all participants.
     Gets rid off the saccades.
     Applies the butterworth filter.
     computes the filtered positon and filtered and raw velocity.
@@ -716,7 +716,7 @@ def processAllRawData(path, filename, newFileName, fixOff=-200, endOftrial=600):
     for sub in df["sub"].unique():
         for p in df[df["sub"] == sub].proba.unique():
             sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
-            print(sacc)
+            # print(sacc)
             if not sacc.empty:
                 for t in sacc.trial.unique():
                     start = sacc[sacc["trial"] == t]["start"].values
@@ -726,8 +726,8 @@ def processAllRawData(path, filename, newFileName, fixOff=-200, endOftrial=600):
                             (df["sub"] == sub)
                             & (df["proba"] == p)
                             & (df.trial == t)
-                            & (df.time >= start[i] - 20)
-                            & (df.time <= end[i] + 20),
+                            & (df.time >= start[i] - 25)
+                            & (df.time <= end[i] + 25),
                             "xp",
                         ] = np.nan
 

@@ -32,11 +32,11 @@ for t in example.trial.unique():
         example[example["trial"] == t].filtVelo,
         alpha=0.5,
     )
-    # plt.plot(
-    #     example[example["trial"] == t].time,
-    #     example[example["trial"] == t].velo,
-    #     alpha=0.5,
-    # )
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].velo,
+        alpha=0.5,
+    )
     plt.xlabel("Time in ms", fontsize=20)
     plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
