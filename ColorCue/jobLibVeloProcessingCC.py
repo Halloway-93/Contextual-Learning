@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 import pandas as pd
 from scipy import signal
+from joblib import Parallel, delayed
 
 
 # Example velocity threshold for ASP detection
@@ -608,145 +609,109 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
 
-def analyze_smooth_pursuit(position, velocity, target_velocity=11.0):
+def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
     """
-    Analyze smooth pursuit performance
+    Process data for a single subject and probability condition
     """
-    # Get valid samples (non-NaN)
-    valid_samples = ~np.isnan(position)
+    condition_data = df_condition.copy()
 
-    # Calculate gain during valid samples
-    pursuit_gain = velocity[valid_samples] / target_velocity
+    # Detect saccades for this condition
+    sacc = detect_saccades(condition_data)
 
-    # Basic metrics
-    mean_gain = np.mean(pursuit_gain)
-    gain_std = np.std(pursuit_gain)
+    # Process saccades if any were detected
+    if not sacc.empty:
+        for t in sacc.trial.unique():
+            start = sacc[sacc.trial == t]["start"].values
+            end = sacc[sacc.trial == t]["end"].values
+            for i in range(len(start)):
+                condition_data.loc[
+                    (condition_data.trial == t)
+                    & (condition_data.time >= start[i])
+                    & (condition_data.time <= end[i]),
+                    "xp",
+                ] = np.nan
 
-    return mean_gain, gain_std, pursuit_gain
+    # Process each trial in parallel
+    def process_trial(t):
+        trial = condition_data[condition_data.trial == t]
+        filtered_trial = process_eye_movement(trial.xp)
+        filtered_trial["time"] = trial["time"].values
 
+        if not sacc.empty and t in sacc.trial.unique():
+            start = sacc[sacc.trial == t]["start"].values
+            end = sacc[sacc.trial == t]["end"].values
+            for i in range(len(start)):
+                filtered_trial.loc[
+                    (filtered_trial.time >= start[i] - 25)
+                    & (filtered_trial.time <= end[i] + 25),
+                    ["filtPos", "filtVelo"],
+                ] = np.nan
 
-def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
-    """
-    Process the filtered data.
-    Returns the position offset and the velocity on the desired window[fOFF,latency].
-    """
-    data = df[["trial", "time", "xp"]]
-    data = data.apply(pd.to_numeric, errors="coerce")
-    if mono:
-        filtered_data = [
-            process_eye_movement(data[data["trial"] == t].xp)
-            for t in data.trial.unique()
-        ]
-    else:
-        filtered_data = [
-            process_eye_movement(data[data["trial"] == t].xpr)
-            for t in data.trial.unique()
-        ]
-    filtered_data = pd.concat(filtered_data, axis=0)
-    data["filtered_pos"] = filtered_data["filtPos"].values
-    data["filtered_velo"] = filtered_data["filtVelo"].values
+        filtered_trial.drop(columns=["time"], inplace=True)
 
-    # Extract position and velocity data
+        # Calculate velocity for the trial
+        trial_velo = np.gradient(trial["xp"].values, 1) * 1000 / 27.28
 
-    selected_values = data[(data.time >= fOFF) & (data.time <= latency)]
-    pos = selected_values[["trial", "filtered_pos"]]
-    posOffSet = (
-        np.array(
-            [
-                pos[pos["trial"] == t]["filtered_pos"].values[-1]
-                - pos[pos["trial"] == t]["filtered_pos"].values[0]
-                for t in pos.trial.unique()
-            ]
-        )
-        / degToPix
-    )
-    meanVelo = np.array(
-        [
-            np.nanmean(data[data["trial"] == t]["filtered_velo"])
-            for t in data.trial.unique()
-        ]
+        return {"filtered_trial": filtered_trial, "trial": t, "velocity": trial_velo}
+
+    # Process all trials in parallel
+    trial_results = Parallel(n_jobs=-1)(
+        delayed(process_trial)(t) for t in condition_data.trial.unique()
     )
 
-    return pd.DataFrame({"posOffSet": posOffSet, "meanVelo": meanVelo})
+    return sub, p, trial_results
 
 
-# %%
 def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     """
-    Function that takes all rawdata from all participants.
-    Gets rid off the saccades.
-    Applies the butterworth filter.
-    computes the filtered positon and filtered and raw velocity.
+    Parallelized version of the raw data processing function
     """
     print("Reading data from ", os.path.join(path, fileName))
     df = pd.read_csv(os.path.join(path, fileName))
+
     # Getting the region of interest
     df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
-    df.drop(columns=["cr.info"], inplace=True)
-    # Getting rid of the saccades by deleting 20 ms before and after
-    filtered_data = []
-    for sub in df["sub"].unique():
-        for p in df[df["sub"] == sub].proba.unique():
-            sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
-            if not sacc.empty:
-                for t in sacc.trial.unique():
-                    start = sacc[sacc["trial"] == t]["start"].values
-                    end = sacc[sacc["trial"] == t]["end"].values
-                    for i in range(len(start)):
-                        df.loc[
-                            (df["sub"] == sub)
-                            & (df["proba"] == p)
-                            & (df.trial == t)
-                            & (df.time >= start[i])
-                            & (df.time <= end[i]),
-                            "xp",
-                        ] = np.nan
+    if "cr.info" in df.columns:
+        df.drop(columns=["cr.info"], inplace=True)
 
-                # Getting the filtered pos and velocity for each sub condition and trial
-                for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-                    trial = df[
-                        (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)
-                    ]
-                    filtered_trial = process_eye_movement(trial.xp)
-                    filtered_trial["time"] = trial["time"].values
-                    if t in sacc.trial.unique():
-                        start = sacc[sacc["trial"] == t]["start"].values
-                        end = sacc[sacc["trial"] == t]["end"].values
-                        for i in range(len(start)):
-                            filtered_trial.loc[
-                                (filtered_trial.time >= start[i] - 25)
-                                & (filtered_trial.time <= end[i] + 25),
-                                "filtPos",
-                            ] = np.nan
+    # Prepare conditions for parallel processing
+    conditions = [
+        (sub, p, df[(df.sub == sub) & (df.proba == p)])
+        for sub in df.sub.unique()
+        for p in df[df.sub == sub].proba.unique()
+    ]
 
-                            filtered_trial.loc[
-                                (filtered_trial.time >= start[i] - 25)
-                                & (filtered_trial.time <= end[i] + 25),
-                                "filtVelo",
-                            ] = np.nan
-                    filtered_trial.drop(columns=["time"], inplace=True)
-                    filtered_data.append(filtered_trial)
-    # Merging the filtered data into the dataframe
-    filtered_data = pd.concat(filtered_data, axis=0)
-    df = df.reset_index(drop=True)
-    filtered_data = filtered_data.reset_index(drop=True)
-    df = pd.concat([df, filtered_data], axis=1)
+    # Process all conditions in parallel
+    results = Parallel(n_jobs=-1)(
+        delayed(process_single_condition)(sub, p, condition_df, fixOff, endOftrial)
+        for sub, p, condition_df in conditions
+    )
 
-    # Computing the velocity
-    for sub in df["sub"].unique():
-        for p in df[df["sub"] == sub].proba.unique():
-            for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-                trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-                trial_velo = np.gradient(trial["xp"].values, 1) * 1000 / 27.28
-                df.loc[
-                    (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t), "velo"
-                ] = trial_velo
+    # Combine results back into the main dataframe
+    df["filtPos"] = np.nan
+    df["filtVelo"] = np.nan
+    df["velo"] = np.nan
 
+    for sub, p, trial_results in results:
+        for result in trial_results:
+            trial = result["trial"]
+            mask = (df.sub == sub) & (df.proba == p) & (df.trial == trial)
+
+            # Update filtered data
+            filtered_trial = result["filtered_trial"]
+            df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
+            df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
+
+            # Update velocity
+            df.loc[mask, "velo"] = result["velocity"]
+
+    # Save the processed data
     df.to_csv(os.path.join(path, newFileName), index=False)
 
+    return df
 
 # %%
 path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 fileName = "allRawData.csv"
-newFileName = "rawAndFiltereDataNoSacc.csv"
+newFileName = "JobLibProcessingCC.csv"
 processAllRawData(path, fileName, newFileName)
