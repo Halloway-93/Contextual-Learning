@@ -7,36 +7,6 @@ import pandas as pd
 from scipy import signal
 
 
-def filter_asp_data(eye_position, sampling_freq=1000):
-    # For ASP, we typically want a slightly higher cutoff
-    # to preserve the subtle movements
-    cutoff_freq = 30  # Hz
-
-    # Use a lower order filter to minimize ringing
-    order = 2
-
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = cutoff_freq / nyquist
-
-    # Design filter
-    b, a = signal.butter(order, normalized_cutoff, btype="low")
-
-    # Use filtfilt for zero-phase filtering
-    filtered_pos = signal.filtfilt(b, a, eye_position)
-
-    # Calculate velocity (using central difference)
-    velocity = np.zeros_like(filtered_pos)
-    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
-
-    # Filter velocity separately with lower cutoff
-    vel_cutoff = 20  # Hz
-    normalized_vel_cutoff = vel_cutoff / nyquist
-    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
-    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
-
-    return filtered_pos, filtered_vel
-
-
 # Example velocity threshold for ASP detection
 def detect_asp_onset(velocity, threshold=2.0):  # deg/s
     """
@@ -714,10 +684,10 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
     df.drop(columns=["cr.info"], inplace=True)
     # Getting rid of the saccades by deleting 20 ms before and after
+    filtered_data = []
     for sub in df["sub"].unique():
         for p in df[df["sub"] == sub].proba.unique():
             sacc = detect_saccades(df[(df["sub"] == sub) & (df["proba"] == p)])
-            # print(sacc)
             if not sacc.empty:
                 for t in sacc.trial.unique():
                     start = sacc[sacc["trial"] == t]["start"].values
@@ -727,18 +697,35 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
                             (df["sub"] == sub)
                             & (df["proba"] == p)
                             & (df.trial == t)
-                            & (df.time >= start[i] - 25)
-                            & (df.time <= end[i] + 25),
+                            & (df.time >= start[i])
+                            & (df.time <= end[i]),
                             "xp",
                         ] = np.nan
 
-    # Getting the filtered pos and velocity for each sub condition and trial
-    filtered_data = []
-    for sub in df["sub"].unique():
-        for p in df[df["sub"] == sub].proba.unique():
-            for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
-                trial = df[(df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)]
-                filtered_data.append(process_eye_movement(trial.xp))
+                # Getting the filtered pos and velocity for each sub condition and trial
+                for t in df[(df["sub"] == sub) & (df["proba"] == p)].trial.unique():
+                    trial = df[
+                        (df["sub"] == sub) & (df["proba"] == p) & (df["trial"] == t)
+                    ]
+                    filtered_trial = process_eye_movement(trial.xp)
+                    filtered_trial["time"] = trial["time"].values
+                    if t in sacc.trial.unique():
+                        start = sacc[sacc["trial"] == t]["start"].values
+                        end = sacc[sacc["trial"] == t]["end"].values
+                        for i in range(len(start)):
+                            filtered_trial.loc[
+                                (filtered_trial.time >= start[i] - 25)
+                                & (filtered_trial.time <= end[i] + 25),
+                                "filtPos",
+                            ] = np.nan
+
+                            filtered_trial.loc[
+                                (filtered_trial.time >= start[i] - 25)
+                                & (filtered_trial.time <= end[i] + 25),
+                                "filtVelo",
+                            ] = np.nan
+                    filtered_trial.drop(columns=['time'],inplace=True)
+                    filtered_data.append(filtered_trial)
     # Merging the filtered data into the dataframe
     filtered_data = pd.concat(filtered_data, axis=0)
     df = df.reset_index(drop=True)

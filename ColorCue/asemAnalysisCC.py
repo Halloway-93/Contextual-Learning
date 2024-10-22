@@ -14,18 +14,19 @@ import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
-fileName = "filtered_results.csv"
-rawFileName = "allRawData.csv"
+fileName = "filtered_results"
+rawFileName = "rawAndFiltereDataNoSacc.csv"
 # %%
 rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
-roi=rawData[(rawData["time"] > -200) & (rawData["time"] <600)]
 
 # %%
 rawData.columns
 # %%
-example = roi[(roi["sub"] == 6.0) & (roi["proba"] == 75)]
+example = rawData[
+    (rawData["sub"] == 6.0) & (rawData["proba"] == 25) & (rawData["trial"] == 161)
+]
 example
 # %%
 # Plotting one example
@@ -60,12 +61,81 @@ for t in example.trial.unique():
     plt.ylabel("Eye Position", fontsize=20)
     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
     plt.show()
+
+
 # %%
+def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
+    """
+    Process the filtered data.
+    Returns the position offset and the velocity on the desired window[fOFF,latency].
+    """
+
+    # Extract position and velocity data
+
+    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
+    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
+    allData = []
+    for sub in pos["sub"].unique():
+        for proba in pos[pos["sub"] == sub]["proba"].unique():
+
+            posOffSet = pd.DataFrame(
+                np.array(
+                    [
+                        pos[
+                            (pos["trial"] == t)
+                            & (pos["sub"] == sub)
+                            & (pos["proba"] == proba)
+                        ]["filtPos"].values[-1]
+                        - pos[
+                            (pos["trial"] == t)
+                            & (pos["sub"] == sub)
+                            & (pos["proba"] == proba)
+                        ]["filtPos"].values[0]
+                        for t in pos[
+                            (pos["sub"] == sub) & (pos["proba"] == proba)
+                        ].trial.unique()
+                    ]
+                )
+                / degToPix,
+                columns=["posOffSet"],
+            )
+            posOffSet["sub"] = sub
+            posOffSet["proba"] = proba
+            posOffSet["trial"] = [i + 1 for i in range(len(posOffSet))]
+            meanVelo = np.array(
+                [
+                    np.nanmean(
+                        pos[
+                            (pos["trial"] == t)
+                            & (pos["sub"] == sub)
+                            & (pos["proba"] == proba)
+                        ]["filtVelo"]
+                    )
+                    for t in pos[
+                        (pos["sub"] == sub) & (pos["proba"] == proba)
+                    ].trial.unique()
+                ]
+            )
+            posOffSet["meanVelo"] = meanVelo
+            allData.append(posOffSet)
+
+    return pd.concat(allData, axis=0, ignore_index=True)
+
+
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
 # %%
-df = pd.read_csv(os.path.join(path, fileName))
+df = process_filtered_data(rawData)
+# %%
+df[df["meanVelo"] == df["meanVelo"].max()][["sub", "proba", "trial"]]
+# %%
+df["meanVelo"].max()
+# %%
+sns.histplot(data=df, x="meanVelo")
+plt.show()
+# %%
+# df = pd.read_csv(os.path.join(path, fileName))
 # [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
 df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
