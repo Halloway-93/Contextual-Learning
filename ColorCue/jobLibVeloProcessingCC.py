@@ -676,9 +676,9 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 
     # Prepare conditions for parallel processing
     conditions = [
-        (sub, p, df[(df.sub == sub) & (df.proba == p)])
-        for sub in df.sub.unique()
-        for p in df[df.sub == sub].proba.unique()
+        (sub, p, df[(df['sub'] == sub) & (df['proba'] == p)])
+        for sub in df['sub'].unique()
+        for p in df[df['sub'] == sub].proba.unique()
     ]
 
     # Process all conditions in parallel
@@ -695,7 +695,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     for sub, p, trial_results in results:
         for result in trial_results:
             trial = result["trial"]
-            mask = (df.sub == sub) & (df.proba == p) & (df.trial == trial)
+            mask = (df['sub'] == sub) & (df['proba'] == p) & (df['trial'] == trial)
 
             # Update filtered data
             filtered_trial = result["filtered_trial"]
@@ -709,6 +709,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     df.to_csv(os.path.join(path, newFileName), index=False)
 
     return df
+
 
 # %%
 path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
