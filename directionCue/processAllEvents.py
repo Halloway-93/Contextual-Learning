@@ -33,9 +33,11 @@ def process_all_events(data_dir, filename="allEvents.csv"):
 
     for filepath in sorted(data_dir_path.rglob("*")):
         if filepath.is_file():
-            if (
-                filepath.suffix == ".csv" or filepath.suffix == ".tsv"
-            ) and filepath.name != "rawData.csv":
+            if filepath.suffix == ".csv" and filepath.stem.startswith("sub"):
+                df = read_file(filepath)
+                df["trial"] = [i + 1 for i in range(len(df))]
+                all_events.append(df)
+            elif filepath.suffix == ".tsv":
                 df = read_file(filepath)
                 df["trial"] = [i + 1 for i in range(len(df))]
                 all_events.append(df)
@@ -44,9 +46,11 @@ def process_all_events(data_dir, filename="allEvents.csv"):
                 if all_events:
                     all_events[-1] = process_metadata(all_events[-1], metadata)
 
-    big_df = pd.concat(all_events, axis=0, ignore_index=True)
-    big_df.to_csv(os.path.join(data_dir, filename), index=False)
-
+    if all_events:
+        big_df = pd.concat(all_events, axis=0, ignore_index=True)
+        big_df.to_csv(os.path.join(data_dir, filename), index=False)
+    else:
+        print("No events found to process.")
 
 # Example usage
 # data_dir = "path/to/your/data"
