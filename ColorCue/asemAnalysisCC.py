@@ -17,7 +17,72 @@ pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
 fileName = "filtered_results"
 rawFileName = "rawAndFiltereDataNoSacc.csv"
 jobLibData = "jobLibProcessingCC.csv"
+allEventsFile = (
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
+)
+
+
 # %%
+def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=-50, latency=100):
+    """
+    Process the filtered data.
+    Returns the position offset and the velocity on the desired window[fOFF,latency].
+    """
+
+    # Extract position and velocity data
+
+    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
+    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
+    allData = []
+    for sub in pos["sub"].unique():
+        for proba in pos[pos["sub"] == sub]["proba"].unique():
+
+            posOffSet = pd.DataFrame(
+                np.array(
+                    [
+                        pos[
+                            (pos["trial"] == t)
+                            & (pos["sub"] == sub)
+                            & (pos["proba"] == proba)
+                        ]["filtPos"].values[-1]
+                        - pos[
+                            (pos["trial"] == t)
+                            & (pos["sub"] == sub)
+                            & (pos["proba"] == proba)
+                        ]["filtPos"].values[0]
+                        for t in pos[
+                            (pos["sub"] == sub) & (pos["proba"] == proba)
+                        ].trial.unique()
+                    ]
+                )
+                / degToPix,
+                columns=["posOffSet"],
+            )
+            posOffSet["sub"] = sub
+            posOffSet["proba"] = proba
+            posOffSet["trial"] = [i + 1 for i in range(len(posOffSet))]
+            meanVelo = np.array(
+                [
+                    np.nanmean(
+                        pos[
+                            (pos["trial"] == t)
+                            & (pos["sub"] == sub)
+                            & (pos["proba"] == proba)
+                        ]["filtVelo"]
+                    )
+                    for t in pos[
+                        (pos["sub"] == sub) & (pos["proba"] == proba)
+                    ].trial.unique()
+                ]
+            )
+            posOffSet["meanVelo"] = meanVelo
+            allData.append(posOffSet)
+    allData = pd.concat(allData, axis=0, ignore_index=True)
+    finalData = pd.concat([events, allData], axis=1)
+
+    return finalData
+
+
 rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
@@ -26,12 +91,12 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 rawData.columns
 # %%
 example = rawData[
-    (rawData["sub"] == 6.0) & (rawData["proba"] == 25) & (rawData["trial"] == 16)
+    (rawData["sub"] == 13) & (rawData["proba"] == 25) & (rawData["trial"] == 195)
 ]
 example
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 6.0) & (jlData["proba"] == 25) & (jlData["trial"] == 16)
+    (jlData["sub"] == 13) & (jlData["proba"] == 25) & (jlData["trial"] == 195)
 ]
 exampleJL
 # %%
@@ -128,72 +193,16 @@ for t in exampleJL.trial.unique():
 
 
 # %%
-def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=-50, latency=100):
-    """
-    Process the filtered data.
-    Returns the position offset and the velocity on the desired window[fOFF,latency].
-    """
-
-    # Extract position and velocity data
-
-    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
-    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
-    allData = []
-    for sub in pos["sub"].unique():
-        for proba in pos[pos["sub"] == sub]["proba"].unique():
-
-            posOffSet = pd.DataFrame(
-                np.array(
-                    [
-                        pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtPos"].values[-1]
-                        - pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtPos"].values[0]
-                        for t in pos[
-                            (pos["sub"] == sub) & (pos["proba"] == proba)
-                        ].trial.unique()
-                    ]
-                )
-                / degToPix,
-                columns=["posOffSet"],
-            )
-            posOffSet["sub"] = sub
-            posOffSet["proba"] = proba
-            posOffSet["trial"] = [i + 1 for i in range(len(posOffSet))]
-            meanVelo = np.array(
-                [
-                    np.nanmean(
-                        pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtVelo"]
-                    )
-                    for t in pos[
-                        (pos["sub"] == sub) & (pos["proba"] == proba)
-                    ].trial.unique()
-                ]
-            )
-            posOffSet["meanVelo"] = meanVelo
-            allData.append(posOffSet)
-
-    return pd.concat(allData, axis=0, ignore_index=True)
-
-
-# %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
 # %%
-df = process_filtered_data(rawData)
+allEvents = pd.read_csv(allEventsFile)
+df = process_filtered_data(jlData, allEvents)
 # %%
-df[df["meanVelo"] == df["meanVelo"].max()][["sub", "proba", "trial"]]
+badTrials = df[df["meanVelo"] > 11]
+badTrials
 # %%
+df = df[df["meanVelo"] <= 11]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -384,7 +393,7 @@ sns.histplot(
     palette=colors,
 )
 plt.show()
-# %%
+# a %%
 # Early trials
 sns.histplot(
     data=df[(df.proba == 75) & (df.trial_number <= 40)],
@@ -492,7 +501,7 @@ anova_results = pg.rm_anova(
 print(anova_results)
 # %%
 sns.pointplot(
-    data=dd,
+    data=df,
     x="proba",
     y="meanVelo",
     capsize=0.1,
