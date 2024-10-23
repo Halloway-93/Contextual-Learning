@@ -23,7 +23,9 @@ allEventsFile = (
 
 
 # %%
-def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=-50, latency=100):
+def process_filtered_data(
+    df, events, mono=True, degToPix=27.28, fOFF=-200, latency=100
+):
     """
     Process the filtered data.
     Returns the position offset and the velocity on the desired window[fOFF,latency].
@@ -83,6 +85,7 @@ def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=-50, laten
     return finalData
 
 
+# %%
 rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
@@ -91,12 +94,12 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 rawData.columns
 # %%
 example = rawData[
-    (rawData["sub"] == 13) & (rawData["proba"] == 25) & (rawData["trial"] == 195)
+    (rawData["sub"] == 6) & (rawData["proba"] == 25) & (rawData["trial"] == 161)
 ]
 example
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 13) & (jlData["proba"] == 25) & (jlData["trial"] == 195)
+    (jlData["sub"] == 6) & (jlData["proba"] == 25) & (jlData["trial"] == 161)
 ]
 exampleJL
 # %%
@@ -199,10 +202,10 @@ greenColorsPalette = ["#8cd790", "#285943"]
 allEvents = pd.read_csv(allEventsFile)
 df = process_filtered_data(jlData, allEvents)
 # %%
-badTrials = df[df["meanVelo"] > 11]
+badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
 badTrials
 # %%
-df = df[df["meanVelo"] <= 11]
+df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -217,7 +220,9 @@ df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "r
 # df = df.dropna(subset=["meanVelo"])
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
-df = df[(df["sub_number"] != 8) & (df["sub_number"] != 11)]
+# %%
+df = df[(df["sub_number"] != 9)]
+# %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
 df
@@ -325,6 +330,22 @@ pg.wilcoxon(
 )
 # %%
 # Pivot the data for proba
+pivot_proba = dd[dd.color == "red"].pivot(
+    index="sub_number", columns="proba", values="meanVelo"
+)
+pivot_proba
+# %%
+# Perform the Friedman Test for proba
+statistic_proba, p_value_proba = friedmanchisquare(
+    pivot_proba[25], pivot_proba[50], pivot_proba[75]
+)
+print(
+    f"Friedman Test for proba: Statistic(Red) = {statistic_proba}, p-value = {p_value_proba}"
+)
+
+
+# %%
+# Pivot the data for proba
 pivot_proba = dd[dd.color == "green"].pivot(
     index="sub_number", columns="proba", values="meanVelo"
 )
@@ -335,7 +356,37 @@ statistic_proba, p_value_proba = friedmanchisquare(
     pivot_proba[25], pivot_proba[50], pivot_proba[75]
 )
 print(
-    f"Friedman Test for proba: Statistic = {statistic_proba}, p-value = {p_value_proba}"
+    f"Friedman Test for proba: Statistic(Green) = {statistic_proba}, p-value = {p_value_proba}"
+)
+
+
+# %%
+# Pivot the data for proba
+pivot_color = dd[dd.proba == 25].pivot(
+    index="sub_number", columns="color", values="meanVelo"
+)
+pivot_color
+
+# a %%
+# Perform the wilcoxon Test for color
+statistic_color, p_value_color = wilcoxon(pivot_color["green"], pivot_color["red"])
+print(
+    f"Wilcoxon Test for color Statistic(P(Right|Red)=25) = {statistic_color}, p-value = {p_value_color}"
+)
+
+
+# %%
+# Pivot the data for proba
+pivot_color = dd[dd.proba == 50].pivot(
+    index="sub_number", columns="color", values="meanVelo"
+)
+pivot_color
+
+# a %%
+# Perform the wilcoxon Test for color
+statistic_color, p_value_color = wilcoxon(pivot_color["green"], pivot_color["red"])
+print(
+    f"Wilcoxon Test for color Statistic(P(Right|Red)=50) = {statistic_color}, p-value = {p_value_color}"
 )
 
 
@@ -350,7 +401,7 @@ pivot_color
 # Perform the wilcoxon Test for color
 statistic_color, p_value_color = wilcoxon(pivot_color["green"], pivot_color["red"])
 print(
-    f"Wilcoxon Test for color Statistic = {statistic_color}, p-value = {p_value_color}"
+    f"Wilcoxon Test for color Statistic(P(Right|Red)=75) = {statistic_color}, p-value = {p_value_color}"
 )
 
 
@@ -374,12 +425,12 @@ corrected_p_values = corrected_p_values.reshape(posthoc.shape)
 print("Holm-Bonferroni corrected Wilcoxon Test p-values:")
 print(pd.DataFrame(corrected_p_values, index=posthoc.index, columns=posthoc.columns))
 # %%
-model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "red"])
+model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "red"])
 result = model.fit()
 
 print(result.summary())
 # %%
-model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "green"])
+model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "green"])
 result = model.fit()
 
 print(result.summary())
@@ -393,7 +444,7 @@ sns.histplot(
     palette=colors,
 )
 plt.show()
-# a %%
+# %%
 # Early trials
 sns.histplot(
     data=df[(df.proba == 75) & (df.trial_number <= 40)],
@@ -501,11 +552,11 @@ anova_results = pg.rm_anova(
 print(anova_results)
 # %%
 sns.pointplot(
-    data=df,
+    data=dd,
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="sd",
+    errorbar="se",
     hue="color",
     palette=colors,
 )
@@ -519,7 +570,7 @@ sns.pointplot(
     capsize=0.1,
     errorbar="se",
     hue="sub_number",
-    palette="dark:salmon",
+    palette="Set2",
 )
 _ = plt.title("ASEM  across porba: Red")
 plt.show()
@@ -552,7 +603,7 @@ print(anova_results)
 df.sub_number.unique()
 # %%
 model = smf.mixedlm(
-    "meanVelo~ C( proba )",
+    "meanVelo~ ( proba )",
     data=dd[dd.color == "red"],
     # re_formula="~proba",
     groups=dd[dd.color == "red"]["sub_number"],
@@ -562,12 +613,21 @@ model.summary()
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(proba)",
-    data=df[df.color == "green"],
+    data=dd[dd.color == "green"],
     # re_formula="~proba",
-    groups=df[df.color == "green"]["sub_number"],
+    groups=dd[dd.color == "green"]["sub_number"],
 ).fit()
 model.summary()
 
+
+# %%
+model = smf.mixedlm(
+    "meanVelo~ C(proba)*C(color)",
+    data=dd,
+    # re_formula="~proba",
+    groups=dd["sub_number"],
+).fit()
+model.summary()
 
 # %%
 fig = plt.figure()
@@ -853,7 +913,7 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="magma_r",
+    palette="coolwarm",
     hue="interaction",
     data=learningCurveInteraction[learningCurveInteraction.color == "red"],
 )
@@ -895,7 +955,7 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="viridis",
+    palette="coolwarm",
     hue="interaction",
     data=learningCurveInteraction[learningCurveInteraction.color == "green"],
 )

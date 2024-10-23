@@ -192,7 +192,7 @@ df = pd.read_csv(
 )
 # %%
 filtered_df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/rawAndFiltereDataNoSacc.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
 )
 # %%
 df.drop(columns=["cr.info"], inplace=True)
@@ -232,7 +232,7 @@ for i in range(len(starts)):
 plt.show()
 # %%
 plt.plot(condFiltered.time, condFiltered.filtVelo)
-plt.plot(condFiltered.time, cond.velo)
+plt.plot(condFiltered.time, condFiltered.velo)
 for i in range(len(starts)):
     # plot shaded area between srarts[i] and ends [i]
     plt.fill_between(
@@ -244,8 +244,8 @@ for i in range(len(starts)):
     )
 plt.show()
 # %%
-plt.plot(cond.time, cond.xp)
-plt.plot(cond.time, condFiltered.filtPos)
+plt.plot(condFiltered.time, condFiltered.xp)
+plt.plot(condFiltered.time, condFiltered.filtPos)
 plt.show()
 # %%
 df = df.apply(pd.to_numeric, errors="coerce")
@@ -258,13 +258,14 @@ for sub in df["sub"].unique():
             saccTrial = saccades[saccades["trial"] == t]
             starts = saccTrial["start"]
             ends = saccTrial["end"]
-            plt.plot(cond[cond.trial == t].time, cond[cond.trial == t].xp)
+            plt.plot(cond[cond.trial == t].time, cond[cond.trial == t].xp, alpha=0.7)
             for i in range(len(starts)):
                 # plot shaded area between srarts[i] and ends [i]
                 plt.fill_between(
                     [starts.iloc[i], ends.iloc[i]],
-                    [cond[cond.trial == t].xp.min(), cond[cond.trial == t].xp.min()],
-                    [cond[cond.trial == t].xp.max(), cond[cond.trial == t].xp.max()],
+                    cond[cond.trial == t].xp.min(),
+                    cond[cond.trial == t].xp.max(),
                     color="red",
                     alpha=0.3,
                 )
+            plt.show()

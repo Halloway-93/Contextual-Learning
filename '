@@ -210,7 +210,8 @@ plt.show()
 # %%
 print(df)
 # %%
-df.sub.unique()
+balance = df.groupby(["chosen_arrow", "sub", "proba"])["trial"].count().reset_index()
+balance
 # %%
 for sub in balance["sub"].unique():
     sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
