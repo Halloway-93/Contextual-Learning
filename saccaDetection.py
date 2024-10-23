@@ -232,7 +232,7 @@ for i in range(len(starts)):
 plt.show()
 # %%
 plt.plot(condFiltered.time, condFiltered.filtVelo)
-plt.plot(condFiltered.time, condFiltered.velo)
+plt.plot(condFiltered.time, cond.velo)
 for i in range(len(starts)):
     # plot shaded area between srarts[i] and ends [i]
     plt.fill_between(

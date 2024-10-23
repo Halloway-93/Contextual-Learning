@@ -16,18 +16,24 @@ path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
 fileName = "filtered_results"
 rawFileName = "rawAndFiltereDataNoSacc.csv"
+jobLibData = "jobLibProcessingCC.csv"
 # %%
 rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
-
+jlData = pd.read_csv(os.path.join(path, jobLibData))
 # %%
 rawData.columns
 # %%
 example = rawData[
-    (rawData["sub"] == 6.0) & (rawData["proba"] == 25) & (rawData["trial"] == 161)
+    (rawData["sub"] == 6.0) & (rawData["proba"] == 25) & (rawData["trial"] == 16)
 ]
 example
+# %%
+exampleJL = jlData[
+    (jlData["sub"] == 6.0) & (jlData["proba"] == 25) & (jlData["trial"] == 16)
+]
+exampleJL
 # %%
 # Plotting one example
 for t in example.trial.unique():
@@ -39,6 +45,23 @@ for t in example.trial.unique():
     plt.plot(
         example[example["trial"] == t].time,
         example[example["trial"] == t].velo,
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+# %%
+# Plotting one example
+for t in exampleJL.trial.unique():
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].filtVelo,
+        alpha=0.5,
+    )
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].velo,
         alpha=0.5,
     )
     plt.xlabel("Time in ms", fontsize=20)
@@ -64,7 +87,48 @@ for t in example.trial.unique():
 
 
 # %%
-def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=80, latency=120):
+for t in exampleJL.trial.unique():
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].xp,
+        alpha=0.5,
+    )
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        example[exampleJL["trial"] == t].filtPos,
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Eye Position", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+
+
+# %%
+# Plotting one example
+# comapring the two datasets
+for t in exampleJL.trial.unique():
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].filtVelo,
+        alpha=0.5,
+        label="withShrabs",
+    )
+    plt.plot(
+        example[example["trial"] == t].time,
+        example[example["trial"] == t].filtVelo,
+        alpha=0.5,
+        label="withNoShrabs",
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.legend()
+    plt.show()
+
+
+# %%
+def process_filtered_data(df, mono=True, degToPix=27.28, fOFF=-50, latency=100):
     """
     Process the filtered data.
     Returns the position offset and the velocity on the desired window[fOFF,latency].
