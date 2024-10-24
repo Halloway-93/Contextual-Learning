@@ -108,6 +108,15 @@ def process_filtered_data_parallel(
 
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
+    # Ensure data types are consistent
+    allData['sub'] = allData['sub'].astype(int)
+    allData['proba'] = allData['proba'].astype(float)
+    allData['trial'] = allData['trial'].astype(int)
+
+    events['sub'] = events['sub'].astype(int)
+    events['proba'] = events['proba'].astype(float)
+    events['trial'] = events['trial'].astype(int)
+
     finalData = allData.merge(events, on=["sub", "proba", "trial"])
 
     # Save to CSV if output file is specified
@@ -119,13 +128,13 @@ def process_filtered_data_parallel(
 
 # Example usage:
 # Load your data
-dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
-filteredRawData1 = "JobLibProcessing.csv"
-allEventsFile1 = "allEvents.csv"
-
-dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-filteredRawData2 = "JobLibProcessingCC.csv"
+dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+filteredRawData2 = "JobLibProcessing.csv"
 allEventsFile2 = "allEvents.csv"
+
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+filteredRawData1 = "JobLibProcessingCC.csv"
+allEventsFile1 = "allEvents.csv"
 paths = [dirPath1, dirPath2]
 filteredRawDatas = [filteredRawData1, filteredRawData2]
 allEventsFiles = [allEventsFile1, allEventsFile2]
