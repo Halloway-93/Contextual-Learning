@@ -104,7 +104,7 @@ def process_filtered_data_parallel(
 
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
-    allData.drop(colums=['sub'],inplace=True)
+    allData.drop(columns=["sub"], inplace=True)
     # Merge with events data
     finalData = pd.concat(events, allData, axis=1)
 
