@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 import pandas as pd
-
+import re
 
 def read_file(filepath):
     if filepath.suffix == ".csv":
@@ -35,11 +35,14 @@ def process_all_events(data_dir, filename="allEvents.csv"):
         if filepath.is_file():
             if filepath.suffix == ".csv" and filepath.stem.startswith("sub"):
                 df = read_file(filepath)
+
                 all_events.append(df)
             elif filepath.suffix == ".tsv":
                 df = read_file(filepath)
                 df["sub"] = df["sub_number"]
                 df["trial"] = df["trial_number"]
+                proba = int(re.search(r"dir(\d+)", filename).group(1))
+                df["proba"] = proba
                 df.drop(columns=["sub_number", "trial_number"], inplace=True)
                 all_events.append(df)
             elif filepath.suffix == ".json" and filepath.name != "slopes.json":
