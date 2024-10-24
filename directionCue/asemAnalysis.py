@@ -18,7 +18,7 @@ allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/r
 
 
 # %%
-def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=-50, latency=50):
+def process_filtered_data(df, events, fOFF=-50, latency=50, mono=True, degToPix=27.28):
     """
     Process the filtered data.
     Returns the position offset and the velocity on the desired window[fOFF,latency].
@@ -77,7 +77,7 @@ def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=-50, laten
                 posOffSet = posOffSet[posOffSet["trial"] > numOfTrials - 240]
             allData.append(posOffSet)
     allData = pd.concat(allData, axis=0, ignore_index=True)
-    finalData = pd.concat([events, allData], axis=1)
+    finalData = pd.merge([events, allData],on='sub')
 
     return finalData
 
@@ -210,7 +210,7 @@ plt.show()
 # %%
 print(df)
 # %%
-df.sub.unique()
+df.
 # %%
 for sub in balance["sub"].unique():
     sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
