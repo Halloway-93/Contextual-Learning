@@ -39,6 +39,8 @@ def process_all_events(data_dir, filename="allEvents.csv"):
             elif filepath.suffix == ".tsv":
                 df = read_file(filepath)
                 df["trial"] = [i + 1 for i in range(len(df))]
+                df["sub"] = df["sub_number"]
+                df.drop(columns=["sub_number"])
                 all_events.append(df)
             elif filepath.suffix == ".json" and filepath.name != "slopes.json":
                 metadata = read_file(filepath)

@@ -47,7 +47,7 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
             "meanVelo": mean_velocities,
         }
     )
-    print (condition_df)
+    # print(condition_df)
     return condition_df
 
 
@@ -132,6 +132,7 @@ allEventsFiles = [allEventsFile1, allEventsFile2]
 for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):
     df = pd.read_csv(os.path.join(p, f))
     events = pd.read_csv(os.path.join(p, e))
+    print('events')
     output_file = os.path.join(p, "processedResults.csv")
     # Process data and save to CSV
     results = process_filtered_data_parallel(
