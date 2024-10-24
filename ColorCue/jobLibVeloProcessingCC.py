@@ -706,6 +706,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             df.loc[mask, "velo"] = result["velocity"]
 
     # Save the processed data
+    df["trial"] = df["trial"].astype(int)
     df.to_csv(os.path.join(path, newFileName), index=False)
 
     return df
