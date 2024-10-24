@@ -88,6 +88,7 @@ def process_filtered_data_parallel(
     pandas.DataFrame
         Processed and merged data
     """
+
     # Extract position and velocity data for the specified time window
     selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
     pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
@@ -107,6 +108,14 @@ def process_filtered_data_parallel(
 
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
+    # Ensure data types are consistent
+    allData['sub'] = allData['sub'].astype(int)
+    allData['proba'] = allData['proba'].astype(float)
+    allData['trial'] = allData['trial'].astype(int)
+
+    events['sub'] = events['sub'].astype(int)
+    events['proba'] = events['proba'].astype(float)
+    events['trial'] = events['trial'].astype(int)
     # Merge with events data
     finalData = allData.merge(events, on=["sub", "proba", "trial"])
 
