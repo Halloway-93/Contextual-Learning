@@ -104,9 +104,9 @@ def process_filtered_data_parallel(
 
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
-
+    allData.drop(colums=['sub'],inplace=True)
     # Merge with events data
-    finalData = pd.merge(events, allData, on="sub")
+    finalData = pd.concat(events, allData, axis=1)
 
     # Save to CSV if output file is specified
     if output_file is not None:
@@ -120,6 +120,7 @@ def process_filtered_data_parallel(
 dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 filteredRawData1 = "JobLibProcessing.csv"
 allEventsFile1 = "allEvents.csv"
+
 dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 filteredRawData2 = "JobLibProcessingCC.csv"
 allEventsFile2 = "allEvents.csv"
