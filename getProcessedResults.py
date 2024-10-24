@@ -47,7 +47,7 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
             "meanVelo": mean_velocities,
         }
     )
-
+    print (condition_df)
     return condition_df
 
 
@@ -108,7 +108,7 @@ def process_filtered_data_parallel(
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
     # Merge with events data
-    finalData = allData.merge(events, on=["sub", "proba"])
+    finalData = allData.merge(events, on=["sub", "proba", "trial"])
 
     # Save to CSV if output file is specified
     if output_file is not None:
