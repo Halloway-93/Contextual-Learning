@@ -42,7 +42,7 @@ def process_all_events(data_dir, filename="allEvents.csv"):
                 df = read_file(filepath)
                 df["sub"] = df["sub_number"]
                 df["trial"] = df["trial_number"]
-                proba = int(re.search(r"dir(\d+)", filepath).group(1))
+                proba = int(re.search(r"dir(\d+)", str(filepath)).group(1))
                 df["proba"] = proba
                 df.drop(columns=["sub_number", "trial_number"], inplace=True)
                 all_events.append(df)
