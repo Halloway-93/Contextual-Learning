@@ -117,10 +117,10 @@ def process_filtered_data_parallel(
 
 # Example usage:
 # Load your data
-dirPath1 = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 filteredRawData1 = "JobLibProcessing.csv"
 allEventsFile1 = "allEvents.csv"
-dirPath2 = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 filteredRawData2 = "JobLibProcessingCC.csv"
 allEventsFile2 = "allEvents.csv"
 paths = [dirPath1, dirPath2]
