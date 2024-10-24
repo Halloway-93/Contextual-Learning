@@ -10,6 +10,14 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
     """
     trials = pos[(pos["sub"] == sub) & (pos["proba"] == proba)].trial.unique()
 
+    # Handle training trials
+    numOfTrials = len(trials)
+    print("Number of Trials:", numOfTrials)
+    if numOfTrials > 240:
+        pos = [pos["trial"] > numOfTrials - 240]
+
+    # Taking just the non-training trials
+    trials = pos[(pos["sub"] == sub) & (pos["proba"] == proba)].trial.unique()
     # Calculate position offset
     pos_offsets = []
     mean_velocities = []
@@ -33,17 +41,9 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
     condition_df = pd.DataFrame(
         {
             "posOffSet": pos_offsets,
-            "sub": sub,
-            "proba": proba,
-            "trial": [i + 1 for i in range(len(pos_offsets))],
             "meanVelo": mean_velocities,
         }
     )
-
-    # Handle training trials
-    numOfTrials = len(condition_df)
-    if numOfTrials > 240:
-        condition_df = condition_df[condition_df["trial"] > numOfTrials - 240]
 
     return condition_df
 
@@ -104,9 +104,8 @@ def process_filtered_data_parallel(
 
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
-    allData.drop(columns=["sub"], inplace=True)
     # Merge with events data
-    finalData = pd.concat([events, allData], axis=1)
+    finalData = pd.concat([allData, events], axis=1)
 
     # Save to CSV if output file is specified
     if output_file is not None:
@@ -133,4 +132,5 @@ for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):
     output_file = os.path.join(p, "processedResults.csv")
     # Process data and save to CSV
     results = process_filtered_data_parallel(
-        df=df, events=events, fOFF=80, latency=120, output_file= output_file   )
+        df=df, events=events, fOFF=80, latency=120, output_file=output_file
+    )

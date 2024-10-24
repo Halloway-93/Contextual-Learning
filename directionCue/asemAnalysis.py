@@ -18,7 +18,7 @@ allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/r
 
 
 # %%
-def process_filtered_data(df, events, fOFF=-50, latency=50, mono=True, degToPix=27.28):
+def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=80, latency=120):
     """
     Process the filtered data.
     Returns the position offset and the velocity on the desired window[fOFF,latency].
@@ -77,7 +77,8 @@ def process_filtered_data(df, events, fOFF=-50, latency=50, mono=True, degToPix=
                 posOffSet = posOffSet[posOffSet["trial"] > numOfTrials - 240]
             allData.append(posOffSet)
     allData = pd.concat(allData, axis=0, ignore_index=True)
-    finalData = pd.merge([events, allData],on='sub')
+    allData.drop(columns=["sub", "proba"], inplace=True)
+    finalData = pd.concat([events, allData], axis=1)
 
     return finalData
 
@@ -91,12 +92,12 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 rawData.columns
 # %%
 example = rawData[
-    (rawData["sub"] == 8) & (rawData["proba"] == 0.25) & (rawData["trial"] == 43)
+    (rawData["sub"] == 8) & (rawData["proba"] == 0.25) & (rawData["trial"] == 118)
 ]
 example
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 8) & (jlData["proba"] == 0.25) & (jlData["trial"] == 43)
+    (jlData["sub"] == 8) & (jlData["proba"] == 0.25) & (jlData["trial"] == 118)
 ]
 exampleJL
 # %%
@@ -199,10 +200,12 @@ greenColorsPalette = ["#8cd790", "#285943"]
 allEvents = pd.read_csv(allEventsFile)
 df = process_filtered_data(jlData, allEvents)
 # %%
+df.columns
+# %%
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
 badTrials
 # %%
-df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
+# df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -210,21 +213,26 @@ plt.show()
 # %%
 print(df)
 # %%
-df.
+balance = df.groupby(["chosen_arrow", "sub", "proba"])["trial"].count().reset_index()
+balance
 # %%
 for sub in balance["sub"].unique():
-    sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
+    sns.barplot(
+        x="proba", y="trial", hue="chosen_arrow", data=balance[balance["sub"] == sub]
+    )
     plt.title(f"Subject {sub}")
     plt.show()
+# %%
+df.columns
 # %%
 # getting previous TD for each trial for each subject and each proba
 for sub in df["sub"].unique():
     for p in df[df["sub"] == sub]["proba"].unique():
         df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "TD"
+            (df["sub"] == sub) & (df["proba"] == p), "target_direction"
         ].shift(1)
         df.loc[(df["sub"] == sub) & (df["proba"] == p), "arrow_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "arrow"
+            (df["sub"] == sub) & (df["proba"] == p), "chosen_arrow"
         ].shift(1)
 # %%
 df.columns
@@ -234,24 +242,28 @@ df_prime = df[
         "sub",
         "trial",
         "proba",
-        "arrow",
+        "chosen_arrow",
         "TD_prev",
         "posOffSet",
         "meanVelo",
-        "meanFiltVelo",
     ]
 ]
 learningCurve = (
-    df_prime.groupby(["sub", "proba", "arrow", "TD_prev"])
-    .mean()[["posOffSet", "meanVelo", "meanFiltVelo"]]
+    df_prime.groupby(["sub", "proba", "chosen_arrow", "TD_prev"])
+    .mean()[
+        [
+            "posOffSet",
+            "meanVelo",
+        ]
+    ]
     .reset_index()
 )
 
 
 learningCurve
 # %%
-df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[
-    ["posOffSet", "meanVelo", "meanFiltVelo"]
+df_prime.groupby(["proba", "chosen_arrow", "TD_prev"]).count()[
+    ["posOffSet", "meanVelo"]
 ]
 
 # %%
@@ -261,8 +273,8 @@ figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.pointplot(
     x="proba",
-    y="meanFiltVelo",
-    hue="arrow",
+    y="meanVelo",
+    hue="chosen_arrow",
     errorbar="se",
     data=learningCurve,
 )

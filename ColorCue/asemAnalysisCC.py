@@ -23,9 +23,7 @@ allEventsFile = (
 
 
 # %%
-def process_filtered_data(
-    df, events, mono=True, degToPix=27.28, fOFF=-200, latency=100
-):
+def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=80, latency=120):
     """
     Process the filtered data.
     Returns the position offset and the velocity on the desired window[fOFF,latency].
@@ -94,12 +92,12 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 rawData.columns
 # %%
 example = rawData[
-    (rawData["sub"] == 6) & (rawData["proba"] == 25) & (rawData["trial"] == 161)
+    (rawData["sub"] == 15) & (rawData["proba"] == 75) & (rawData["trial"] == 183)
 ]
 example
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 6) & (jlData["proba"] == 25) & (jlData["trial"] == 161)
+    (jlData["sub"] == 15) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
 ]
 exampleJL
 # %%
@@ -425,7 +423,7 @@ corrected_p_values = corrected_p_values.reshape(posthoc.shape)
 print("Holm-Bonferroni corrected Wilcoxon Test p-values:")
 print(pd.DataFrame(corrected_p_values, index=posthoc.index, columns=posthoc.columns))
 # %%
-model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "red"])
+model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "red"])
 result = model.fit()
 
 print(result.summary())
@@ -488,7 +486,7 @@ anova_table = sm.stats.anova_lm(model, typ=2)
 print(anova_table)
 # %%
 # cehcking the normality of the data
-print(pg.normality(dd["meanVelo"]))
+print(pg.normality(df["meanVelo"]))
 # %%
 x = dd["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
@@ -622,7 +620,7 @@ model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~ C(proba)*C(color)",
+    "meanVelo~ (proba)*C(color)",
     data=dd,
     # re_formula="~proba",
     groups=dd["sub_number"],
@@ -664,10 +662,7 @@ plt.xlabel("P(Right|RED)=P(Left|Green)")
 plt.savefig(pathFig + "/posOffSetColors.png")
 plt.show()
 # %%
-df.columns
-# %%
 # Adding the column of the color of the  previous trial
-df.trial_direction
 # %%
 # getting previous TD for each trial for each subject and each proba
 for sub in df["sub_number"].unique():
@@ -960,6 +955,6 @@ sns.barplot(
     data=learningCurveInteraction[learningCurveInteraction.color == "green"],
 )
 plt.title("ASEM:Color Green\n Interaction of Previous Target Direction & Color Chosen")
-plt.xlabel("P(Left|GREEN")
+plt.xlabel("P(Left|GREEN)")
 plt.show()
 # %%
