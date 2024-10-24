@@ -106,7 +106,7 @@ def process_filtered_data_parallel(
     allData = pd.concat(results, axis=0, ignore_index=True)
     allData.drop(columns=["sub"], inplace=True)
     # Merge with events data
-    finalData = pd.concat([ events, allData ], axis=1)
+    finalData = pd.concat([events, allData], axis=1)
 
     # Save to CSV if output file is specified
     if output_file is not None:
@@ -133,5 +133,4 @@ for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):
     output_file = os.path.join(p, "processedResults.csv")
     # Process data and save to CSV
     results = process_filtered_data_parallel(
-        df=df, events=events, fOFF=80, latency=120, output_file="processedResults.csv"
-    )
+        df=df, events=events, fOFF=80, latency=120, output_file= output_file   )
