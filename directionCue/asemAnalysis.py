@@ -15,7 +15,7 @@ pathFig = "~/PhD/Contextual-Learning/directionCue/figures/"
 rawFileName = "rawAndFiltereDataNoSacc.csv"
 jobLibData = "JobLibProcessing.csv"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
-
+filteredResults='/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/'
 
 # %%
 def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=80, latency=120):

@@ -6,8 +6,8 @@ from datetime import datetime
 import pandas as pd
 from scipy import signal
 from joblib import Parallel, delayed
-
-
+import time
+start_time=time.time()
 # Example velocity threshold for ASP detection
 def detect_asp_onset(velocity, threshold=2.0):  # deg/s
     """
@@ -716,3 +716,5 @@ path = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_volu
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessing.csv"
 processAllRawData(path, fileName, newFileName)
+end_time=time.time()
+print('Elapsed Time:',end_time-start_time)

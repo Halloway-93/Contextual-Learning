@@ -108,15 +108,6 @@ def process_filtered_data_parallel(
 
     # Combine all results
     allData = pd.concat(results, axis=0, ignore_index=True)
-    # Ensure data types are consistent
-    allData['sub'] = allData['sub'].astype(int)
-    allData['proba'] = allData['proba'].astype(float)
-    allData['trial'] = allData['trial'].astype(int)
-
-    events['sub'] = events['sub'].astype(int)
-    events['proba'] = events['proba'].astype(float)
-    events['trial'] = events['trial'].astype(int)
-    # Merge with events data
     finalData = allData.merge(events, on=["sub", "proba", "trial"])
 
     # Save to CSV if output file is specified
