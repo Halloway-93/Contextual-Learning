@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy import signal
 from joblib import Parallel, delayed
+
 # %%
 
 
@@ -456,120 +457,6 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 # %%
 
 
-def preprocess_data_file(filename):
-    """
-    Preprocessing just the blinks from the asc file.
-    Returning a dataframe that contains the raw data.
-    """
-    # Read data from file
-    data = read_asc(filename)
-    df = data["raw"]
-    mono = data["info"]["mono"]
-    
-    # Convert to numeric and drop trial 1
-    df = df.apply(pd.to_numeric, errors="coerce")
-    df = df[df["trial"] != 1]
-
-    # Extract messages from eyelink
-    MSG = data["msg"]
-    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
-    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
-    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
-
-    # Reset time based on 'Zero' time
-    for t in Zero.trial.unique():
-        df.loc[df["trial"] == t, "time"] = (
-            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
-        )
-    tON.loc[:, "time"] = tON.time.values - Zero.time.values
-    t0.loc[:, "time"] = t0.time.values - Zero.time.values
-
-    # Process blinks
-    blinks = data["blinks"]
-    blinks = blinks[blinks["trial"] != 1]
-
-    # Reset blinks time in parallel
-    def reset_blink_time(t):
-        mask = blinks["trial"] == t
-        blinks.loc[mask, ["stime", "etime"]] = (
-            blinks.loc[mask, ["stime", "etime"]].values
-            - Zero.loc[Zero.trial == t, "time"].values
-        )
-        return blinks[mask]
-
-    updated_blinks = Parallel(n_jobs=-1)(
-        delayed(reset_blink_time)(t) for t in blinks["trial"].unique()
-    )
-    blinks = pd.concat(updated_blinks)
-
-    # Process blinks in parallel
-    def process_trial_blinks(t):
-        trial_df = df[df.trial == t].copy()
-        start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
-        end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
-        
-        for i in range(len(start)):
-            if not mono:
-                mask = (trial_df.time >= start.iloc[i] - 50) & (trial_df.time <= end.iloc[i] + 50)
-                trial_df.loc[mask, "xpr"] = np.nan
-            else:
-                mask = (trial_df.time >= start.iloc[i] - 50) & (trial_df.time <= end.iloc[i] + 50)
-                trial_df.loc[mask, "xp"] = np.nan
-        return trial_df
-
-    processed_trials = Parallel(n_jobs=-1)(
-        delayed(process_trial_blinks)(t) for t in df.trial.unique()
-    )
-    df = pd.concat(processed_trials)
-
-    # Decrement trial numbers
-    df.loc[:, "trial"] = df["trial"] - 1
-    return df
-
-def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
-    """
-    Parallel implementation of raw data processing from all participants and conditions.
-    No saccade processing included.
-    """
-    def process_file(filepath):
-        print(f"Read data from {filepath}")
-        df = preprocess_data_file(filepath)
-        
-        # Extract metadata from filename
-        proba = int(re.search(r"dir(\d+)", filepath).group(1))
-        sub = re.search(r"sub-(\d+)", filepath).group(1)
-        df["proba"] = proba
-        df["sub"] = sub
-
-        # Calculate velocities in parallel for each trial
-        def process_trial_velocity(t):
-            trial_data = df[df["trial"] == t]["xp"]
-            return np.gradient(trial_data) * sampling_freq / degToPix
-
-        velocities = Parallel(n_jobs=-1)(
-            delayed(process_trial_velocity)(t) for t in df.trial.unique()
-        )
-        df["velo"] = np.concatenate(velocities)
-        
-        return df
-
-    # Get all .asc files
-    file_list = []
-    for root, _, files in sorted(os.walk(data_dir)):
-        file_list.extend([
-            os.path.join(root, f) for f in sorted(files) if f.endswith(".asc")
-        ])
-
-    # Process all files in parallel
-    processed_dfs = Parallel(n_jobs=-1)(
-        delayed(process_file)(filepath) for filepath in file_list
-    )
-
-    # Combine all results
-    bigDF = pd.concat(processed_dfs, axis=0, ignore_index=True)
-    bigDF.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
-    return bigDF
-# %%
 def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
     """
     Process eye position data with NaN values (from blinks/saccades)
@@ -655,71 +542,141 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
 
-# %%
+def preprocess_data_file(filename):
+    """
+    Preprocessing just the blinks from the asc file.
+    Returning a dataframe that contains the raw data.
+    """
+    # Read data from file
+    data = read_asc(filename)
+    df = data["raw"]
+    mono = data["info"]["mono"]
+
+    # Convert to numeric and drop trial 1
+    df = df.apply(pd.to_numeric, errors="coerce")
+    df = df[df["trial"] != 1]
+
+    # Extract messages from eyelink
+    MSG = data["msg"]
+    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
+    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
+    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
+
+    # Reset time based on 'Zero' time
+    for t in sorted(Zero.trial.unique()):  # Sort trials here
+        df.loc[df["trial"] == t, "time"] = (
+            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
+        )
+    tON.loc[:, "time"] = tON.time.values - Zero.time.values
+    t0.loc[:, "time"] = t0.time.values - Zero.time.values
+
+    # Process blinks
+    blinks = data["blinks"]
+    blinks = blinks[blinks["trial"] != 1]
+
+    # Reset blinks time in parallel
+    def reset_blink_time(t):
+        mask = blinks["trial"] == t
+        blinks.loc[mask, ["stime", "etime"]] = (
+            blinks.loc[mask, ["stime", "etime"]].values
+            - Zero.loc[Zero.trial == t, "time"].values
+        )
+        return blinks[mask]
+
+    # Process trials in order
+    trial_order = sorted(blinks["trial"].unique())
+    updated_blinks = Parallel(n_jobs=-1)(
+        delayed(reset_blink_time)(t) for t in trial_order
+    )
+    blinks = pd.concat(updated_blinks).sort_values(by=["trial", "stime"])
+
+    # Process blinks in parallel while maintaining order
+    def process_trial_blinks(t):
+        trial_df = df[df.trial == t].copy()
+        start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
+        end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
+
+        for i in range(len(start)):
+            if not mono:
+                mask = (trial_df.time >= start.iloc[i] - 50) & (
+                    trial_df.time <= end.iloc[i] + 50
+                )
+                trial_df.loc[mask, "xpr"] = np.nan
+            else:
+                mask = (trial_df.time >= start.iloc[i] - 50) & (
+                    trial_df.time <= end.iloc[i] + 50
+                )
+                trial_df.loc[mask, "xp"] = np.nan
+        return trial_df
+
+    # Process trials in order
+    trial_order = sorted(df.trial.unique())
+    processed_trials = Parallel(n_jobs=-1)(
+        delayed(process_trial_blinks)(t) for t in trial_order
+    )
+
+    # Concatenate while maintaining order
+    df = pd.concat(processed_trials, ignore_index=True)
+    df = df.sort_values(by=["trial", "time"]).reset_index(drop=True)
+
+    # Decrement trial numbers
+    df.loc[:, "trial"] = df["trial"] - 1
+    return df
+
+
 def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
     """
-    - This is to concatenate all the raw data from all participants and all conditions together.
-    - Adding a column for filtered pos and fileterd velocity.
+    Parallel implementation of raw data processing from all participants and conditions.
+    Maintains order of trials and files.
     """
-    allDFs = []
-    # allEvents = []
 
-    for root, _, files in sorted(os.walk(data_dir)):
-        for filename in sorted(files):
-            if filename.endswith(".asc"):
-                filepath = os.path.join(root, filename)
-                print(f"Read data from {filepath}")
-                df = preprocess_data_file(filepath, removeSaccades=False)
-                # Extract proba from filename
-                proba = int(re.search(r"dir(\d+)", filename).group(1))
-                sub = re.search(r"sub-(\d+)", filename).group(1)
-                df["proba"] = proba
-                df["sub"] = sub
-                # Adding the filtered postition and the filtered velocity.
+    def process_file(filepath):
+        print(f"Read data from {filepath}")
+        df = preprocess_data_file(filepath)
 
-                # filtered_data = [
-                #     process_eye_movement(
-                #         df[df["trial"] == t]["xp"], sampling_freq=1000, cutoff_freq=30
-                #     )
-                #     for t in df.trial.unique()
-                # ]
-                velo = [
-                    np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
-                    for t in df.trial.unique()
-                ]
-                # Concatenate the list of arrays into a single array
-                # allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
-                allVelo = np.concatenate(velo)
-                print(len(allVelo))
+        # Extract metadata from filename
+        proba = int(re.search(r"dir(\d+)", filepath).group(1))
+        sub = re.search(r"sub-(\d+)", filepath).group(1)
+        df["proba"] = proba
+        df["sub"] = sub
 
-                # Ensure the original DataFrame and the filtered DataFrame have the same length
-                if len(df) == len(allVelo):
-                    # df[["filtPos", "filtVelo"]] = allFiltData
-                    df["velo"] = allVelo
-                else:
-                    print(
-                        "Error: The lengths of the original DataFrame and the filtered DataFrame do not match."
-                    )
+        # Calculate velocities in parallel for each trial while maintaining order
+        def process_trial_velocity(t):
+            trial_data = df[df["trial"] == t]["xp"]
+            velocity = np.gradient(trial_data) * sampling_freq / degToPix
+            return t, velocity  # Return trial number with velocity
 
-                allDFs.append(df)
+        trial_order = sorted(df.trial.unique())
+        velocities = Parallel(n_jobs=-1)(
+            delayed(process_trial_velocity)(t) for t in trial_order
+        )
 
-            # if filename.endswith(".tsv"):
-            #     filepath = os.path.join(root, filename)
-            #     print(f"Read data from {filepath}")
-            #     events = pd.read_csv(filepath, sep="\t")
-            #     allEvents.append(events)
+        # Sort velocities by trial number and concatenate
+        velocities.sort(key=lambda x: x[0])  # Sort by trial number
+        df["velo"] = np.concatenate([v[1] for v in velocities])
 
-    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
-    # print(len(bigDF))
-    # bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
-    # print(len(bigEvents))
-    # Merge DataFrames based on 'proba'
-    # merged_data = pd.concat([bigEvents, bigDF], axis=1)
-    # print(len(merged_data))
+        return sub, proba, df  # Return identifiers with DataFrame
+
+    # Get all .asc files and sort them
+    file_list = []
+    for root, _, files in os.walk(data_dir):
+        file_list.extend([os.path.join(root, f) for f in files if f.endswith(".asc")])
+    file_list.sort()  # Sort files to maintain consistent order
+
+    # Process all files in parallel
+    processed_dfs = Parallel(n_jobs=-1)(
+        delayed(process_file)(filepath) for filepath in file_list
+    )
+
+    # Sort by subject and probability before concatenating
+    processed_dfs.sort(key=lambda x: (x[0], x[1]))  # Sort by subject and proba
+    bigDF = pd.concat([df for _, _, df in processed_dfs], axis=0, ignore_index=True)
 
     bigDF.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
     return bigDF
 
+
+# %%
 
 # Executing the code:
 data_dir = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
