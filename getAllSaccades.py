@@ -193,7 +193,7 @@ print("Color Cue Data Set")
 allRawDataCC = pd.read_csv(os.path.join(dirCC, rawCC))
 print("Getting the Saccades")
 saccadeCC = parallel_saccade_detection(allRawDataCC)
-saccadeCC.to_csv(os.path.join(dirDC, "saccades.csv"))
+saccadeCC.to_csv(os.path.join(dirCC, "saccades.csv"))
 
 endTime = time.time()
 print("computation time:", endTime - starTime)
