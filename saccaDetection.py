@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import savgol_filter
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -187,12 +188,136 @@ def detect_saccades(data, mono=True):
 
 
 # %%
+
+
+def detect_saccades(data, mono=True, window_size=101):
+    """
+    Detect saccades using adaptive thresholding based on rolling statistics
+
+    Parameters:
+    -----------
+    data : pandas DataFrame
+        Eye tracking data with columns for position and time
+    mono : bool
+        If True, use monocular data (xp, yp), else use right eye data (xpr, ypr)
+    window_size : int
+        Size of the rolling window for statistics (should be odd number)
+
+    Returns:
+    --------
+    pandas DataFrame
+        Detected saccades with their properties
+    """
+    sample_window = 0.001  # 1 kHz eye tracking
+    deg = 27.28  # pixel to degree conversion
+    trials = data.trial.unique()
+    saccades = []
+
+    def calculate_velocity(pos, window_size=5):
+        """Calculate velocity using Savitzky-Golay filter"""
+        return savgol_filter(pos, window_size, 2, deriv=1) / (sample_window * deg)
+
+    def calculate_acceleration(vel, window_size=5):
+        """Calculate acceleration using Savitzky-Golay filter"""
+        return savgol_filter(vel, window_size, 2, deriv=1) / sample_window
+
+    def detect_saccade_onset(velocity, acceleration, std_threshold=3.0):
+        """
+        Detect saccade onset using rolling statistics
+        Returns indices where saccades likely begin and end
+        """
+        # Calculate rolling statistics
+        rolling_std = pd.Series(velocity).rolling(window_size, center=True).std()
+        rolling_mean = pd.Series(velocity).rolling(window_size, center=True).mean()
+
+        # Find points where velocity exceeds threshold based on local statistics
+        threshold = rolling_mean + (std_threshold * rolling_std)
+        threshold = threshold.fillna(method="bfill").fillna(method="ffill")
+
+        # Find potential saccade points
+        candidates = velocity > threshold
+
+        # Group consecutive True values
+        changes = np.diff(candidates.astype(int))
+        starts = np.where(changes == 1)[0] + 1
+        ends = np.where(changes == -1)[0] + 1
+
+        # Ensure we have paired starts and ends
+        if len(starts) == 0 or len(ends) == 0:
+            return [], []
+        if starts[0] > ends[0]:
+            ends = ends[1:]
+        if len(starts) > len(ends):
+            starts = starts[:-1]
+
+        return starts, ends
+
+    for iTrial in trials:
+        # Get position data
+        if mono:
+            xPos = data[data.trial == iTrial].xp.values
+            yPos = data[data.trial == iTrial].yp.values
+        else:
+            xPos = data[data.trial == iTrial].xpr.values
+            yPos = data[data.trial == iTrial].ypr.values
+
+        # Calculate velocities using Savitzky-Golay filter
+        xVel = calculate_velocity(xPos)
+        yVel = calculate_velocity(yPos)
+        euclidVel = np.sqrt(xVel**2 + yVel**2)
+
+        # Calculate accelerations
+        xAcc = calculate_acceleration(xVel)
+        yAcc = calculate_acceleration(yVel)
+        euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
+
+        # Detect saccades using adaptive thresholding
+        starts, ends = detect_saccade_onset(euclidVel, euclidAcc)
+
+        # Process detected saccades
+        for start, end in zip(starts, ends):
+            # Minimum duration check (20ms)
+            if (end - start) * sample_window < 0.02:
+                continue
+
+            # Calculate saccade properties
+            peakVelocity = np.max(euclidVel[start:end])
+            mean_acceleration = np.mean(euclidAcc[start:end])
+
+            # Position change during saccade
+            x_displacement = xPos[end] - xPos[start]
+            y_displacement = yPos[end] - yPos[start]
+            amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
+
+            # Only include if amplitude is significant (in pixels)
+            if amplitude > 5:  # Adjustable threshold
+                start_time = data[data.trial == iTrial].time.values[start]
+                end_time = data[data.trial == iTrial].time.values[end]
+
+                saccades.append(
+                    {
+                        "trial": iTrial,
+                        "start": start_time,
+                        "end": end_time,
+                        "duration": end_time - start_time,
+                        "amplitude": amplitude,
+                        "peak_velocity": peakVelocity,
+                        "mean_acceleration": mean_acceleration,
+                        "x_displacement": x_displacement,
+                        "y_displacement": y_displacement,
+                    }
+                )
+
+    return pd.DataFrame(saccades)
+
+
+# %%
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allRawData.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allRawData.csv"
 )
 # %%
 filtered_df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/JobLibProcessing.csv"
 )
 # %%
 df.drop(columns=["cr.info"], inplace=True)

@@ -14,8 +14,6 @@ import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
-fileName = "filtered_results"
-rawFileName = "rawAndFiltereDataNoSacc.csv"
 jobLibData = "jobLibProcessingCC.csv"
 allEventsFile = (
     "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
@@ -23,100 +21,12 @@ allEventsFile = (
 
 
 # %%
-def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=80, latency=120):
-    """
-    Process the filtered data.
-    Returns the position offset and the velocity on the desired window[fOFF,latency].
-    """
-
-    # Extract position and velocity data
-
-    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
-    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
-    allData = []
-    for sub in pos["sub"].unique():
-        for proba in pos[pos["sub"] == sub]["proba"].unique():
-
-            posOffSet = pd.DataFrame(
-                np.array(
-                    [
-                        pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtPos"].values[-1]
-                        - pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtPos"].values[0]
-                        for t in pos[
-                            (pos["sub"] == sub) & (pos["proba"] == proba)
-                        ].trial.unique()
-                    ]
-                )
-                / degToPix,
-                columns=["posOffSet"],
-            )
-            posOffSet["sub"] = sub
-            posOffSet["proba"] = proba
-            posOffSet["trial"] = [i + 1 for i in range(len(posOffSet))]
-            meanVelo = np.array(
-                [
-                    np.nanmean(
-                        pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtVelo"]
-                    )
-                    for t in pos[
-                        (pos["sub"] == sub) & (pos["proba"] == proba)
-                    ].trial.unique()
-                ]
-            )
-            posOffSet["meanVelo"] = meanVelo
-            allData.append(posOffSet)
-    allData = pd.concat(allData, axis=0, ignore_index=True)
-    finalData = pd.concat([events, allData], axis=1)
-
-    return finalData
-
-
-# %%
-rawData = pd.read_csv(os.path.join(path, rawFileName))
-
-# %%
 jlData = pd.read_csv(os.path.join(path, jobLibData))
-# %%
-rawData.columns
-# %%
-example = rawData[
-    (rawData["sub"] == 15) & (rawData["proba"] == 75) & (rawData["trial"] == 183)
-]
-example
 # %%
 exampleJL = jlData[
     (jlData["sub"] == 15) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
 ]
 exampleJL
-# %%
-# Plotting one example
-for t in example.trial.unique():
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].filtVelo,
-        alpha=0.5,
-    )
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].velo,
-        alpha=0.5,
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.show()
 # %%
 # Plotting one example
 for t in exampleJL.trial.unique():
@@ -135,24 +45,6 @@ for t in exampleJL.trial.unique():
     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
     plt.show()
 # %%
-for t in example.trial.unique():
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].xp,
-        alpha=0.5,
-    )
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].filtPos,
-        alpha=0.5,
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Eye Position", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.show()
-
-
-# %%
 for t in exampleJL.trial.unique():
     plt.plot(
         exampleJL[exampleJL["trial"] == t].time,
@@ -161,7 +53,7 @@ for t in exampleJL.trial.unique():
     )
     plt.plot(
         exampleJL[exampleJL["trial"] == t].time,
-        example[exampleJL["trial"] == t].filtPos,
+        exampleJL[exampleJL["trial"] == t].filtPos,
         alpha=0.5,
     )
     plt.xlabel("Time in ms", fontsize=20)
@@ -171,34 +63,13 @@ for t in exampleJL.trial.unique():
 
 
 # %%
-# Plotting one example
-# comapring the two datasets
-for t in exampleJL.trial.unique():
-    plt.plot(
-        exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].filtVelo,
-        alpha=0.5,
-        label="withShrabs",
-    )
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].filtVelo,
-        alpha=0.5,
-        label="withNoShrabs",
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.legend()
-    plt.show()
-
-
-# %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEvents = pd.read_csv(allEventsFile)
-df = process_filtered_data(jlData, allEvents)
+df = pd.read_csv(
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResults.csv"
+)
 # %%
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
 badTrials
@@ -210,7 +81,7 @@ sns.histplot(data=df, x="meanVelo")
 plt.show()
 # %%
 # df = pd.read_csv(os.path.join(path, fileName))
-# [print(df[df["sub_number"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
+# [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
 df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
 
@@ -219,7 +90,7 @@ df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "r
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
 # %%
-df = df[(df["sub_number"] != 9)]
+df = df[(df["sub"] != 9)]
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -228,7 +99,7 @@ df
 colors = ["green", "red"]
 # %%
 dd = (
-    df.groupby(["sub_number", "color", "proba"])[["meanVelo", "posOffSet"]]
+    df.groupby(["sub", "color", "proba"])[["meanVelo", "posOffSet"]]
     .mean()
     .reset_index()
 )
@@ -300,14 +171,10 @@ print(f"Spearman's correlation(Proba 50): {correlation}, p-value: {p_value}")
 # %%
 
 # Friedman test for Red color
-pg.friedman(
-    data=df[df.color == "red"], dv="meanVelo", within="proba", subject="sub_number"
-)
+pg.friedman(data=df[df.color == "red"], dv="meanVelo", within="proba", subject="sub")
 # %%
 
-pg.friedman(
-    data=df[df.color == "green"], dv="meanVelo", within="proba", subject="sub_number"
-)
+pg.friedman(data=df[df.color == "green"], dv="meanVelo", within="proba", subject="sub")
 # %%
 # Wilcoxon Test to see whether the color has an effect within each proba
 # It is the equivalent of paired t-test
@@ -329,7 +196,7 @@ pg.wilcoxon(
 # %%
 # Pivot the data for proba
 pivot_proba = dd[dd.color == "red"].pivot(
-    index="sub_number", columns="proba", values="meanVelo"
+    index="sub", columns="proba", values="meanVelo"
 )
 pivot_proba
 # %%
@@ -345,7 +212,7 @@ print(
 # %%
 # Pivot the data for proba
 pivot_proba = dd[dd.color == "green"].pivot(
-    index="sub_number", columns="proba", values="meanVelo"
+    index="sub", columns="proba", values="meanVelo"
 )
 pivot_proba
 # %%
@@ -360,9 +227,7 @@ print(
 
 # %%
 # Pivot the data for proba
-pivot_color = dd[dd.proba == 25].pivot(
-    index="sub_number", columns="color", values="meanVelo"
-)
+pivot_color = dd[dd.proba == 25].pivot(index="sub", columns="color", values="meanVelo")
 pivot_color
 
 # a %%
@@ -375,9 +240,7 @@ print(
 
 # %%
 # Pivot the data for proba
-pivot_color = dd[dd.proba == 50].pivot(
-    index="sub_number", columns="color", values="meanVelo"
-)
+pivot_color = dd[dd.proba == 50].pivot(index="sub", columns="color", values="meanVelo")
 pivot_color
 
 # a %%
@@ -390,9 +253,7 @@ print(
 
 # %%
 # Pivot the data for proba
-pivot_color = dd[dd.proba == 75].pivot(
-    index="sub_number", columns="color", values="meanVelo"
-)
+pivot_color = dd[dd.proba == 75].pivot(index="sub", columns="color", values="meanVelo")
 pivot_color
 
 # a %%
@@ -423,7 +284,7 @@ corrected_p_values = corrected_p_values.reshape(posthoc.shape)
 print("Holm-Bonferroni corrected Wilcoxon Test p-values:")
 print(pd.DataFrame(corrected_p_values, index=posthoc.index, columns=posthoc.columns))
 # %%
-model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "red"])
+model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "red"])
 result = model.fit()
 
 print(result.summary())
@@ -433,6 +294,7 @@ result = model.fit()
 
 print(result.summary())
 # %%
+colors = ["green", "red"]
 sns.histplot(
     data=df[df.proba == 25],
     x="meanVelo",
@@ -444,20 +306,24 @@ sns.histplot(
 plt.show()
 # %%
 # Early trials
+earlyTrials = 40
+p = 75
 sns.histplot(
-    data=df[(df.proba == 75) & (df.trial_number <= 40)],
+    data=df[(df.proba == p) & (df.trial <= earlyTrials)],
     x="meanVelo",
     hue="color",
     alpha=0.5,
     # multiple="dodge",
     palette=colors,
 )
+plt.title(f"Early Trials: {earlyTrials}, P(Right|Red)={proba}")
 plt.show()
 
 # %%
 # Mid trials
+midTrials = [60, 180]
 sns.histplot(
-    data=df[(df.proba == 75) & (df.trial_number <= 180) & (df.trial_number > 60)],
+    data=df[(df.proba == p) & (df.trial <= midTrials[1]) & (df.trial > midTrials[0])],
     x="meanVelo",
     hue="color",
     hue_order=colors,
@@ -465,11 +331,13 @@ sns.histplot(
     # multiple="dodge",
     palette=colors,
 )
+plt.title(f"Mid Trials{midTrials[0]},{midTrials[1]}: P(Right|Red)={proba}")
 plt.show()
 # %%
 # Late trials
+lateTrials = 200
 sns.histplot(
-    data=df[(df.proba == 75) & (df.trial_number > 200)],
+    data=df[(df.proba == p) & (df.trial > lateTrials)],
     x="meanVelo",
     hue="color",
     hue_order=colors,
@@ -477,6 +345,7 @@ sns.histplot(
     # multiple="dodge",
     palette=colors,
 )
+plt.title(f"Early Trials>{lateTrials}: P(Right|Red)={proba}")
 plt.show()
 # %%
 # Repeated measures ANOVA
@@ -486,7 +355,7 @@ anova_table = sm.stats.anova_lm(model, typ=2)
 print(anova_table)
 # %%
 # cehcking the normality of the data
-print(pg.normality(df["meanVelo"]))
+print(pg.normality(dd["meanVelo"]))
 # %%
 x = dd["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
@@ -509,7 +378,7 @@ facet_grid = sns.FacetGrid(
     aspect=1.5,
 )
 
-# Create pointplots for each sub_number
+# Create pointplots for each sub
 facet_grid.map_dataframe(
     sns.histplot, x="meanVelo", hue="color", palette=colors, hue_order=colors
 )
@@ -534,7 +403,7 @@ plt.show()
 anova_results = pg.rm_anova(
     dv="meanVelo",
     within="proba",
-    subject="sub_number",
+    subject="sub",
     data=df[df.color == "green"],
 )
 
@@ -543,7 +412,7 @@ print(anova_results)
 anova_results = pg.rm_anova(
     dv="meanVelo",
     within="proba",
-    subject="sub_number",
+    subject="sub",
     data=df[df.color == "red"],
 )
 
@@ -554,7 +423,7 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="se",
+    errorbar="sd",
     hue="color",
     palette=colors,
 )
@@ -567,7 +436,7 @@ sns.pointplot(
     y="meanVelo",
     capsize=0.1,
     errorbar="se",
-    hue="sub_number",
+    hue="sub",
     palette="Set2",
 )
 _ = plt.title("ASEM  across porba: Red")
@@ -580,7 +449,7 @@ sns.pointplot(
     y="meanVelo",
     capsize=0.1,
     errorbar="se",
-    hue="sub_number",
+    hue="sub",
     palette="Set2",
 )
 _ = plt.title("asem across porba: Green")
@@ -591,29 +460,27 @@ plt.show()
 anova_results = pg.rm_anova(
     dv="meanVelo",
     within=["proba", "color"],
-    subject="sub_number",
+    subject="sub",
     data=df,
 )
 
 print(anova_results)
 # %%
 
-df.sub_number.unique()
-# %%
 model = smf.mixedlm(
     "meanVelo~ ( proba )",
     data=dd[dd.color == "red"],
     # re_formula="~proba",
-    groups=dd[dd.color == "red"]["sub_number"],
+    groups=dd[dd.color == "red"]["sub"],
 ).fit()
 model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~ C(proba)",
+    "meanVelo~ (proba)",
     data=dd[dd.color == "green"],
     # re_formula="~proba",
-    groups=dd[dd.color == "green"]["sub_number"],
+    groups=dd[dd.color == "green"]["sub"],
 ).fit()
 model.summary()
 
@@ -623,7 +490,7 @@ model = smf.mixedlm(
     "meanVelo~ (proba)*C(color)",
     data=dd,
     # re_formula="~proba",
-    groups=dd["sub_number"],
+    groups=dd["sub"],
 ).fit()
 model.summary()
 
@@ -665,21 +532,21 @@ plt.show()
 # Adding the column of the color of the  previous trial
 # %%
 # getting previous TD for each trial for each subject and each proba
-for sub in df["sub_number"].unique():
-    for p in df[df["sub_number"] == sub]["proba"].unique():
-        df.loc[(df["sub_number"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
-            (df["sub_number"] == sub) & (df["proba"] == p), "trial_direction"
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub]["proba"].unique():
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "trial_direction"
         ].shift(1)
-        df.loc[(df["sub_number"] == sub) & (df["proba"] == p), "color_prev"] = df.loc[
-            (df["sub_number"] == sub) & (df["proba"] == p), "color"
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "color_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "color"
         ].shift(1)
 # %%
 df.TD_prev
 # %%
 df_prime = df[
     [
-        "sub_number",
-        "trial_number",
+        "sub",
+        "trial",
         "proba",
         "color",
         "trial_direction",
@@ -689,7 +556,7 @@ df_prime = df[
     ]
 ]
 learningCurve = (
-    df_prime.groupby(["sub_number", "proba", "color", "TD_prev"])
+    df_prime.groupby(["sub", "proba", "color", "TD_prev"])
     .mean()[["posOffSet", "meanVelo"]]
     .reset_index()
 )
@@ -796,7 +663,7 @@ sns.barplot(
     y="posOffSet",
     hue="TD_prev",
     palette=greenColorsPalette,
-    data=learningCurve[learningCurve.color == "green"],
+    data=df[df.color == "green"],
 )
 plt.legend(fontsize=20)
 plt.title("Position Offset:Color Green \n  ", fontsize=30)
@@ -813,7 +680,7 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     color="green",
-    data=learningCurve[learningCurve.color == "green"],
+    data=df[df.color == "green"],
 )
 plt.title("ASEM: Color Green", fontsize=30)
 plt.xlabel("P(Left|GREEN)", fontsize=20)
@@ -843,8 +710,8 @@ plt.show()
 df["interaction"] = list(zip(df["TD_prev"], df["color_prev"]))
 df_prime = df[
     [
-        "sub_number",
-        "trial_number",
+        "sub",
+        "trial",
         "proba",
         "color",
         "interaction",
@@ -862,7 +729,7 @@ df_prime.interaction.unique()
 # %%
 
 learningCurveInteraction = (
-    df_prime.groupby(["sub_number", "proba", "interaction", "color"])
+    df_prime.groupby(["sub", "proba", "interaction", "color"])
     .mean()[["posOffSet", "meanVelo"]]
     .reset_index()
 )
@@ -870,7 +737,7 @@ learningCurveInteraction = (
 # %%
 df.columns
 # %%
-df_prime.groupby(["sub_number", "proba", "interaction", "color"]).count()[
+df_prime.groupby(["sub", "proba", "interaction", "color"]).count()[
     ["posOffSet", "meanVelo"]
 ]
 
@@ -958,3 +825,15 @@ plt.title("ASEM:Color Green\n Interaction of Previous Target Direction & Color C
 plt.xlabel("P(Left|GREEN)")
 plt.show()
 # %%
+df
+# %%
+dd = df.groupby(["sub", "proba", "color", "TD_prev"])["meanVelo"].mean().reset_index()
+dd
+# %%
+model = smf.mixedlm(
+    "meanVelo~  C(color)",
+    data=dd[dd.proba == 75],
+    # re_formula="~proba",
+    groups=dd[dd.proba == 75]["sub"],
+).fit()
+model.summary()

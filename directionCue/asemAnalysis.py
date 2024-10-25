@@ -8,93 +8,14 @@ import pingouin as pg
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/"
 pathFig = "~/PhD/Contextual-Learning/directionCue/figures/"
-rawFileName = "rawAndFiltereDataNoSacc.csv"
 jobLibData = "JobLibProcessing.csv"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
-filteredResults='/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/'
-
-# %%
-def process_filtered_data(df, events, mono=True, degToPix=27.28, fOFF=80, latency=120):
-    """
-    Process the filtered data.
-    Returns the position offset and the velocity on the desired window[fOFF,latency].
-    """
-
-    # Extract position and velocity data
-
-    selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
-    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
-    allData = []
-    for sub in pos["sub"].unique():
-        for proba in pos[pos["sub"] == sub]["proba"].unique():
-
-            posOffSet = pd.DataFrame(
-                np.array(
-                    [
-                        pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtPos"].values[-1]
-                        - pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtPos"].values[0]
-                        for t in pos[
-                            (pos["sub"] == sub) & (pos["proba"] == proba)
-                        ].trial.unique()
-                    ]
-                )
-                / degToPix,
-                columns=["posOffSet"],
-            )
-            posOffSet["sub"] = sub
-            posOffSet["proba"] = proba
-            posOffSet["trial"] = [i + 1 for i in range(len(posOffSet))]
-            meanVelo = np.array(
-                [
-                    np.nanmean(
-                        pos[
-                            (pos["trial"] == t)
-                            & (pos["sub"] == sub)
-                            & (pos["proba"] == proba)
-                        ]["filtVelo"]
-                    )
-                    for t in pos[
-                        (pos["sub"] == sub) & (pos["proba"] == proba)
-                    ].trial.unique()
-                ]
-            )
-            posOffSet["meanVelo"] = meanVelo
-            # Getting rid of the training trials:
-            numOfTrials = len(posOffSet)
-            if numOfTrials > 240:
-                posOffSet = posOffSet[posOffSet["trial"] > numOfTrials - 240]
-            allData.append(posOffSet)
-    allData = pd.concat(allData, axis=0, ignore_index=True)
-    allData.drop(columns=["sub", "proba"], inplace=True)
-    finalData = pd.concat([events, allData], axis=1)
-
-    return finalData
-
-
-# %%
-rawData = pd.read_csv(os.path.join(path, rawFileName))
 
 # %%
 jlData = pd.read_csv(os.path.join(path, jobLibData))
-# %%
-rawData.columns
-# %%
-example = rawData[
-    (rawData["sub"] == 8) & (rawData["proba"] == 0.25) & (rawData["trial"] == 118)
-]
-example
 # %%
 exampleJL = jlData[
     (jlData["sub"] == 8) & (jlData["proba"] == 0.25) & (jlData["trial"] == 118)
@@ -102,22 +23,6 @@ exampleJL = jlData[
 exampleJL
 # %%
 # Plotting one example
-for t in example.trial.unique():
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].filtVelo,
-        alpha=0.5,
-    )
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].velo,
-        alpha=0.5,
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.show()
-# %%
 # Plotting one example
 for t in exampleJL.trial.unique():
     plt.plot(
@@ -135,24 +40,6 @@ for t in exampleJL.trial.unique():
     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
     plt.show()
 # %%
-for t in example.trial.unique():
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].xp,
-        alpha=0.5,
-    )
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].filtPos,
-        alpha=0.5,
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Eye Position", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.show()
-
-
-# %%
 for t in exampleJL.trial.unique():
     plt.plot(
         exampleJL[exampleJL["trial"] == t].time,
@@ -161,7 +48,7 @@ for t in exampleJL.trial.unique():
     )
     plt.plot(
         exampleJL[exampleJL["trial"] == t].time,
-        example[exampleJL["trial"] == t].filtPos,
+        exampleJL[exampleJL["trial"] == t].filtPos,
         alpha=0.5,
     )
     plt.xlabel("Time in ms", fontsize=20)
@@ -171,34 +58,13 @@ for t in exampleJL.trial.unique():
 
 
 # %%
-# Plotting one example
-# comapring the two datasets
-for t in exampleJL.trial.unique():
-    plt.plot(
-        exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].filtVelo,
-        alpha=0.5,
-        label="withShrabs",
-    )
-    plt.plot(
-        example[example["trial"] == t].time,
-        example[example["trial"] == t].filtVelo,
-        alpha=0.5,
-        label="withNoShrabs",
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.legend()
-    plt.show()
-
-
-# %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEvents = pd.read_csv(allEventsFile)
-df = process_filtered_data(jlData, allEvents)
+df = pd.read_csv(
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResults.csv"
+)
 # %%
 df.columns
 # %%
@@ -275,8 +141,25 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     hue="chosen_arrow",
-    errorbar="se",
+    errorbar="sd",
     data=learningCurve,
+    alpha=0.7
+)
+plt.title("ASEM for all Participants")
+plt.xlabel("P(Right|UP)")
+plt.show()
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.pointplot(
+    x="proba",
+    y="meanVelo",
+    hue="chosen_arrow",
+    errorbar="se",
+    data=learningCurve[~((learningCurve.proba == 0) | (learningCurve.proba == 1.0))],
+    alpha=0.5,
 )
 plt.title("ASEM for all Participants")
 plt.xlabel("P(Right|UP)")
@@ -324,8 +207,8 @@ figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
-    y="meanFiltVelo",
-    data=df[df.arrow == "up"],
+    y="meanVelo",
+    data=df[df.chosen_arrow == "up"],
 )
 plt.title("ASEM: Arrow UP")
 plt.xlabel("P(Right|UP)")

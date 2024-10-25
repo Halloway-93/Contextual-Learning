@@ -5,7 +5,6 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from scipy import signal
-from joblib import Parallel, delayed
 
 # %%
 
@@ -457,6 +456,171 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 # %%
 
 
+# %%
+def detect_saccades(data, mono=True):
+    sample_window = 0.001  # 1 kHz eye tracking
+    deg = 27.28  # pixel to degree conversion
+    tVel = 22  # default velocity threshola in deg/s
+    tDist = 5  # minimum distance threshold for saccades in pixels
+    trials = data.trial.unique()
+    saccades = []
+    for iTrial in trials:
+        if mono:
+            xPos = data[data.trial == iTrial].xp.values
+            yPos = data[data.trial == iTrial].yp.values
+        else:
+            xPos = data[data.trial == iTrial].xpr.values
+            yPos = data[data.trial == iTrial].ypr.values
+        # Calculate instantaneous eye position and time derivative
+        xVel = np.zeros_like(xPos)
+        yVel = np.zeros_like(yPos)
+        for ii in range(2, len(xPos) - 2):
+            xVel[ii] = (xPos[ii + 2] + xPos[ii + 1] - xPos[ii - 1] - xPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+            yVel[ii] = (yPos[ii + 2] + yPos[ii + 1] - yPos[ii - 1] - yPos[ii - 2]) / (
+                6 * sample_window * deg
+            )
+        euclidVel = np.sqrt(xVel**2 + yVel**2)
+        xAcc = np.zeros_like(xPos)
+        yAcc = np.zeros_like(yPos)
+        for ii in range(2, len(xVel) - 2):
+            xAcc[ii] = (xVel[ii + 2] + xVel[ii + 1] - xVel[ii - 1] - xVel[ii - 2]) / (
+                6 * sample_window
+            )
+            yAcc[ii] = (yVel[ii + 2] + yVel[ii + 1] - yVel[ii - 1] - yVel[ii - 2]) / (
+                6 * sample_window
+            )
+
+        # euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
+        candidates = np.where(euclidVel > tVel)[0]
+        if len(candidates) > 0:
+            diffCandidates = np.diff(candidates)
+            breaks = np.concatenate(
+                ([0], np.where(diffCandidates > 1)[0] + 1, [len(candidates)])
+            )
+
+            for jj in range(len(breaks) - 1):
+                saccade = [candidates[breaks[jj]], candidates[breaks[jj + 1] - 1]]
+                xDist = xPos[saccade[1]] - xPos[saccade[0]]
+                yDist = yPos[saccade[1]] - yPos[saccade[0]]
+                euclidDist = np.sqrt(xDist**2 + yDist**2)
+                if euclidDist > tDist:
+                    peakVelocity = np.max(euclidVel[saccade[0] : saccade[1] + 1])
+                    start_time = data[data.trial == iTrial].time.values[saccade[0]]
+                    end_time = data[data.trial == iTrial].time.values[saccade[1]]
+                    saccades.append(
+                        {
+                            "trial": iTrial,
+                            "start": start_time,
+                            "end": end_time,
+                            "dur": end_time - start_time,
+                            "xDist": xDist,
+                            "yDist": yDist,
+                            "euclidDist": euclidDist,
+                            "peakVelocity": peakVelocity,
+                        }
+                    )
+        # plt.plot(xVel)
+        # plt.show()
+
+    saccades_df = pd.DataFrame(saccades)
+    return saccades_df
+
+
+def preprocess_data_file(filename, removeSaccades=True):
+    """
+    Preprocessing the blinks and the saccades from the asc file.
+    Returning a dataframe for that containes the raw data.
+    """
+    # Read data from file
+    data = read_asc(filename)
+
+    # Extract relevant data from the DataFrame
+    df = data["raw"]
+    mono = data["info"]["mono"]
+
+    df = df.apply(pd.to_numeric, errors="coerce")
+
+    # Drop rows where trial is equal to 1
+    df = df[df["trial"] != 1]
+
+    # Reset index after dropping rows and modifying the 'trial' column
+    # df = df.reset_index(drop=True)
+
+    # Extract messages from eyelink
+    MSG = data["msg"]
+    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
+    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
+    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
+
+    # Reset time based on 'Zero' time
+    for t in Zero.trial.unique():
+        df.loc[df["trial"] == t, "time"] = (
+            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
+        )
+    tON.loc[:, "time"] = tON.time.values - Zero.time.values
+    t0.loc[:, "time"] = t0.time.values - Zero.time.values
+
+    # Extract the blinks
+    blinks = data["blinks"]
+    blinks = blinks[blinks["trial"] != 1]
+
+    # Reset blinks time
+    for t in blinks["trial"].unique():
+        blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
+            blinks.loc[blinks.trial == t, ["stime", "etime"]].values
+            - Zero.loc[Zero.trial == t, "time"].values
+        )
+    # Preocessing the blinks.
+    for t in blinks["trial"].unique():
+        start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
+        end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
+
+        for i in range(len(start)):
+            if not mono:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
+                    "xpr",
+                ] = np.nan
+            else:
+                df.loc[
+                    (df.trial == t)
+                    & (df.time >= start.iloc[i] - 50)
+                    & (df.time <= end.iloc[i] + 50),
+                    "xp",
+                ] = np.nan
+    if removeSaccades:
+        sacc = detect_saccades(df, mono)
+        for t in sacc.trial.unique():
+            start = sacc.loc[(sacc.trial == t), "start"]
+            end = sacc.loc[(sacc.trial == t), "end"]
+
+            for i in range(len(start)):
+                if not mono:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 25)
+                        & (df.time <= end.iloc[i] + 25),
+                        "xpr",
+                    ] = np.nan
+                else:
+                    df.loc[
+                        (df.trial == t)
+                        & (df.time >= start.iloc[i] - 25)
+                        & (df.time <= end.iloc[i] + 25),
+                        "xp",
+                    ] = np.nan
+
+    # Decrement the values in the 'trial' column by 1
+    df.loc[:, "trial"] = df["trial"] - 1
+
+    return df
+
+
+# %%
 def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
     """
     Process eye position data with NaN values (from blinks/saccades)
@@ -542,141 +706,71 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
 
-def preprocess_data_file(filename):
-    """
-    Preprocessing just the blinks from the asc file.
-    Returning a dataframe that contains the raw data.
-    """
-    # Read data from file
-    data = read_asc(filename)
-    df = data["raw"]
-    mono = data["info"]["mono"]
-
-    # Convert to numeric and drop trial 1
-    df = df.apply(pd.to_numeric, errors="coerce")
-    df = df[df["trial"] != 1]
-
-    # Extract messages from eyelink
-    MSG = data["msg"]
-    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
-    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
-    Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
-
-    # Reset time based on 'Zero' time
-    for t in sorted(Zero.trial.unique()):  # Sort trials here
-        df.loc[df["trial"] == t, "time"] = (
-            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
-        )
-    tON.loc[:, "time"] = tON.time.values - Zero.time.values
-    t0.loc[:, "time"] = t0.time.values - Zero.time.values
-
-    # Process blinks
-    blinks = data["blinks"]
-    blinks = blinks[blinks["trial"] != 1]
-
-    # Reset blinks time in parallel
-    def reset_blink_time(t):
-        mask = blinks["trial"] == t
-        blinks.loc[mask, ["stime", "etime"]] = (
-            blinks.loc[mask, ["stime", "etime"]].values
-            - Zero.loc[Zero.trial == t, "time"].values
-        )
-        return blinks[mask]
-
-    # Process trials in order
-    trial_order = sorted(blinks["trial"].unique())
-    updated_blinks = Parallel(n_jobs=-1)(
-        delayed(reset_blink_time)(t) for t in trial_order
-    )
-    blinks = pd.concat(updated_blinks).sort_values(by=["trial", "stime"])
-
-    # Process blinks in parallel while maintaining order
-    def process_trial_blinks(t):
-        trial_df = df[df.trial == t].copy()
-        start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
-        end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
-
-        for i in range(len(start)):
-            if not mono:
-                mask = (trial_df.time >= start.iloc[i] - 50) & (
-                    trial_df.time <= end.iloc[i] + 50
-                )
-                trial_df.loc[mask, "xpr"] = np.nan
-            else:
-                mask = (trial_df.time >= start.iloc[i] - 50) & (
-                    trial_df.time <= end.iloc[i] + 50
-                )
-                trial_df.loc[mask, "xp"] = np.nan
-        return trial_df
-
-    # Process trials in order
-    trial_order = sorted(df.trial.unique())
-    processed_trials = Parallel(n_jobs=-1)(
-        delayed(process_trial_blinks)(t) for t in trial_order
-    )
-
-    # Concatenate while maintaining order
-    df = pd.concat(processed_trials, ignore_index=True)
-    df = df.sort_values(by=["trial", "time"]).reset_index(drop=True)
-
-    # Decrement trial numbers
-    df.loc[:, "trial"] = df["trial"] - 1
-    return df
-
-
+# %%
 def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
     """
-    Parallel implementation of raw data processing from all participants and conditions.
-    Maintains order of trials and files.
+    - This is to concatenate all the raw data from all participants and all conditions together.
+    - Adding a column for filtered pos and fileterd velocity.
     """
+    allDFs = []
+    # allEvents = []
 
-    def process_file(filepath):
-        print(f"Read data from {filepath}")
-        df = preprocess_data_file(filepath)
+    for root, _, files in sorted(os.walk(data_dir)):
+        for filename in sorted(files):
+            if filename.endswith(".asc"):
+                filepath = os.path.join(root, filename)
+                print(f"Read data from {filepath}")
+                df = preprocess_data_file(filepath, removeSaccades=False)
+                # Extract proba from filename
+                proba = int(re.search(r"dir(\d+)", filename).group(1))
+                sub = re.search(r"sub-(\d+)", filename).group(1)
+                df["proba"] = proba
+                df["sub"] = sub
+                # Adding the filtered postition and the filtered velocity.
 
-        # Extract metadata from filename
-        proba = int(re.search(r"dir(\d+)", filepath).group(1))
-        sub = re.search(r"sub-(\d+)", filepath).group(1)
-        df["proba"] = proba
-        df["sub"] = sub
+                # filtered_data = [
+                #     process_eye_movement(
+                #         df[df["trial"] == t]["xp"], sampling_freq=1000, cutoff_freq=30
+                #     )
+                #     for t in df.trial.unique()
+                # ]
+                velo = [
+                    np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
+                    for t in df.trial.unique()
+                ]
+                # Concatenate the list of arrays into a single array
+                # allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
+                allVelo = np.concatenate(velo)
+                print(len(allVelo))
 
-        # Calculate velocities in parallel for each trial while maintaining order
-        def process_trial_velocity(t):
-            trial_data = df[df["trial"] == t]["xp"]
-            velocity = np.gradient(trial_data) * sampling_freq / degToPix
-            return t, velocity  # Return trial number with velocity
+                # Ensure the original DataFrame and the filtered DataFrame have the same length
+                if len(df) == len(allVelo):
+                    # df[["filtPos", "filtVelo"]] = allFiltData
+                    df["velo"] = allVelo
+                else:
+                    print(
+                        "Error: The lengths of the original DataFrame and the filtered DataFrame do not match."
+                    )
 
-        trial_order = sorted(df.trial.unique())
-        velocities = Parallel(n_jobs=-1)(
-            delayed(process_trial_velocity)(t) for t in trial_order
-        )
+                allDFs.append(df)
 
-        # Sort velocities by trial number and concatenate
-        velocities.sort(key=lambda x: x[0])  # Sort by trial number
-        df["velo"] = np.concatenate([v[1] for v in velocities])
+            # if filename.endswith(".tsv"):
+            #     filepath = os.path.join(root, filename)
+            #     print(f"Read data from {filepath}")
+            #     events = pd.read_csv(filepath, sep="\t")
+            #     allEvents.append(events)
 
-        return sub, proba, df  # Return identifiers with DataFrame
-
-    # Get all .asc files and sort them
-    file_list = []
-    for root, _, files in os.walk(data_dir):
-        file_list.extend([os.path.join(root, f) for f in files if f.endswith(".asc")])
-    file_list.sort()  # Sort files to maintain consistent order
-
-    # Process all files in parallel
-    processed_dfs = Parallel(n_jobs=-1)(
-        delayed(process_file)(filepath) for filepath in file_list
-    )
-
-    # Sort by subject and probability before concatenating
-    processed_dfs.sort(key=lambda x: (x[0], x[1]))  # Sort by subject and proba
-    bigDF = pd.concat([df for _, _, df in processed_dfs], axis=0, ignore_index=True)
+    bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
+    # print(len(bigDF))
+    # bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
+    # print(len(bigEvents))
+    # Merge DataFrames based on 'proba'
+    # merged_data = pd.concat([bigEvents, bigDF], axis=1)
+    # print(len(merged_data))
 
     bigDF.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
     return bigDF
 
-
-# %%
 
 # Executing the code:
 data_dir = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
