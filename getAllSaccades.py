@@ -41,7 +41,7 @@ def detect_saccades_no_plot(
         """Calculate velocity using central difference and Butterworth filter"""
         vel = np.zeros_like(pos)
         vel[1:-1] = (pos[2:] - pos[:-2]) / (2 * sample_window * deg)
-        b, a = butter_lowpass(cutoff=50, fs=fs)
+        b, a = butter_lowpass(cutoff=30, fs=fs)
         vel_filtered = filtfilt(b, a, vel)
         return vel_filtered
 
@@ -49,9 +49,9 @@ def detect_saccades_no_plot(
         """Calculate acceleration using Butterworth-filtered derivative"""
         acc = np.zeros_like(vel)
         acc[1:-1] = (vel[2:] - vel[:-2]) / (2 * sample_window)
-        b, a = butter_lowpass(cutoff=50, fs=fs)
-        acc_filtered = filtfilt(b, a, acc)
-        return acc_filtered
+        b, a = butter_lowpass(cutoff=30, fs=fs)
+        # acc_filtered = filtfilt(b, a, acc)
+        return acc
 
     def detect_saccade_onset(velocity):
         """Detect saccade onset using fixed velocity threshold"""
@@ -177,9 +177,13 @@ def parallel_saccade_detection(df, n_jobs=-1):
 
 starTime = time.time()
 dirDC = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/"
+# meso
+# dirDC = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection/"
 rawDC = "allRawData.csv"
 
 dirCC = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
+# meso
+# dirCC = "/scratch/houeld/contextuaLearning/ColorCue/data"
 rawCC = "allRawData.csv"
 
 print("Direction Cue Data Set")

@@ -143,7 +143,7 @@ sns.pointplot(
     hue="chosen_arrow",
     errorbar="sd",
     data=learningCurve,
-    alpha=0.7
+    alpha=0.7,
 )
 plt.title("ASEM for all Participants")
 plt.xlabel("P(Right|UP)")

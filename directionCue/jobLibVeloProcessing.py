@@ -716,6 +716,8 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 
 # %%
 path = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+# meso
+# path = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessing.csv"
 processAllRawData(path, fileName, newFileName)

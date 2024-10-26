@@ -773,5 +773,6 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
 
 
 # Executing the code:
-data_dir = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-getAllRawData(data_dir)
+path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+# path = "/scratch/houeld/contextuaLearning/ColorCue/data/"
+getAllRawData(path)
