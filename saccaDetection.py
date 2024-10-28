@@ -259,13 +259,17 @@ for sub in filtered_df["sub"].unique():
             & (filtered_df["time"] <= 600)
         ]
     saccades = detect_saccades(
-        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
+        cond, mono=True, velocity_threshold=15, min_duration_ms=3, min_amplitude=5
     )
     for t in cond.trial.unique():
         saccTrial = saccades[saccades["trial"] == t]
         starts = saccTrial["start"]
         ends = saccTrial["end"]
-        plt.plot(condFiltered[condFiltered.trial == t].time, condFiltered[condFiltered.trial == t].xp, alpha=0.7)
+        plt.plot(
+            condFiltered[condFiltered.trial == t].time,
+            condFiltered[condFiltered.trial == t].xp,
+            alpha=0.7,
+        )
         for i in range(len(starts)):
             # plot shaded area between srarts[i] and ends [i]
             plt.fill_between(
@@ -276,3 +280,33 @@ for sub in filtered_df["sub"].unique():
                 alpha=0.3,
             )
             plt.show()
+# %%
+for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
+    cond = filtered_df[
+        (filtered_df["sub"] == sub)
+        & (filtered_df["proba"] == proba)
+        & (filtered_df["time"] >= -200)
+        & (filtered_df["time"] <= 600)
+    ]
+    saccades = detect_saccades(
+        cond, mono=True, velocity_threshold=15, min_duration_ms=3, min_amplitude=5
+    )
+    for t in cond.trial.unique():
+        saccTrial = saccades[saccades["trial"] == t]
+        starts = saccTrial["start"]
+        ends = saccTrial["end"]
+        plt.plot(
+            condFiltered[condFiltered.trial == t].time,
+            condFiltered[condFiltered.trial == t].xp,
+            alpha=0.7,
+        )
+        for i in range(len(starts)):
+            # plot shaded area between srarts[i] and ends [i]
+            plt.fill_between(
+                [starts.iloc[i], ends.iloc[i]],
+                cond[cond.trial == t].xp.min(),
+                cond[cond.trial == t].xp.max(),
+                color="red",
+                alpha=0.3,
+            )
+        plt.show()

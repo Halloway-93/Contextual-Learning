@@ -771,3 +771,10 @@ path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessingCC.csv"
 processAllRawData(path, fileName, newFileName)
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
+# Path in mesocentre:
+# path = "/scratch/houeld/contextuaLearning/ColorCue/imposedColorData"
+
+fileName = "allRawData.csv"
+newFileName = "JobLibProcessingCC.csv"
+processAllRawData(path, fileName, newFileName)
