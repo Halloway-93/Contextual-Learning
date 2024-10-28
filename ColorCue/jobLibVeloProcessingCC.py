@@ -766,15 +766,10 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 # Path in niolon
 path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 # Path in mesocentre:
-# path = "/scratch/houeld/contextuaLearning/ColorCue/data/"
-
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessingCC.csv"
 processAllRawData(path, fileName, newFileName)
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
-# Path in mesocentre:
-# path = "/scratch/houeld/contextuaLearning/ColorCue/imposedColorData"
-
+path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessingCC.csv"
 processAllRawData(path, fileName, newFileName)

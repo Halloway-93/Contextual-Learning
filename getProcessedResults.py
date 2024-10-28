@@ -128,16 +128,26 @@ def process_filtered_data_parallel(
 
 # Example usage:
 # Load your data
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+filteredRawData1 = "JobLibProcessingCC.csv"
+allEventsFile1 = "allEvents.csv"
+
 dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 filteredRawData2 = "JobLibProcessing.csv"
 allEventsFile2 = "allEvents.csv"
 
-dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-filteredRawData1 = "JobLibProcessingCC.csv"
-allEventsFile1 = "allEvents.csv"
-paths = [dirPath1, dirPath2]
-filteredRawDatas = [filteredRawData1, filteredRawData2]
-allEventsFiles = [allEventsFile1, allEventsFile2]
+
+dirPath3 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
+filteredRawData3 = "JobLibProcessingCC.csv"
+allEventsFile3 = "allEvents.csv"
+
+dirPath4 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
+filteredRawData4 = "JobLibProcessing.csv"
+allEventsFile4 = "allEvents.csv"
+
+paths = [dirPath1, dirPath2,dirPath3, dirPath4]
+filteredRawDatas = [filteredRawData1, filteredRawData2, filteredRawData3, filteredRawData4]
+allEventsFiles = [allEventsFile1, allEventsFile2, allEventsFile4, allEventsFile4]
 windows = [(-50, 50), (80, 120), (-100, 100), (-200, 120)]
 for w in windows:
     for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):

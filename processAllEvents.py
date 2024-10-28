@@ -65,10 +65,14 @@ def process_all_events(data_dir, filename="allEvents.csv"):
 
 # Running the code on the server
 dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+process_all_events(dirPath1)
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
+process_all_events(dirPath1)
 # mesocentre
 # dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
-process_all_events(dirPath1)
 dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
+process_all_events(dirPath2)
+dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
+process_all_events(dirPath2)
 # Mesocentre
 # dirPath2 = "/scratch/houeld/contextuaLearning/ColorCue/data"
-process_all_events(dirPath2)
