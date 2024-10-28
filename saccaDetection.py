@@ -279,11 +279,11 @@ for sub in filtered_df["sub"].unique():
                 color="red",
                 alpha=0.3,
             )
-            plt.show()
+        plt.show()
 # %%
 for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
     cond = filtered_df[
-        (filtered_df["sub"] == sub)
+        (filtered_df["sub"] == 3)
         & (filtered_df["proba"] == proba)
         & (filtered_df["time"] >= -200)
         & (filtered_df["time"] <= 600)

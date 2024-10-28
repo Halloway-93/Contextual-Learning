@@ -542,6 +542,6 @@ dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_
 # dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
 process_all_raw_data(dirPath1)
 # Running the code on the server
-dirPath1 = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
 # dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_imposeDirection"
 process_all_raw_data(dirPath1)
