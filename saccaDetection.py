@@ -277,21 +277,21 @@ for sub in df["sub"].unique():
             & (df["time"] >= -200)
             & (df["time"] <= 600)
         ]
-        saccades = detect_saccades(
-            cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
-        )
-        for t in cond.trial.unique():
-            saccTrial = saccades[saccades["trial"] == t]
-            starts = saccTrial["start"]
-            ends = saccTrial["end"]
-            plt.plot(cond[cond.trial == t].time, cond[cond.trial == t].xp, alpha=0.7)
-            for i in range(len(starts)):
-                # plot shaded area between srarts[i] and ends [i]
-                plt.fill_between(
-                    [starts.iloc[i], ends.iloc[i]],
-                    cond[cond.trial == t].xp.min(),
-                    cond[cond.trial == t].xp.max(),
-                    color="red",
-                    alpha=0.3,
-                )
+    saccades = detect_saccades(
+        cond, mono=True, velocity_threshold=20, min_duration_ms=5, min_amplitude=5
+    )
+    for t in cond.trial.unique():
+        saccTrial = saccades[saccades["trial"] == t]
+        starts = saccTrial["start"]
+        ends = saccTrial["end"]
+        plt.plot(cond[cond.trial == t].time, cond[cond.trial == t].xp, alpha=0.7)
+        for i in range(len(starts)):
+            # plot shaded area between srarts[i] and ends [i]
+            plt.fill_between(
+                [starts.iloc[i], ends.iloc[i]],
+                cond[cond.trial == t].xp.min(),
+                cond[cond.trial == t].xp.max(),
+                color="red",
+                alpha=0.3,
+            )
             plt.show()
