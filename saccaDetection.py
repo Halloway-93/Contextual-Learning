@@ -201,50 +201,33 @@ def detect_saccades(
     return saccades_df
 
 
-# %%
-df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allRawData.csv"
-)
-# %%
 filtered_df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/JobLibProcessing.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
 )
-# %%
-df.drop(columns=["cr.info"], inplace=True)
-df.columns
-# %%
-cond = df[
-    (df["sub"] == 6)
-    & (df["proba"] == 0.75)
-    & (df["trial"] == 100)
-    & (df["time"] >= -200)
-    & (df["time"] <= 600)
-]
-cond
 # %%
 condFiltered = filtered_df[
-    (filtered_df["sub"] == 6)
-    & (filtered_df["proba"] == 0.75)
-    & (filtered_df["trial"] == 100)
+    (filtered_df["sub"] == 2)
+    & (filtered_df["proba"] == 75)
+    & (filtered_df["trial"] == 50)
 ]
 condFiltered
 # %%
 saccades = detect_saccades(
-    cond, mono=True, velocity_threshold=20, min_duration_ms=5, min_amplitude=5
+    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=5, min_amplitude=5
 )
 # %%
 saccades
 # %%
 starts = saccades["start"]
 ends = saccades["end"]
-plt.plot(cond.time, cond.xp)
+plt.plot(condFiltered.time, condFiltered.xp)
 
 for i in range(len(starts)):
     # plot shaded area between srarts[i] and ends [i]
     plt.fill_between(
         [starts.iloc[i], ends.iloc[i]],
-        cond.xp.min(),
-        cond.xp.max(),
+        condFiltered.xp.min(),
+        condFiltered.xp.max(),
         color="red",
         alpha=0.3,
     )
@@ -267,24 +250,22 @@ plt.plot(condFiltered.time, condFiltered.xp)
 plt.plot(condFiltered.time, condFiltered.filtPos)
 plt.show()
 # %%
-df = df.apply(pd.to_numeric, errors="coerce")
-# %%
-for sub in df["sub"].unique():
-    for proba in df[df["sub"] == sub]["proba"].unique():
-        cond = df[
-            (df["sub"] == sub)
-            & (df["proba"] == proba)
-            & (df["time"] >= -200)
-            & (df["time"] <= 600)
+for sub in filtered_df["sub"].unique():
+    for proba in filtered_df[filtered_df["sub"] == sub]["proba"].unique():
+        cond = filtered_df[
+            (filtered_df["sub"] == sub)
+            & (filtered_df["proba"] == proba)
+            & (filtered_df["time"] >= -200)
+            & (filtered_df["time"] <= 600)
         ]
     saccades = detect_saccades(
-        cond, mono=True, velocity_threshold=20, min_duration_ms=5, min_amplitude=5
+        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
     )
     for t in cond.trial.unique():
         saccTrial = saccades[saccades["trial"] == t]
         starts = saccTrial["start"]
         ends = saccTrial["end"]
-        plt.plot(cond[cond.trial == t].time, cond[cond.trial == t].xp, alpha=0.7)
+        plt.plot(condFiltered[condFiltered.trial == t].time, condFiltered[condFiltered.trial == t].xp, alpha=0.7)
         for i in range(len(starts)):
             # plot shaded area between srarts[i] and ends [i]
             plt.fill_between(

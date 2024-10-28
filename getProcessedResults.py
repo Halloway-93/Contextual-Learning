@@ -138,12 +138,13 @@ allEventsFile1 = "allEvents.csv"
 paths = [dirPath1, dirPath2]
 filteredRawDatas = [filteredRawData1, filteredRawData2]
 allEventsFiles = [allEventsFile1, allEventsFile2]
-for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):
-    df = pd.read_csv(os.path.join(p, f))
-    events = pd.read_csv(os.path.join(p, e))
-    print("events")
-    output_file = os.path.join(p, "processedResults.csv")
-    # Process data and save to CSV
-    results = process_filtered_data_parallel(
-        df=df, events=events, fOFF=80, latency=120, output_file=output_file
-    )
+windows = [(-50, 50), (80, 120), (-100, 100), (-200, 120)]
+for w in windows:
+    for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):
+        df = pd.read_csv(os.path.join(p, f))
+        events = pd.read_csv(os.path.join(p, e))
+        output_file = os.path.join(p, f"processedResultsWindow({w[0]},{w[1]}).csv")
+        # Process data and save to CSV
+        results = process_filtered_data_parallel(
+            df=df, events=events, fOFF=w[0], latency=w[1], output_file=output_file
+        )
