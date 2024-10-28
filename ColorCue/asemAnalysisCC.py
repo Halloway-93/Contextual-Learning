@@ -13,8 +13,8 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import numpy as np
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
-pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/"
+pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/imposedColor/"
 jobLibData = "jobLibProcessingCC.csv"
 allEventsFile = (
     "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
@@ -23,9 +23,12 @@ allEventsFile = (
 
 # %%
 jlData = pd.read_csv(os.path.join(path, jobLibData))
+
+# %%
+jlData
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 15) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
+    (jlData["sub"] == 4) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
 ]
 exampleJL
 # %%
@@ -69,7 +72,7 @@ greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(-100,100).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/processedResultsWindow(-100,100).csv"
 )
 # %%
 badTrials = df[(df["meanVelo"] < -15) | (df["meanVelo"] > 15)]
@@ -84,14 +87,14 @@ plt.show()
 # df = pd.read_csv(os.path.join(path, fileName))
 # [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
-df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
+df["color"] = df["trial_color"].apply(lambda x: "green" if x == 0 else "red")
 
 
 # df = df.dropna(subset=["meanVelo"])
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
 # %%
-df = df[(df["sub"] != 9)]
+# df = df[(df["sub"] != 9)]
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -845,9 +848,27 @@ model = smf.mixedlm(
 model.summary()
 # %%
 model = smf.mixedlm(
+    "meanVelo~  C(color)*C(TD_prev)",
+    data=dd[dd.proba == 75],
+    # re_formula="~proba",
+    groups=dd[dd.proba == 75]["sub"],
+).fit()
+model.summary()
+# %%
+model = smf.mixedlm(
+    "meanVelo~  C(color)*C(TD_prev)",
+    data=dd[dd.proba == 50],
+    # re_formula="~proba",
+    groups=dd[dd.proba == 50]["sub"],
+).fit()
+model.summary()
+# %%
+model = smf.mixedlm(
     "meanVelo~  C(proba)*C(TD_prev)",
     data=dd[dd.color == "green"],
     # re_formula="~proba",
     groups=dd[dd.color == "green"]["sub"],
 ).fit()
 model.summary()
+# %%
+df.groupby("interaction").count()
