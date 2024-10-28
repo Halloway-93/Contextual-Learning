@@ -1,4 +1,5 @@
 import os
+from scipy import stats
 from statsmodels.stats.multitest import multipletests
 import scikit_posthocs as sp
 from scipy.stats import friedmanchisquare, wilcoxon
@@ -68,13 +69,13 @@ greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResults.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(-100,100).csv"
 )
 # %%
-badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
+badTrials = df[(df["meanVelo"] < -15) | (df["meanVelo"] > 15)]
 badTrials
 # %%
-df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
+df = df[(df["meanVelo"] <= 15) & (df["meanVelo"] >= -15)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -195,7 +196,7 @@ pg.wilcoxon(
 )
 # %%
 # Pivot the data for proba
-pivot_proba = dd[dd.color == "red"].pivot(
+pivot_proba = dd[dd.color == "green"].pivot(
     index="sub", columns="proba", values="meanVelo"
 )
 pivot_proba
@@ -355,7 +356,12 @@ anova_table = sm.stats.anova_lm(model, typ=2)
 print(anova_table)
 # %%
 # cehcking the normality of the data
-print(pg.normality(dd["meanVelo"]))
+print(pg.normality(df["meanVelo"]))
+# %%
+stat, p = stats.kstest(
+    df["meanVelo"], "norm", args=(df["meanVelo"].mean(), df["meanVelo"].std(ddof=1))
+)
+print(f"Statistic: {stat}, p-value: {p}")
 # %%
 x = dd["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
@@ -423,7 +429,7 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="sd",
+    errorbar="ci",
     hue="color",
     palette=colors,
 )
@@ -435,7 +441,7 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="se",
+    errorbar="ci",
     hue="sub",
     palette="Set2",
 )
@@ -448,7 +454,7 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="se",
+    errorbar="ci",
     hue="sub",
     palette="Set2",
 )
@@ -468,7 +474,7 @@ print(anova_results)
 # %%
 
 model = smf.mixedlm(
-    "meanVelo~ ( proba )",
+    "meanVelo~C( proba )",
     data=dd[dd.color == "red"],
     # re_formula="~proba",
     groups=dd[dd.color == "red"]["sub"],
@@ -477,7 +483,7 @@ model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~ (proba)",
+    "meanVelo~ C(proba)",
     data=dd[dd.color == "green"],
     # re_formula="~proba",
     groups=dd[dd.color == "green"]["sub"],
@@ -831,9 +837,17 @@ dd = df.groupby(["sub", "proba", "color", "TD_prev"])["meanVelo"].mean().reset_i
 dd
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(color)",
-    data=dd[dd.proba == 75],
+    "meanVelo~  C(color)*C(TD_prev)",
+    data=dd[dd.proba == 25],
     # re_formula="~proba",
-    groups=dd[dd.proba == 75]["sub"],
+    groups=dd[dd.proba == 25]["sub"],
+).fit()
+model.summary()
+# %%
+model = smf.mixedlm(
+    "meanVelo~  C(proba)*C(TD_prev)",
+    data=dd[dd.color == "green"],
+    # re_formula="~proba",
+    groups=dd[dd.color == "green"]["sub"],
 ).fit()
 model.summary()

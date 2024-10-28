@@ -668,7 +668,7 @@ def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
         condition_data,
         mono=True,
         velocity_threshold=20,
-        min_duration_ms=5,
+        min_duration_ms=3,
         min_amplitude=5,
     )
 
