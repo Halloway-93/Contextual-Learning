@@ -764,12 +764,18 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 
 # %%
 # Path in niolon
-path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-# Path in mesocentre:
-fileName = "allRawData.csv"
-newFileName = "JobLibProcessingCC.csv"
-processAllRawData(path, fileName, newFileName)
-path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
+# path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
+# fileName = "allRawData.csv"
+# newFileName = "JobLibProcessingCC.csv"
+# processAllRawData(path, fileName, newFileName)
+#
+# path = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
+# fileName = "allRawData.csv"
+# newFileName = "JobLibProcessingCC.csv"
+# processAllRawData(path, fileName, newFileName)
+
+#Attention Task
+path = "/envau/work/brainets/oueld.h/attentionalTask/data/"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessingCC.csv"
 processAllRawData(path, fileName, newFileName)

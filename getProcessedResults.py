@@ -145,9 +145,13 @@ dirPath4 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_
 filteredRawData4 = "JobLibProcessing.csv"
 allEventsFile4 = "allEvents.csv"
 
-paths = [dirPath1, dirPath2,dirPath3, dirPath4]
-filteredRawDatas = [filteredRawData1, filteredRawData2, filteredRawData3, filteredRawData4]
-allEventsFiles = [allEventsFile1, allEventsFile2, allEventsFile4, allEventsFile4]
+dirPath5 = "/envau/work/brainets/oueld.h/attentionalTask/data"
+filteredRawData5 = "JobLibProcessingCC.csv"
+allEventsFile5 = "allEvents.csv"
+
+paths = [dirPath1, dirPath2,dirPath3, dirPath4, dirPath5]
+filteredRawDatas = [filteredRawData1, filteredRawData2, filteredRawData3, filteredRawData4, filteredRawData5]
+allEventsFiles = [allEventsFile1, allEventsFile2, allEventsFile4, allEventsFile4, allEventsFile5]
 windows = [(-50, 50), (80, 120), (-100, 100), (-200, 120)]
 for w in windows:
     for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):

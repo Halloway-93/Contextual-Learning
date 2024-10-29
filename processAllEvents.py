@@ -74,5 +74,6 @@ dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 process_all_events(dirPath2)
 dirPath2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData"
 process_all_events(dirPath2)
-# Mesocentre
-# dirPath2 = "/scratch/houeld/contextuaLearning/ColorCue/data"
+
+dirPath3 = "/envau/work/brainets/oueld.h/attentionalTask/data"
+process_all_events(dirPath3)
