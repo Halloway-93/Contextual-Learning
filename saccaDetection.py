@@ -213,7 +213,7 @@ condFiltered = filtered_df[
 condFiltered
 # %%
 saccades = detect_saccades(
-    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=5, min_amplitude=5
+    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
 )
 # %%
 saccades
@@ -289,15 +289,15 @@ for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
         & (filtered_df["time"] <= 600)
     ]
     saccades = detect_saccades(
-        cond, mono=True, velocity_threshold=15, min_duration_ms=3, min_amplitude=5
+        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
     )
     for t in cond.trial.unique():
         saccTrial = saccades[saccades["trial"] == t]
         starts = saccTrial["start"]
         ends = saccTrial["end"]
         plt.plot(
-            condFiltered[condFiltered.trial == t].time,
-            condFiltered[condFiltered.trial == t].xp,
+            cond[cond.trial == t].time,
+            cond[cond.trial == t].xp,
             alpha=0.7,
         )
         for i in range(len(starts)):
