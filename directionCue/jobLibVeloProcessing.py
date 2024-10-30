@@ -617,7 +617,7 @@ def calculate_velocity(position, sampling_freq=1000, degToPix=27.28):
     return velocity * sampling_freq / degToPix
 
 
-def filter_velocity(velocity, sampling_freq=1000, velocity_cutoff=20, degToPix=27.28):
+def filter_velocity(velocity, sampling_freq=1000, velocity_cutoff=20):
     """
     Calculate velocity from position data, with additional filtering
     """
@@ -658,9 +658,11 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
 
     # 2. Calculate velocity from the filtered position as n.gradient handle the NaN.
     # (we use interpolated to avoid NaN issues in velocity calculation)
-    velocity = calculate_velocity(filtered_pos, sampling_freq=sampling_freq)
+    velocity = calculate_velocity(
+        filtered_pos, sampling_freq=sampling_freq, degToPix=27.28
+    )
     filtered_velocity = filter_velocity(
-        velocity, sampling_freq=1000, velocity_cutoff=20, degToPix=27.28
+        velocity, sampling_freq=1000, velocity_cutoff=20
     )
 
     return pd.DataFrame(
