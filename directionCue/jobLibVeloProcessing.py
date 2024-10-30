@@ -632,19 +632,21 @@ def filter_velocity(velocity, sampling_freq=1000, velocity_cutoff=20):
         interpolated_data = np.interp(
             all_indices, all_indices[valid_indices], velocity[valid_indices]
         )
-    # Filter velocity separately with lower cutoff
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = velocity_cutoff / nyquist
-    b, a = butter(2, normalized_cutoff, btype="low")
-    #
-    # # Filter velocity
-    filtered_velocity = filtfilt(b, a, interpolated_data)
+        # Filter velocity separately with lower cutoff
+        nyquist = sampling_freq * 0.5
+        normalized_cutoff = velocity_cutoff / nyquist
+        b, a = butter(2, normalized_cutoff, btype="low")
+        #
+        # # Filter velocity
+        filtered_velocity = filtfilt(b, a, interpolated_data)
 
-    # Put NaN values back in their original positions
-    # This is important if you want to exclude these periods from analysis
-    final_data = filtered_velocity.copy()
-    final_data[~valid_indices] = np.nan
-    return final_data
+        # Put NaN values back in their original positions
+        # This is important if you want to exclude these periods from analysis
+        final_data = filtered_velocity.copy()
+        final_data[~valid_indices] = np.nan
+        return final_data
+    else:
+        np.full_like(velocity, np.nan)
 
 
 def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
