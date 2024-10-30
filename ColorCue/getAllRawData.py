@@ -780,5 +780,5 @@ path2 = "/envau/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorDat
 # getAllRawData(path1)
 getAllRawData(path2)
 # Attentional Task
-path3='/envau/work/brainets/oueld.h/attentionalTask/data'
-getAllRawData(path3)
+# path3='/envau/work/brainets/oueld.h/attentionalTask/data'
+# getAllRawData(path3)
