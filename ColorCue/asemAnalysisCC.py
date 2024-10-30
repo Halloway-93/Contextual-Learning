@@ -320,7 +320,7 @@ sns.histplot(
     # multiple="dodge",
     palette=colors,
 )
-plt.title(f"Early Trials: {earlyTrials}, P(Right|Red)={proba}")
+plt.title(f"Early Trials: {earlyTrials}, P(Right|Red)={p}")
 plt.show()
 
 # %%
