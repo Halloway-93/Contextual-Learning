@@ -774,7 +774,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             filtered_trial = result["filtered_trial"]
             df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
-            df.loc[mask, "filtVeloFilt"] = filtered_trial["filtVeloFilt"].astype(float)
+            df.loc[mask, "filtVeloFilt"] = filtered_trial["filtVeloFilt"].values
 
             # Update velocity
             df.loc[mask, "velo"] = result["velocity"]
