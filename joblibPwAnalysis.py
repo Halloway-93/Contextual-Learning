@@ -114,11 +114,11 @@ allEventsFiles = [
     allEventsFile4,
     allEventsFile5,
 ]
-for p, f, e in zip(paths, filteredRawDatas):
+for p, f in zip(paths, filteredRawDatas):
     df = pd.read_csv(os.path.join(p, f))
-    output_file = os.path.join(p, "fitData.csv")
+    output_file = os.path.join(p, "fitData.json")
     fit_data = pwAnalysis(df)
-    save_fit_data(fit_data,output_file)
+    save_fit_data(fit_data, output_file)
     # Process data and save to CSV
 # Example usage
 # df = pd.read_csv('your_data.csv')
