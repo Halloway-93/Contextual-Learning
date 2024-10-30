@@ -161,7 +161,7 @@ def interpolateData(data):
 
 
 # %%
-csvPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
+csvPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/JobLibProcessing.csv"
 # slopesPath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/slopes.json"
 # allSlopes = pwAnalysis(csvPath)
 # Serialize the data to a JSON file

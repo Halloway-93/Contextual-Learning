@@ -712,6 +712,7 @@ def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
         filtered_trial = process_eye_movement(trial.xp)
         filtered_trial["time"] = trial["time"].values
 
+        print("In Process Results:",filtered_trial["filtVeloFilt"].values)
         if not sacc.empty and t in sacc.trial.unique():
             start = sacc[sacc.trial == t]["start"].values
             end = sacc[sacc.trial == t]["end"].values
@@ -775,6 +776,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 
             # Update filtered data
             filtered_trial = result["filtered_trial"]
+            print("In results:",filtered_trial["filtVeloFilt"].values)
             df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
             df.loc[mask, "filtVeloFilt"] = filtered_trial["filtVeloFilt"].astype(float)

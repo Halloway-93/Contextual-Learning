@@ -776,7 +776,6 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
             df.loc[mask, "filtVeloFilt"] = filtered_trial["filtVeloFilt"].astype(float)
 
-
             # Update velocity
             df.loc[mask, "velo"] = result["velocity"]
 
@@ -800,7 +799,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 # newFileName = "JobLibProcessingCC.csv"
 # processAllRawData(path, fileName, newFileName)
 
-#Attention Task
+# Attention Task
 path = "/envau/work/brainets/oueld.h/attentionalTask/data/"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessingCC.csv"

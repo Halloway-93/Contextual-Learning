@@ -7,7 +7,6 @@ import pandas as pd
 from scipy import signal
 
 
-
 # Example velocity threshold for ASP detection
 def detect_asp_onset(velocity, threshold=2.0):  # deg/s
     """
