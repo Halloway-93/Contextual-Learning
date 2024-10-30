@@ -19,7 +19,6 @@ def interpolateData(data):
         return interpolated_data
     return None
 
-
 def fit_trial(df_sub_p, trial, slopes, breakpoints):
     x = df_sub_p[df_sub_p["trial"] == trial].time.values
     y = interpolateData(df_sub_p[df_sub_p["trial"] == trial].filtPos.values)
@@ -43,35 +42,25 @@ def fit_trial(df_sub_p, trial, slopes, breakpoints):
             bps.append(bp)
     return (alphas, bps)
 
-
 def fit_condition(df_sub, proba, slopes, breakpoints):
     df_sub_p = df_sub[df_sub["proba"] == proba]
     trials = df_sub_p.trial.unique()
-    allFitTrials = Parallel(n_jobs=-1)(
-        delayed(fit_trial)(df_sub_p, trial, slopes, breakpoints) for trial in trials
-    )
+    allFitTrials = {trial: fit_trial(df_sub_p, trial, slopes, breakpoints) for trial in trials}
     return allFitTrials
-
 
 def fit_subject(df, sub, slopes, breakpoints):
     df_sub = df[df["sub"] == sub]
     probas = df_sub.proba.unique()
-    allFitConditions = Parallel(n_jobs=-1)(
-        delayed(fit_condition)(df_sub, proba, slopes, breakpoints) for proba in probas
-    )
+    allFitConditions = {proba: fit_condition(df_sub, proba, slopes, breakpoints) for proba in probas}
     return allFitConditions
-
 
 def pwAnalysis(df):
     maxBreakPoints = 3
     slopes = [f"alpha{i+1}" for i in range(maxBreakPoints + 1)]
     breakpoints = [f"breakpoint{i+1}" for i in range(maxBreakPoints)]
     subjects = df["sub"].unique()
-    allFit = Parallel(n_jobs=-1)(
-        delayed(fit_subject)(df, sub, slopes, breakpoints) for sub in subjects
-    )
+    allFit = {sub: fit_subject(df, sub, slopes, breakpoints) for sub in subjects}
     return allFit
-
 
 # Example usage
 # df = pd.read_csv('your_data.csv')
