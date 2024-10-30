@@ -1,6 +1,5 @@
 import pandas as pd
 import pwlf
-from scipy.optimize import curve_fit
 import piecewise_regression as pw
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +16,6 @@ def pwAnalysis(df):
     slopes = [f"alpha{i+1}" for i in range(maxBreakPoints + 1)]
     breakpoints = [f"breakpoint{i+1}" for i in range(maxBreakPoints)]
 
-    df = df[(df["trial"] > 150)]
     allFit = []
     for sub in df["sub"].unique():
         df_sub = df[df["sub"] == sub]
@@ -49,7 +47,7 @@ def pwAnalysis(df):
                             print(f"{s}:", alpha)
                     for b in breakpoints:
                         if b in pw_estimates.keys():
-                            bp = pw_estimates[s]["estimate"]
+                            bp = pw_estimates[b]["estimate"]
                             bps.append(bp)
                             print(f"{b}:", bp)
 
@@ -172,7 +170,7 @@ df = pd.read_csv(csvPath)
 # %%
 df
 # %%
-example = df[(df["sub"] == 1.0) & (df["proba"] == 0.25) & (df["trial"] == 200)]
+example = df[(df["sub"] == 6) & (df["proba"] == 1.) & (df["trial"] == 150)]
 example = example[(example["time"] <= 500)]
 
 example["interpVelo"] = interpolateData(example.velo.values)
@@ -211,57 +209,15 @@ plt.close()
 # %%
 
 
-# %%
-x = example.time.values
-y = example.rawVelo.values
-# %%
-len(x)
-# %%
-
-
-def step_function(t, *params):
-    """
-    Step function model for smooth pursuit velocity.
-
-    Parameters:
-    t (numpy array): Time values
-    *params (float): Step function parameters, alternating between breakpoints and velocity values
-    """
-    breakpoints = params[::2]
-    velocities = params[1::2]
-
-    y = np.zeros_like(t)
-    for i in range(len(breakpoints)):
-        if i == 0:
-            y[t < breakpoints[i]] = velocities[i]
-        else:
-            y[(t >= breakpoints[i - 1]) & (t < breakpoints[i])] = velocities[i]
-    y[t >= breakpoints[-1]] = velocities[-1]
-    return y
-
-
-# Assume you have 'time' and 'velocity' arrays from your data
-initial_params = [0.5, 10, 1.0, 20, 1.5, 15]
-popt, pcov = curve_fit(step_function, x, y, p0=initial_params)
-
-# Unpack the optimized parameters
-breakpoints = popt[::2]
-velocities = popt[1::2]
-
-# Visualize the fit
-plt.figure(figsize=(12, 6))
-plt.plot(x, y, label="Original Data")
-plt.plot(x, step_function(x, *popt), label="Step Function Fit")
-plt.xlabel("Time")
-plt.ylabel("Velocity")
-plt.title("Smooth Pursuit Velocity with Step Function Model")
-plt.legend()
-plt.show()
-# %%
 my_pwlf = pwlf.PiecewiseLinFit(x, y)
 res = my_pwlf.fit(4)
 # predict for the determined points
 xHat = np.linspace(min(x), max(x), num=10000)
 yHat = my_pwlf.predict(xHat)
+# %%
+plt.figure()
+plt.plot(x, y, "o")
+plt.plot(xHat, yHat, "-")
+plt.show()
 # %%
 pwAnalysis(example)
