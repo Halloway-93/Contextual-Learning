@@ -1,4 +1,6 @@
 import pandas as pd
+import pwlf
+from scipy.optimize import curve_fit
 import piecewise_regression as pw
 import matplotlib.pyplot as plt
 import numpy as np
@@ -159,7 +161,7 @@ def interpolateData(data):
 
 
 # %%
-csvPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/JobLibProcessing.csv"
+csvPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
 # slopesPath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/slopes.json"
 # allSlopes = pwAnalysis(csvPath)
 # Serialize the data to a JSON file
@@ -169,7 +171,7 @@ df = pd.read_csv(csvPath)
 # %%
 df
 # %%
-example = df[(df["sub"] == 1) & (df["proba"] == 0.25) & (df["trial"] == 200)]
+example = df[(df["sub"] == 1.0) & (df["proba"] == 0.25) & (df["trial"] == 200)]
 example = example[(example["time"] <= 500)]
 
 example["interpVelo"] = interpolateData(example.velo.values)
@@ -177,7 +179,7 @@ example["filtVelo2"] = interpolateData(process_eye_movement(example.filtPos.valu
 example
 # %%
 x = example.time.values
-y = example.filtVelo2.values
+y = interpolateData(example.velo.values)
 # %%
 len(y)
 # %%
@@ -199,79 +201,6 @@ plt.ylabel("y")
 plt.show()
 plt.close()
 # %%
-
-
-def piecewise_linear_regression(time, velocity):
-    """
-    Perform piecewise linear regression on eye movement velocity data.
-
-    Parameters:
-    -----------
-    time : numpy array
-        Time values for the velocity data
-    velocity : numpy array
-        Velocity data
-
-    Returns:
-    --------
-    piecewise_model : dict
-        Dictionary containing the piecewise linear regression model parameters
-    """
-    piecewise_model = {"breakpoints": [], "slopes": [], "intercepts": []}
-
-    # Start with a single linear regression
-    model = LinearRegression()
-    model.fit(time.reshape(-1, 1), velocity)
-    piecewise_model["breakpoints"] = []
-    piecewise_model["slopes"] = [model.coef_[0]]
-    piecewise_model["intercepts"] = [model.intercept_]
-
-    # Iteratively add breakpoints
-    prev_mse = mean_squared_error(velocity, model.predict(time.reshape(-1, 1)))
-    while len(piecewise_model["breakpoints"]) < 3:
-        best_breakpoint = None
-        best_mse = prev_mse
-
-        for i in range(1, len(time) - 1):
-            # Try inserting a breakpoint at each sample
-            left_model = LinearRegression()
-            right_model = LinearRegression()
-
-            left_mask = time < time[i]
-            right_mask = time >= time[i]
-
-            left_model.fit(time[left_mask].reshape(-1, 1), velocity[left_mask])
-            right_model.fit(time[right_mask].reshape(-1, 1), velocity[right_mask])
-
-            left_predict = left_model.predict(time[left_mask].reshape(-1, 1))
-            right_predict = right_model.predict(time[right_mask].reshape(-1, 1))
-            predict = np.concatenate([left_predict, right_predict])
-
-            new_mse = mean_squared_error(velocity, predict)
-            if new_mse < best_mse:
-                best_breakpoint = time[i]
-                best_mse = new_mse
-
-        if best_breakpoint is not None:
-            piecewise_model["breakpoints"].append(best_breakpoint)
-
-            left_model = LinearRegression()
-            right_model = LinearRegression()
-
-            left_mask = time < best_breakpoint
-            right_mask = time >= best_breakpoint
-
-            left_model.fit(time[left_mask].reshape(-1, 1), velocity[left_mask])
-            right_model.fit(time[right_mask].reshape(-1, 1), velocity[right_mask])
-
-            piecewise_model["slopes"].append(left_model.coef_[0])
-            piecewise_model["slopes"].append(right_model.coef_[0])
-            piecewise_model["intercepts"].append(left_model.intercept_)
-            piecewise_model["intercepts"].append(right_model.intercept_)
-        else:
-            break
-
-    return piecewise_model
 
 
 def piecewise_linear_regression_with_saccades(time, velocity):
@@ -402,3 +331,51 @@ len(x)
 model = piecewise_linear_regression(x, y)
 # %%
 plot_piecewise_fit(x, y, model)
+# %%
+
+
+def step_function(t, *params):
+    """
+    Step function model for smooth pursuit velocity.
+
+    Parameters:
+    t (numpy array): Time values
+    *params (float): Step function parameters, alternating between breakpoints and velocity values
+    """
+    breakpoints = params[::2]
+    velocities = params[1::2]
+
+    y = np.zeros_like(t)
+    for i in range(len(breakpoints)):
+        if i == 0:
+            y[t < breakpoints[i]] = velocities[i]
+        else:
+            y[(t >= breakpoints[i - 1]) & (t < breakpoints[i])] = velocities[i]
+    y[t >= breakpoints[-1]] = velocities[-1]
+    return y
+
+
+# Assume you have 'time' and 'velocity' arrays from your data
+initial_params = [0.5, 10, 1.0, 20, 1.5, 15]
+popt, pcov = curve_fit(step_function, x, y, p0=initial_params)
+
+# Unpack the optimized parameters
+breakpoints = popt[::2]
+velocities = popt[1::2]
+
+# Visualize the fit
+plt.figure(figsize=(12, 6))
+plt.plot(x, y, label="Original Data")
+plt.plot(x, step_function(x, *popt), label="Step Function Fit")
+plt.xlabel("Time")
+plt.ylabel("Velocity")
+plt.title("Smooth Pursuit Velocity with Step Function Model")
+plt.legend()
+plt.show()
+# %%
+my_pwlf = pwlf.PiecewiseLinFit(x, y)
+res = my_pwlf.fit(4)
+# predict for the determined points
+xHat = np.linspace(min(x), max(x), num=10000)
+yHat = my_pwlf.predict(xHat)
+
