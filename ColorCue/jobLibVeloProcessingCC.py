@@ -600,35 +600,50 @@ def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
         final_data = filtered_data.copy()
         final_data[~valid_indices] = np.nan
 
-        return final_data, interpolated_data
+        return final_data
     else:
-        return np.full_like(eye_position, np.nan), np.full_like(eye_position, np.nan)
+        return np.full_like(eye_position, np.nan)
 
 
-def calculate_velocity(
-    position, sampling_freq=1000, velocity_cutoff=20, degToPix=27.28
-):
+def calculate_velocity(position, sampling_freq=1000, degToPix=27.28):
     """
     Calculate velocity from position data, with additional filtering
     """
-    # First calculate raw velocity using central difference
-    # We do this before filtering to avoid edge effects from the filter
-    # velocity = np.zeros_like(position)
-    # velocity[1:-1] = (position[2:] - position[:-2]) * (sampling_freq / 2)
-    #
-    # # Handle edges
-    # velocity[0] = (position[1] - position[0]) * sampling_freq
-    # velocity[-1] = (position[-1] - position[-2]) * sampling_freq
     velocity = np.gradient(position)
-    # Filter velocity separately with lower cutoff
-    # nyquist = sampling_freq * 0.5
-    # normalized_cutoff = velocity_cutoff / nyquist
-    # b, a = signal.butter(2, normalized_cutoff, btype="low")
-    #
-    # # Filter velocity
-    # filtered_velocity = signal.filtfilt(b, a, velocity)
 
     return velocity * sampling_freq / degToPix
+
+
+def filter_velocity(velocity, sampling_freq=1000, velocity_cutoff=20):
+    """
+    Calculate velocity from position data, with additional filtering
+    """
+    valid_indices = ~np.isnan(velocity)
+
+    # Get all indices
+    all_indices = np.arange(len(velocity))
+
+    # Interpolate only if we have some valid data
+    if np.any(valid_indices):
+        # Use linear interpolation
+        interpolated_data = np.interp(
+            all_indices, all_indices[valid_indices], velocity[valid_indices]
+        )
+        # Filter velocity separately with lower cutoff
+        nyquist = sampling_freq * 0.5
+        normalized_cutoff = velocity_cutoff / nyquist
+        b, a = butter(2, normalized_cutoff, btype="low")
+        #
+        # # Filter velocity
+        filtered_velocity = filtfilt(b, a, interpolated_data)
+
+        # Put NaN values back in their original positions
+        # This is important if you want to exclude these periods from analysis
+        final_data = filtered_velocity.copy()
+        final_data[~valid_indices] = np.nan
+        return final_data
+    else:
+        np.full_like(velocity, np.nan)
 
 
 def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
@@ -636,22 +651,28 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     Complete processing pipeline including velocity calculation
     """
     # 1. First handle the NaN values and filter position
-    filtered_pos, interpolated_pos = prepare_and_filter_data(
+    filtered_pos = prepare_and_filter_data(
         eye_position, sampling_freq, cutoff_freq  # Position cutoff
     )
 
-    # 2. Calculate velocity from the interpolated position
+    # 2. Calculate velocity from the filtered position as n.gradient handle the NaN.
     # (we use interpolated to avoid NaN issues in velocity calculation)
     velocity = calculate_velocity(
-        filtered_pos,
-        sampling_freq=sampling_freq,
-        velocity_cutoff=20,  # Typically lower cutoff for velocity
+        filtered_pos, sampling_freq=sampling_freq, degToPix=27.28
+    )
+    filtered_velocity = filter_velocity(
+        velocity, sampling_freq=1000, velocity_cutoff=20
     )
 
-    # 3. Put NaN back in velocity where position was NaN
-    # velocity[np.isnan(eye_position)] = np.nan
-
-    return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
+    return pd.DataFrame(
+        dict(
+            {
+                "filtPos": filtered_pos,
+                "filtVelo": velocity,
+                "filtVeloFilt": filtered_velocity,
+            }
+        )
+    )
 
 
 def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
@@ -695,7 +716,7 @@ def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
                 filtered_trial.loc[
                     (filtered_trial.time >= start[i] - 25)
                     & (filtered_trial.time <= end[i] + 25),
-                    ["filtPos", "filtVelo"],
+                    ["filtPos", "filtVelo", "filtVeloFilt"],
                 ] = np.nan
 
         filtered_trial.drop(columns=["time"], inplace=True)
@@ -741,6 +762,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     # Combine results back into the main dataframe
     df["filtPos"] = np.nan
     df["filtVelo"] = np.nan
+    df["filtVeloFilt"] = np.nan
     df["velo"] = np.nan
 
     for sub, p, trial_results in results:
@@ -752,6 +774,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             filtered_trial = result["filtered_trial"]
             df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
+            df.loc[mask, "filtVeloFilt"] = filtered_trial["filtVeloFilt"].values
 
             # Update velocity
             df.loc[mask, "velo"] = result["velocity"]
@@ -761,6 +784,8 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 
     return df
 
+
+# %%
 
 # %%
 # Path in niolon
