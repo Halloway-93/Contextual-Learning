@@ -7,35 +7,6 @@ import pandas as pd
 from scipy import signal
 
 
-def filter_asp_data(eye_position, sampling_freq=1000):
-    # For ASP, we typically want a slightly higher cutoff
-    # to preserve the subtle movements
-    cutoff_freq = 30  # Hz
-
-    # Use a lower order filter to minimize ringing
-    order = 2
-
-    nyquist = sampling_freq * 0.5
-    normalized_cutoff = cutoff_freq / nyquist
-
-    # Design filter
-    b, a = signal.butter(order, normalized_cutoff, btype="low")
-
-    # Use filtfilt for zero-phase filtering
-    filtered_pos = signal.filtfilt(b, a, eye_position)
-
-    # Calculate velocity (using central difference)
-    velocity = np.zeros_like(filtered_pos)
-    velocity[1:-1] = (filtered_pos[2:] - filtered_pos[:-2]) * (sampling_freq / 2)
-
-    # Filter velocity separately with lower cutoff
-    vel_cutoff = 20  # Hz
-    normalized_vel_cutoff = vel_cutoff / nyquist
-    b_vel, a_vel = signal.butter(order, normalized_vel_cutoff, btype="low")
-    filtered_vel = signal.filtfilt(b_vel, a_vel, velocity)
-
-    return filtered_pos, filtered_vel
-
 
 # Example velocity threshold for ASP detection
 def detect_asp_onset(velocity, threshold=2.0):  # deg/s

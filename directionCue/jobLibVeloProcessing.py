@@ -666,7 +666,7 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     filtered_velocity = filter_velocity(
         velocity, sampling_freq=1000, velocity_cutoff=20
     )
-
+    print('filtered_velocity:',filtered_velocity)
     return pd.DataFrame(
         dict(
             {
