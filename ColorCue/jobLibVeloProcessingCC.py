@@ -774,7 +774,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             filtered_trial = result["filtered_trial"]
             df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
-            df.loc[mask, "filtVeloFilt"] = filtered_trial["filtVeloFilt"].values
+            df.loc[mask, "filtVeloFilt"] = np.array(filtered_trial["filtVeloFilt"].values)
 
             # Update velocity
             df.loc[mask, "velo"] = result["velocity"]
@@ -783,6 +783,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     df.to_csv(os.path.join(path, newFileName), index=False)
 
     return df
+
 
 
 # %%
