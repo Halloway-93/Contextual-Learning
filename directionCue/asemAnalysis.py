@@ -25,9 +25,9 @@ jobLibData = "JobLibProcessing.csv"
 jlData = pd.read_csv(os.path.join(path, jobLibData))
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 8)
-    & (jlData["proba"] == 0.25)
-    & (jlData["trial"] == 183)
+    (jlData["sub"] == 12)
+    & (jlData["proba"] == 0.75)
+    & (jlData["trial"] == 127)
     #   & (jlData["time"] <= 100)
 ]
 # %%
