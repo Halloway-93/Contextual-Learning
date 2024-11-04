@@ -34,7 +34,7 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
         pos_offsets.append(pos_offset)
 
         # Calculate mean velocity
-        mean_velo = np.nanmean(trial_data["filtVelo"])
+        mean_velo = np.nanmean(trial_data["filtVeloFilt"])
         mean_velocities.append(mean_velo)
 
     # Create DataFrame for this condition
@@ -91,7 +91,7 @@ def process_filtered_data_parallel(
 
     # Extract position and velocity data for the specified time window
     selected_values = df[(df.time >= fOFF) & (df.time <= latency)]
-    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVelo"]]
+    pos = selected_values[["sub", "proba", "trial", "filtPos", "filtVeloFilt"]]
 
     # Get unique combinations of subject and probability
     conditions = [

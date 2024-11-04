@@ -36,7 +36,7 @@ def process_all_events(data_dir, filename="allEvents.csv"):
         if filepath.is_file():
             if filepath.suffix == ".csv" and filepath.stem.startswith("sub"):
                 df = read_file(filepath)
-                if 'trial' not in df.columns: 
+                if "trial" not in df.columns:
                     df["trial"] = [i + 1 for i in range(len(df))]
                 all_events.append(df)
             elif filepath.suffix == ".tsv":

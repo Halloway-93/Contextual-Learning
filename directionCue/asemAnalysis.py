@@ -25,9 +25,9 @@ jobLibData = "JobLibProcessing.csv"
 jlData = pd.read_csv(os.path.join(path, jobLibData))
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 14)
+    (jlData["sub"] == 8)
     & (jlData["proba"] == 0.25)
-    & (jlData["trial"] == 58)
+    & (jlData["trial"] == 183)
     #   & (jlData["time"] <= 100)
 ]
 # %%
@@ -83,7 +83,7 @@ df.columns
 # %%
 df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
 # %%
-badTrials = df[(df["meanVelo"] <= -5.5) | (df["meanVelo"] >= 5.5)]
+badTrials = df[(df["meanVelo"] <= -11) | (df["meanVelo"] >= 11)]
 badTrials
 # %%
 df = df[(df["meanVelo"] <= 5.5) & (df["meanVelo"] >= -5.5)]
