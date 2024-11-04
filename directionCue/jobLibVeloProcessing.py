@@ -4,7 +4,7 @@ import os
 import re
 from datetime import datetime
 import pandas as pd
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, sosfiltfilt
 from joblib import Parallel, delayed
 import time
 
@@ -48,7 +48,7 @@ def detect_saccades(
         Minimum amplitude in pixels for a valid saccade
     """
     sample_window = 0.001  # 1 kHz eye tracking
-    deg = 27.28  # pixel to degree conversion
+    degToPix = 27.28  # degToPix conversion
     trials = data.trial.unique()
     saccades = []
 
@@ -56,24 +56,22 @@ def detect_saccades(
         """Design Butterworth lowpass filter"""
         nyq = 0.5 * fs
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="low", analog=False)
-        return b, a
+        sos = butter(order, normal_cutoff, out="sos", btype="low")
+        return sos
 
     def calculate_velocity(pos, fs=1000):
         """Calculate velocity using central difference and Butterworth filter"""
-        vel = np.zeros_like(pos)
-        vel[1:-1] = (pos[2:] - pos[:-2]) / (2 * sample_window * deg)
-        b, a = butter_lowpass(cutoff=30, fs=fs)
-        vel_filtered = filtfilt(b, a, vel)
-        return vel_filtered
+        vel = np.gradient(pos)
+        sos = butter_lowpass(cutoff=30, fs=fs)
+        vel_filtered = sosfiltfilt(sos, vel)
+        return vel_filtered / ( sample_window * degToPix )
 
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
-        acc = np.zeros_like(vel)
-        acc[1:-1] = (vel[2:] - vel[:-2]) / (2 * sample_window)
+        acc = np.gradient(vel)
         b, a = butter_lowpass(cutoff=30, fs=fs)
         # acc_filtered = filtfilt(b, a, acc)
-        return acc
+        return acc * sample_window * degToPix
 
     def detect_saccade_onset(velocity):
         """Detect saccade onset using fixed velocity threshold"""
@@ -593,10 +591,10 @@ def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
         # Apply butterworth filter
         nyquist = sampling_freq * 0.5
         normalized_cutoff = cutoff_freq / nyquist
-        b, a = butter(2, normalized_cutoff, btype="low")
+        sos = butter(2, normalized_cutoff, btype="low", output="sos")
 
         # Apply filter
-        filtered_data = filtfilt(b, a, interpolated_data)
+        filtered_data = filtfilt(sos, interpolated_data)
 
         # Put NaN values back in their original positions
         # This is important if you want to exclude these periods from analysis
@@ -635,10 +633,10 @@ def filter_velocity(velocity, sampling_freq=1000, velocity_cutoff=20):
         # Filter velocity separately with lower cutoff
         nyquist = sampling_freq * 0.5
         normalized_cutoff = velocity_cutoff / nyquist
-        b, a = butter(2, normalized_cutoff, btype="low")
+        sos = butter(2, normalized_cutoff, btype="low", output="sos")
         #
         # # Filter velocity
-        filtered_velocity = filtfilt(b, a, interpolated_data)
+        filtered_velocity = sosfiltfilt(sos, interpolated_data)
 
         # Put NaN values back in their original positions
         # This is important if you want to exclude these periods from analysis
@@ -678,7 +676,9 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
     )
 
 
-def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
+def process_single_condition(
+    sub, p, df_condition, fixOff=-200, endOftrial=600, fs=1000, degToPix=27.28
+):
     """
     Process data for a single subject and probability condition
     """
@@ -717,15 +717,15 @@ def process_single_condition(sub, p, df_condition, fixOff=-200, endOftrial=600):
             end = sacc[sacc.trial == t]["end"].values
             for i in range(len(start)):
                 filtered_trial.loc[
-                    (filtered_trial.time >= start[i] - 25)
-                    & (filtered_trial.time <= end[i] + 25),
+                    (filtered_trial.time >= start[i] - 20)
+                    & (filtered_trial.time <= end[i] + 20),
                     ["filtPos", "filtVelo", "filtVeloFilt"],
                 ] = np.nan
 
         filtered_trial.drop(columns=["time"], inplace=True)
 
         # Calculate velocity for the trial
-        trial_velo = np.gradient(trial["xp"].values, 1) * 1000 / 27.28
+        trial_velo = np.gradient(trial["xp"].values, 1) * fs / degToPix
 
         return {"filtered_trial": filtered_trial, "trial": t, "velocity": trial_velo}
 
@@ -777,7 +777,9 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             filtered_trial = result["filtered_trial"]
             df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
-            df.loc[mask, "filtVeloFilt"] = np.array(filtered_trial["filtVeloFilt"].values)
+            df.loc[mask, "filtVeloFilt"] = np.array(
+                filtered_trial["filtVeloFilt"].values
+            )
 
             # Update velocity
             df.loc[mask, "velo"] = result["velocity"]

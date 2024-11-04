@@ -3,7 +3,7 @@ import pwlf
 import piecewise_regression as pw
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import filtfilt, butter
+from scipy.signal import filtfilt, butter, sosfiltfilt
 
 
 # %%
@@ -159,8 +159,49 @@ def interpolateData(data):
     return None
 
 
+def butter_lowpass(cutoff, fs, order=2):
+    """Design Butterworth lowpass filter"""
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    sos = butter(order, normal_cutoff, output="sos")
+    return sos
+
+
+def filter_velocity(pos, filPos, fs=1000, degToPix=27.28):
+    """
+    Calculate velocity using central difference and Butterworth filter
+
+    Parameters:
+    -----------
+    pos : array
+        Position data
+    fs : float
+        Sampling frequency in Hz
+    """
+    # Calculate raw velocity using central difference
+    vel = np.gradient(pos)
+
+    # Design and apply Butterworth filter
+    # Cutoff frequency of 50 Hz is typical for eye movement data
+    sos = butter_lowpass(cutoff=20, fs=fs)
+    vel_filtered = sosfiltfilt(sos, vel)
+
+    vel_filtered[np.isnan(filPos)] = np.nan
+    return vel_filtered * fs / degToPix
+
+
+def calculate_acceleration(vel, fs=1000):
+    """Calculate acceleration using Butterworth-filtered derivative"""
+    acc = np.gradient(vel)
+    # Apply same Butterworth filter to acceleration
+    sos = butter_lowpass(cutoff=50, fs=fs)
+    acc_filtered = sosfiltfilt(sos, acc)
+
+    return acc_filtered
+
+
 # %%
-csvPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/JobLibProcessing.csv"
+csvPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
 # slopesPath = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/slopes.json"
 # allSlopes = pwAnalysis(csvPath)
 # Serialize the data to a JSON file
@@ -170,27 +211,27 @@ df = pd.read_csv(csvPath)
 # %%
 df
 # %%
-example = df[(df["sub"] == 6) & (df["proba"] == 1.) & (df["trial"] == 150)]
-example = example[(example["time"] <= 500)]
+example = df[(df["sub"] == 6) & (df["proba"] == 75) & (df["trial"] == 15)]
+example = example[(example["time"] >= -180) & (example["time"] <= 500)]
 
 example["interpVelo"] = interpolateData(example.velo.values)
-example["filtVelo2"] = interpolateData(process_eye_movement(example.filtPos.values))
 example
 # %%
 x = example.time.values
-y = interpolateData(example.filtPos.values)
+y = interpolateData(example.filtVeloFilt.values)
 # %%
 len(y)
 # %%
 plt.plot(x, y)
-plt.plot(x, example.xp.values)
+plt.plot(x, example.filtVelo.values, alpha=0.7)
 plt.show()
 # %%
 
-plt.plot(x, example.filtVeloFilt.values)
+plt.plot(x, example.xp.values)
+plt.plot(x, example.filtPos.values)
 plt.show()
 # %%
-pw_fit = pw.Fit(x, y, n_breakpoints=3)
+pw_fit = pw.Fit(x, y, n_breakpoints=2)
 print(pw_fit.summary())
 # %%
 pw_results = pw_fit.get_results()
@@ -210,7 +251,7 @@ plt.close()
 
 
 my_pwlf = pwlf.PiecewiseLinFit(x, y)
-res = my_pwlf.fit(4)
+res = my_pwlf.fit(3)
 # predict for the determined points
 xHat = np.linspace(min(x), max(x), num=10000)
 yHat = my_pwlf.predict(xHat)
@@ -221,3 +262,37 @@ plt.plot(xHat, yHat, "-")
 plt.show()
 # %%
 pwAnalysis(example)
+# %%
+
+first_nan_after_100_index = example[example.time > 100]["filtPos"].isna().idxmax()
+first_nan_after_100_index
+# %%
+result_df = example.loc[: first_nan_after_100_index - 1]
+result_df
+# %%
+x = result_df.time.values
+y = interpolateData(result_df.filtVeloFilt.values)
+# %%
+len(y)
+# %%
+plt.plot(x, y)
+# plt.plot(x, example.filtVelo.values)
+plt.show()
+# %%
+pw_fit = pw.Fit(x, y, n_breakpoints=2)
+print(pw_fit.summary())
+# %%
+pw_results = pw_fit.get_results()
+pw_results["estimates"]
+# %%
+# Plot the data, fit, breakpoints and confidence intervals
+pw_fit.plot_data(color="grey", s=20)
+# Pass in standard matplotlib keywords to control any of the plots
+pw_fit.plot_fit(color="red", linewidth=4)
+pw_fit.plot_breakpoints()
+pw_fit.plot_breakpoint_confidence_intervals()
+plt.xlabel("x")
+plt.ylabel("y")
+plt.show()
+plt.close()
+# %%

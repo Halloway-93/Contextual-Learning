@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, sosfiltfilt
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -35,8 +35,8 @@ def detect_saccades(
         """Design Butterworth lowpass filter"""
         nyq = 0.5 * fs
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="low", analog=False)
-        return b, a
+        sos = butter(order, normal_cutoff, output="sos")
+        return sos
 
     def calculate_velocity(pos, fs=1000):
         """
@@ -50,24 +50,21 @@ def detect_saccades(
             Sampling frequency in Hz
         """
         # Calculate raw velocity using central difference
-        vel = np.zeros_like(pos)
-        vel[1:-1] = (pos[2:] - pos[:-2]) / (2 * sample_window * deg)
+        vel = np.gradient(pos)
 
         # Design and apply Butterworth filter
         # Cutoff frequency of 50 Hz is typical for eye movement data
-        b, a = butter_lowpass(cutoff=50, fs=fs)
-        vel_filtered = filtfilt(b, a, vel)
+        sos = butter_lowpass(cutoff=50, fs=fs)
+        vel_filtered = sosfiltfilt(sos, vel)
 
         return vel_filtered
 
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
-        acc = np.zeros_like(vel)
-        acc[1:-1] = (vel[2:] - vel[:-2]) / (2 * sample_window)
-
+        acc = np.gradient(vel)
         # Apply same Butterworth filter to acceleration
-        b, a = butter_lowpass(cutoff=50, fs=fs)
-        acc_filtered = filtfilt(b, a, acc)
+        sos = butter_lowpass(cutoff=50, fs=fs)
+        acc_filtered = sosfiltfilt(sos, acc)
 
         return acc_filtered
 
@@ -201,13 +198,15 @@ def detect_saccades(
     return saccades_df
 
 
+# %%
+
 filtered_df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/JobLibProcessingCC.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/JobLibProcessing.csv"
 )
 # %%
 condFiltered = filtered_df[
     (filtered_df["sub"] == 2)
-    & (filtered_df["proba"] == 75)
+    & (filtered_df["proba"] == 0.75)
     & (filtered_df["trial"] == 50)
 ]
 condFiltered
@@ -233,8 +232,9 @@ for i in range(len(starts)):
     )
 plt.show()
 # %%
-plt.plot(condFiltered.time, condFiltered.filtVelo)
-plt.plot(condFiltered.time, condFiltered.velo, alpha=0.5)
+plt.plot(condFiltered.time, condFiltered.filtVelo, label="Velo")
+plt.plot(condFiltered.time, condFiltered.filtVeloFilt, label="filtered Velo")
+plt.plot(condFiltered.time, condFiltered.velo, alpha=0.5, label="Raw Velo")
 for i in range(len(starts)):
     # plot shaded area between srarts[i] and ends [i]
     plt.fill_between(
@@ -244,42 +244,12 @@ for i in range(len(starts)):
         color="red",
         alpha=0.3,
     )
+plt.legend()
 plt.show()
 # %%
 plt.plot(condFiltered.time, condFiltered.xp)
 plt.plot(condFiltered.time, condFiltered.filtPos)
 plt.show()
-# %%
-for sub in filtered_df["sub"].unique():
-    for proba in filtered_df[filtered_df["sub"] == sub]["proba"].unique():
-        cond = filtered_df[
-            (filtered_df["sub"] == sub)
-            & (filtered_df["proba"] == proba)
-            & (filtered_df["time"] >= -200)
-            & (filtered_df["time"] <= 600)
-        ]
-    saccades = detect_saccades(
-        cond, mono=True, velocity_threshold=15, min_duration_ms=3, min_amplitude=5
-    )
-    for t in cond.trial.unique():
-        saccTrial = saccades[saccades["trial"] == t]
-        starts = saccTrial["start"]
-        ends = saccTrial["end"]
-        plt.plot(
-            condFiltered[condFiltered.trial == t].time,
-            condFiltered[condFiltered.trial == t].xp,
-            alpha=0.7,
-        )
-        for i in range(len(starts)):
-            # plot shaded area between srarts[i] and ends [i]
-            plt.fill_between(
-                [starts.iloc[i], ends.iloc[i]],
-                cond[cond.trial == t].xp.min(),
-                cond[cond.trial == t].xp.max(),
-                color="red",
-                alpha=0.3,
-            )
-        plt.show()
 # %%
 for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
     cond = filtered_df[

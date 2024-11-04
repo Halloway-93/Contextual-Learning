@@ -18,25 +18,25 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import numpy as np
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
-pathFig = "PhD/Contextual-Learning/directionCue/figures/imposeDirection"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 jobLibData = "JobLibProcessing.csv"
-allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/allEvents.csv"
 
 # %%
 jlData = pd.read_csv(os.path.join(path, jobLibData))
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 8) & (jlData["proba"] == 0.25) & (jlData["trial"] == 118)
+    (jlData["sub"] == 1)
+    & (jlData["proba"] == 0.25)
+    & (jlData["trial"] == 131)
+    #   & (jlData["time"] <= 100)
 ]
-exampleJL
 # %%
 # Plotting one example
 # Plotting one example
 for t in exampleJL.trial.unique():
     plt.plot(
         exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].filtVelo,
+        exampleJL[exampleJL["trial"] == t].filtVeloFilt,
         alpha=0.5,
     )
     plt.plot(
@@ -70,22 +70,30 @@ for t in exampleJL.trial.unique():
 uparrowsPalette = ["#e83865", "#cc3131"]
 downarrowsPalette = ["#8cd790", "#285943"]
 # %%
+pathFig = "PhD/Contextual-Learning/directionCue/figures/voluntaryDirection/"
+allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/processedResultsWindow(80,120).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResultsWindow(-100,100).csv"
 )
+
 # %%
+
 df.columns
 # %%
-badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
+df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
+# %%
+badTrials = df[(df["meanVelo"] < -10) | (df["meanVelo"] > 10)]
 badTrials
 # %%
 df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
-df["meanVelo"].max()
+# %%
+df[df["meanVelo"] == df["meanVelo"].max()]
 # %%
 sns.histplot(data=df, x="meanVelo")
 plt.show()
 # %%
+df["arrow"] = df["chosen_arrow"].values
 print(df)
 # %%
 balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
@@ -104,7 +112,7 @@ dd = (
 dd
 # %%
 np.abs(dd.meanVelo.values).max()
-# %%
+# a%
 dd[np.abs(dd.meanVelo.values) > 1.8]
 # %%
 # df[(df.meanVelo > 15) | (df.meanVelo < -15)]
@@ -119,8 +127,7 @@ dd[np.abs(dd.meanVelo.values) > 1.8]
 # result = model.fit()
 #
 # print(result.summary())
-dd = dd[~((dd["proba"] == 0) | (dd["proba"] == 1))]
-dd
+# dd = dd[~((dd["proba"] == 0) | (dd["proba"] == 1))]
 # %%
 
 meanVelo = dd[dd.arrow == "up"]["meanVelo"]
@@ -300,8 +307,6 @@ sns.histplot(
     data=df[df.proba == 0.25],
     x="meanVelo",
     hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
 )
 plt.show()
 # %%
@@ -353,7 +358,7 @@ print(anova_table)
 print(pg.normality(dd["meanVelo"]))
 # %%
 stat, p = stats.kstest(
-    df["meanVelo"], "norm", args=(df["meanVelo"].mean(), df["meanVelo"].std(ddof=1))
+    dd["meanVelo"], "norm", args=(dd["meanVelo"].mean(), dd["meanVelo"].std(ddof=1))
 )
 print(f"Statistic: {stat}, p-value: {p}")
 # %%
@@ -381,7 +386,6 @@ facet_grid.add_legend()
 # Set titles for each subplot
 for ax, p in zip(facet_grid.axes.flat, df.proba.unique()):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
-
 # Adjust spacing between subplots
 facet_grid.fig.subplots_adjust(
     wspace=0.2, hspace=0.2
@@ -397,6 +401,7 @@ anova_results = pg.rm_anova(
     within="proba",
     subject="sub",
     data=dd[dd.arrow == "down"],
+    correction=True,
 )
 
 print(anova_results)
@@ -406,6 +411,7 @@ anova_results = pg.rm_anova(
     within="proba",
     subject="sub",
     data=dd[dd.arrow == "up"],
+    correction=True,
 )
 
 print(anova_results)
@@ -415,18 +421,18 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="ci",
+    errorbar="se",
     hue="arrow",
 )
 _ = plt.title("asem across porba")
 plt.show()
 # %%
 sns.pointplot(
-    data=dd[dd.arrow == "up"],
+    data=df[df.arrow == "up"],
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="ci",
+    errorbar="se",
     hue="sub",
     palette="Set2",
 )
@@ -435,18 +441,16 @@ plt.show()
 # %%
 
 sns.pointplot(
-    data=dd[dd.arrow == "down"],
+    data=df[df.arrow == "down"],
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="ci",
+    errorbar="se",
     hue="sub",
     palette="Set2",
 )
 _ = plt.title("asem across porba: down")
 plt.show()
-# %%
-# pg.normality(df[df.arrow == "up"], group="proba", dv="meanVelo")
 # %%
 anova_results = pg.rm_anova(
     dv="meanVelo",
@@ -606,7 +610,7 @@ plt.legend(fontsize=20)
 plt.title("Anticipatory Velocity Given Previous TD: arrow up ", fontsize=30)
 plt.xlabel("P(Right|up)", fontsize=20)
 plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVeloupTD.png")
+plt.savefig(os.path.join(pathFig, "meanVeloupTD.png"))
 plt.show()
 # %%
 fig = plt.figure()
@@ -800,15 +804,14 @@ dd = df.groupby(["sub", "proba", "arrow", "TD_prev"])["meanVelo"].mean().reset_i
 dd
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(arrow)*C(TD_prev)",
+    "meanVelo~  C(arrow,Treatment('up'))*C(TD_prev)",
     data=dd[dd.proba == 0.25],
-    # re_formula="~proba",
     groups=dd[dd.proba == 0.25]["sub"],
 ).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(arrow)*C(TD_prev)",
+    "meanVelo~  C(arrow,Treatment('up'))*C(TD_prev)",
     data=dd[dd.proba == 0.75],
     # re_formula="~proba",
     groups=dd[dd.proba == 0.75]["sub"],
@@ -820,14 +823,6 @@ model = smf.mixedlm(
     data=dd[dd.proba == 0.5],
     # re_formula="~proba",
     groups=dd[dd.proba == 0.5]["sub"],
-).fit()
-model.summary()
-# %%
-model = smf.mixedlm(
-    "meanVelo~  C(proba)*C(TD_prev)",
-    data=dd[dd.arrow == "down"],
-    # re_formula="~proba",
-    groups=dd[dd.arrow == "down"]["sub"],
 ).fit()
 model.summary()
 # %%
