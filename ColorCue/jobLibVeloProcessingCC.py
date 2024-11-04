@@ -4,7 +4,7 @@ import os
 import re
 from datetime import datetime
 import pandas as pd
-from scipy.signal import butter, filtfilt, sosfiltfilt
+from scipy.signal import butter, sosfiltfilt
 from joblib import Parallel, delayed
 import time
 
@@ -64,7 +64,7 @@ def detect_saccades(
         vel = np.gradient(pos)
         sos = butter_lowpass(cutoff=30, fs=fs)
         vel_filtered = sosfiltfilt(sos, vel)
-        return vel_filtered / ( sample_window * degToPix )
+        return vel_filtered / (sample_window * degToPix)
 
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
@@ -777,7 +777,9 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
             filtered_trial = result["filtered_trial"]
             df.loc[mask, "filtPos"] = filtered_trial["filtPos"].values
             df.loc[mask, "filtVelo"] = filtered_trial["filtVelo"].values
-            df.loc[mask, "filtVeloFilt"] = np.array(filtered_trial["filtVeloFilt"].values)
+            df.loc[mask, "filtVeloFilt"] = np.array(
+                filtered_trial["filtVeloFilt"].values
+            )
 
             # Update velocity
             df.loc[mask, "velo"] = result["velocity"]
@@ -786,7 +788,6 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     df.to_csv(os.path.join(path, newFileName), index=False)
 
     return df
-
 
 
 # %%

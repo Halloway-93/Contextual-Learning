@@ -25,9 +25,9 @@ jobLibData = "JobLibProcessing.csv"
 jlData = pd.read_csv(os.path.join(path, jobLibData))
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 1)
+    (jlData["sub"] == 14)
     & (jlData["proba"] == 0.25)
-    & (jlData["trial"] == 131)
+    & (jlData["trial"] == 58)
     #   & (jlData["time"] <= 100)
 ]
 # %%
@@ -74,7 +74,7 @@ pathFig = "PhD/Contextual-Learning/directionCue/figures/voluntaryDirection/"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResultsWindow(-100,100).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResultsWindow(80,120).csv"
 )
 
 # %%
@@ -83,10 +83,10 @@ df.columns
 # %%
 df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
 # %%
-badTrials = df[(df["meanVelo"] < -10) | (df["meanVelo"] > 10)]
+badTrials = df[(df["meanVelo"] <= -5.5) | (df["meanVelo"] >= 5.5)]
 badTrials
 # %%
-df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
+df = df[(df["meanVelo"] <= 5.5) & (df["meanVelo"] >= -5.5)]
 # %%
 df[df["meanVelo"] == df["meanVelo"].max()]
 # %%
@@ -115,7 +115,7 @@ np.abs(dd.meanVelo.values).max()
 # a%
 dd[np.abs(dd.meanVelo.values) > 1.8]
 # %%
-# df[(df.meanVelo > 15) | (df.meanVelo < -15)]
+df = df[(df.trial >= 60)]
 # %%
 # Normalizing the data
 # dd["meanVeloNorm"] = (dd["meanVelo"] - dd["meanVelo"].mean()) / dd["meanVelo"].std()
@@ -421,7 +421,7 @@ sns.pointplot(
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="se",
+    errorbar="sd",
     hue="arrow",
 )
 _ = plt.title("asem across porba")
@@ -463,6 +463,15 @@ print(anova_results)
 # %%
 
 model = smf.mixedlm(
+    "meanVelo~C( arrow )",
+    data=dd[dd.proba == 0.75],
+    # re_formula="~proba",
+    groups=dd[dd.proba == 0.75]["sub"],
+).fit()
+model.summary()
+
+# %%
+model = smf.mixedlm(
     "meanVelo~( proba )",
     data=dd[dd.arrow == "up"],
     # re_formula="~proba",
@@ -482,7 +491,7 @@ model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~ (proba)*C(arrow)",
+    "meanVelo~ C(proba)*C(arrow)",
     data=dd,
     # re_formula="~proba",
     groups=dd["sub"],
