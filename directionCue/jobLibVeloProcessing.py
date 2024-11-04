@@ -796,12 +796,10 @@ path = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_volu
 # path = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessing.csv"
-processAllRawData(path, fileName, newFileName)
+# processAllRawData(path, fileName, newFileName)
 end_time = time.time()
 print("Elapsed Time:", end_time - start_time)
 path = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
-# meso
-# path = "/scratch/houeld/contextuaLearning/directionCue/results_imposeDirection"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessing.csv"
 processAllRawData(path, fileName, newFileName)
