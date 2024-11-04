@@ -56,7 +56,7 @@ def detect_saccades(
         """Design Butterworth lowpass filter"""
         nyq = 0.5 * fs
         normal_cutoff = cutoff / nyq
-        sos = butter(order, normal_cutoff, out="sos", btype="low")
+        sos = butter(order, normal_cutoff, output="sos", btype="low")
         return sos
 
     def calculate_velocity(pos, fs=1000):
@@ -69,9 +69,9 @@ def detect_saccades(
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
         acc = np.gradient(vel)
-        b, a = butter_lowpass(cutoff=30, fs=fs)
+        # sos = butter_lowpass(cutoff=30, fs=fs)
         # acc_filtered = filtfilt(b, a, acc)
-        return acc * sample_window * degToPix
+        return acc * fs * degToPix
 
     def detect_saccade_onset(velocity):
         """Detect saccade onset using fixed velocity threshold"""
@@ -793,10 +793,9 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
 # %%
 path = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 # meso
-# path = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
 fileName = "allRawData.csv"
 newFileName = "JobLibProcessing.csv"
-# processAllRawData(path, fileName, newFileName)
+processAllRawData(path, fileName, newFileName)
 end_time = time.time()
 print("Elapsed Time:", end_time - start_time)
 path = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection"
