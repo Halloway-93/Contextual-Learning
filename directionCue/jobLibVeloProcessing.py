@@ -594,7 +594,7 @@ def prepare_and_filter_data(eye_position, sampling_freq=1000, cutoff_freq=30):
         sos = butter(2, normalized_cutoff, btype="low", output="sos")
 
         # Apply filter
-        filtered_data = filtfilt(sos, interpolated_data)
+        filtered_data = sosfiltfilt(sos, interpolated_data)
 
         # Put NaN values back in their original positions
         # This is important if you want to exclude these periods from analysis
