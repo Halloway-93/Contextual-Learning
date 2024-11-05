@@ -13,12 +13,10 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import numpy as np
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/voluntaryColor/"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/"
+pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/imposedColor/"
 jobLibData = "jobLibProcessingCC.csv"
-allEventsFile = (
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
-)
+allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/allEvents.csv"
 
 
 # %%
@@ -72,7 +70,7 @@ greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(80,120).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/processedResultsWindow(80,120).csv"
 )
 # %%
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
@@ -84,17 +82,17 @@ df["meanVelo"].max()
 sns.histplot(data=df, x="meanVelo")
 plt.show()
 # %%
+df
+# %%
 # df = pd.read_csv(os.path.join(path, fileName))
 # [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
-df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
+df["color"] = df["trial_color"].apply(lambda x: "green" if x == 0 else "red")
 
 
 # df = df.dropna(subset=["meanVelo"])
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
-# %%
-df = df[(df["sub"] != 9)]
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -480,7 +478,7 @@ print(anova_results)
 model = smf.mixedlm(
     "meanVelo~C( proba,Treatment(50))",
     data=df[df.color == "red"],
-    # re_formula="~proba",
+    re_formula="~proba",
     groups=df[df.color == "red"]["sub"],
 ).fit()
 model.summary()
@@ -489,7 +487,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~C( proba,Treatment(50))",
     data=df[df.color == "green"],
-    # re_formula="~proba",
+    re_formula="~proba",
     groups=df[df.color == "green"]["sub"],
 ).fit()
 model.summary()
@@ -851,7 +849,7 @@ sns.barplot(
 plt.title("ASEM:Color Green\n Interaction of Previous Target Direction & Color Chosen")
 plt.xlabel("P(Left|GREEN)", fontsize=20)
 plt.ylabel("ASEM", fontsize=20)
-plt.legend(fontsize=20)
+plt.legend(fontsize=15)
 plt.show()
 # %%
 df
@@ -877,8 +875,8 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
     data=df[df.proba == 50],
-    re_formula="~color",
-    groups=df[df.proba == 5]["sub"],
+    # re_formula="~color",
+    groups=df[df.proba == 50]["sub"],
 ).fit(method=["lbfgs"])
 model.summary()
 # %%

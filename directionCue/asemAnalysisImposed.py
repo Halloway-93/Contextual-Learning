@@ -18,12 +18,12 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import numpy as np
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/"
 jobLibData = "JobLibProcessing.csv"
 
 # %%
 # jlData = pd.read_csv(os.path.join(path, jobLibData))
-# # %%
+# %%
 # exampleJL = jlData[
 #     (jlData["sub"] == 9)
 #     & (jlData["proba"] == 0.75)
@@ -64,23 +64,24 @@ jobLibData = "JobLibProcessing.csv"
 #     plt.ylabel("Eye Position", fontsize=20)
 #     plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
 #     plt.show()
-#
+
 
 # %%
 uparrowsPalette = ["#e83865", "#cc3131"]
 downarrowsPalette = ["#8cd790", "#285943"]
 # %%
-pathFig = "PhD/Contextual-Learning/directionCue/figures/voluntaryDirection/"
-allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
+pathFig = "/Users/mango/PhD/Contextual-Learning/directionCue/figures/imposeDirection"
+allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/allEvents.csv"
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResultsWindow(80,120).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/processedResultsWindow(80,120).csv"
 )
 
 # %%
 
+df.columns
 # %%
-df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
+# df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
 # df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
 df = df[df.trial >= 40]
 # %%
@@ -160,6 +161,57 @@ print(f"Spearman's correlation(Proba 0.5): {correlation}, p-value: {p_value}")
 
 
 # %%
+sns.histplot(
+    data=df[df.proba == 0.25],
+    x="meanVelo",
+    hue="arrow",
+)
+plt.show()
+# %%
+# Early trials
+earlyTrials = 40
+p = 0.75
+sns.histplot(
+    data=df[(df.proba == p) & (df.trial <= earlyTrials)],
+    x="meanVelo",
+    hue="arrow",
+    alpha=0.5,
+    # multiple="dodge",
+)
+plt.title(f"Early Trials: {earlyTrials}, P(Right|up)={proba}")
+plt.show()
+
+# %%
+# Mid trials
+midTrials = [60, 180]
+sns.histplot(
+    data=df[(df.proba == p) & (df.trial <= midTrials[1]) & (df.trial > midTrials[0])],
+    x="meanVelo",
+    hue="arrow",
+    alpha=0.5,
+    # multiple="dodge",
+)
+plt.title(f"Mid Trials{midTrials[0]},{midTrials[1]}: P(Right|up)={proba}")
+plt.show()
+# %%
+# Late trials
+lateTrials = 200
+sns.histplot(
+    data=df[(df.proba == p) & (df.trial > lateTrials)],
+    x="meanVelo",
+    hue="arrow",
+    alpha=0.5,
+    # multiple="dodge",
+)
+plt.title(f"Early Trials>{lateTrials}: P(Right|up)={proba}")
+plt.show()
+# %%
+# Repeated measures ANOVA
+# Perform mixed ANOVA
+model = ols("meanVelo ~ C(arrow)*(proba) ", data=dd).fit()
+anova_table = sm.stats.anova_lm(model, typ=2)
+print(anova_table)
+# %%
 # cehcking the normality of the data
 print(pg.normality(df[df.proba == 0.5]["meanVelo"]))
 # %%
@@ -187,13 +239,15 @@ plt.show()
 facet_grid = sns.FacetGrid(data=df, col="proba", col_wrap=3, height=8, aspect=1.5)
 
 # Create pointplots for each sub
-facet_grid.map_dataframe(sns.histplot, x="meanVelo", hue="arrow", alpha=0.3)
+facet_grid.map_dataframe(
+    sns.histplot, x="meanVelo", hue="arrow", hue_order=["down", "up"], alpha=0.3
+)
 
 # Add legends
 facet_grid.add_legend()
 
 # Set titles for each subplot
-for ax, p in zip(facet_grid.axes.flat, df.proba.unique()):
+for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
 # Adjust spacing between subplots
 facet_grid.fig.subplots_adjust(
@@ -204,7 +258,6 @@ facet_grid.fig.subplots_adjust(
 plt.show()
 
 # %%
-# %%
 sns.pointplot(
     data=df,
     x="proba",
@@ -212,6 +265,7 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="arrow",
+    hue_order=["down", "up"],
 )
 _ = plt.title("asem across porba")
 plt.show()
@@ -244,6 +298,15 @@ plt.show()
 
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
+    data=df[df.proba == 0.0],
+    re_formula="~arrow",
+    groups=df[df.proba == 0.0]["sub"],
+).fit()
+model.summary()
+
+# %%
+model = smf.mixedlm(
+    "meanVelo~C( arrow )",
     data=df[df.proba == 0.75],
     re_formula="~arrow",
     groups=df[df.proba == 0.75]["sub"],
@@ -262,12 +325,21 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
     data=df[df.proba == 0.5],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
 ).fit()
 model.summary()
 
 
+# %%
+
+model = smf.mixedlm(
+    "meanVelo~C( arrow )",
+    data=df[df.proba == 1],
+    re_formula="~arrow",
+    groups=df[df.proba == 1]["sub"],
+).fit()
+model.summary()
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(proba,Treatment(0.5))",
@@ -291,7 +363,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~ C(proba,Treatment(0.5))*C(arrow,Treatment('up'))",
     data=df,
-    # re_formula="~proba",
+    re_formula="~proba*arrow",
     groups=df["sub"],
 ).fit()
 model.summary()
@@ -445,7 +517,7 @@ plt.legend(fontsize=20)
 plt.title("Position Offset:arrow down \n  ", fontsize=30)
 plt.xlabel("P(Left|down)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdownTDFullProba.png")
+plt.savefig(pathFig + "/posOffSetdownTDFullPrba.png")
 plt.show()
 # %%
 fig = plt.figure()
@@ -471,6 +543,7 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="TD_prev",
+    errorbar="ci",
     palette=downarrowsPalette,
     data=learningCurve[learningCurve.arrow == "down"],
 )
@@ -478,7 +551,7 @@ plt.legend(fontsize=20)
 plt.title("meanVelo: arrow down\n ", fontsize=30)
 plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
 plt.xlabel("P(Left|down)", fontsize=20)
-plt.savefig(pathFig + "/meanVelodownTDFullProba.png")
+plt.savefig(pathFig + "/meanVelodownTDFullPrba.png")
 plt.show()
 # Adding the interacrion between  previous arrow and previous TD.
 # %%
@@ -561,7 +634,7 @@ plt.title(
 plt.xlabel("P(Right|Up)", fontsize=20)
 plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloupInteractionFullProba.png")
+plt.savefig(pathFig + "/meanVeloupInteractionFullPrba.png")
 plt.show()
 # %%
 fig = plt.figure()
@@ -593,7 +666,7 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="coolwarm",
+    palette="viridis",
     hue="interaction",
     data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
 )
@@ -602,6 +675,7 @@ plt.title(
     fontsize=30,
 )
 plt.legend(fontsize=20)
+plt.savefig(pathFig + "/asemInteractionFullProba.png")
 plt.xlabel("P(Left|down)")
 plt.show()
 # %%
@@ -631,15 +705,29 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~  C(arrow)*C(TD_prev)",
     data=df[df.proba == 0.5],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
 ).fit(method=["lbfgs"])
 model.summary()
 # %%
 # %%
 # %%
+uparrowsPalette = ["#e83865", "#cc3131"]
+downarrowsPalette = ["#8cd790", "#285943"]
+# %%
+pathFig = "PhD/Contextual-Learning/directionCue/figures/imposeDirection"
+allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/allEvents.csv"
+allEvents = pd.read_csv(allEventsFile)
+df = pd.read_csv(
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/processedResultsWindow(80,120).csv"
+)
+
+# %%
+
+df.columns
+# %%
 df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
-df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
+# df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
 # df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
 df = df[df.trial >= 40]
 # %%
@@ -856,43 +944,43 @@ sns.histplot(
 plt.show()
 # %%
 # Early trials
-# earlyTrials = 40
-# p = 0.75
-# sns.histplot(
-#     data=df[(df.proba == p) & (df.trial <= earlyTrials)],
-#     x="meanVelo",
-#     hue="arrow",
-#     alpha=0.5,
-#     # multiple="dodge",
-# )
-# plt.title(f"Early Trials: {earlyTrials}, P(Right|up)={proba}")
-# plt.show()
-#
-# # %%
-# # Mid trials
-# midTrials = [60, 180]
-# sns.histplot(
-#     data=df[(df.proba == p) & (df.trial <= midTrials[1]) & (df.trial > midTrials[0])],
-#     x="meanVelo",
-#     hue="arrow",
-#     alpha=0.5,
-#     # multiple="dodge",
-# )
-# plt.title(f"Mid Trials{midTrials[0]},{midTrials[1]}: P(Right|up)={proba}")
-# plt.show()
-# # %%
-# # Late trials
-# lateTrials = 200
-# sns.histplot(
-#     data=df[(df.proba == p) & (df.trial > lateTrials)],
-#     x="meanVelo",
-#     hue="arrow",
-#     alpha=0.5,
-#     # multiple="dodge",
-# )
-# plt.title(f"Early Trials>{lateTrials}: P(Right|up)={proba}")
-# plt.show()
-# # %%
+earlyTrials = 40
+p = 0.75
+sns.histplot(
+    data=df[(df.proba == p) & (df.trial <= earlyTrials)],
+    x="meanVelo",
+    hue="arrow",
+    alpha=0.5,
+    # multiple="dodge",
+)
+plt.title(f"Early Trials: {earlyTrials}, P(Right|up)={proba}")
+plt.show()
+
+# %%
+# Mid trials
+midTrials = [60, 180]
+sns.histplot(
+    data=df[(df.proba == p) & (df.trial <= midTrials[1]) & (df.trial > midTrials[0])],
+    x="meanVelo",
+    hue="arrow",
+    alpha=0.5,
+    # multiple="dodge",
+)
+plt.title(f"Mid Trials{midTrials[0]},{midTrials[1]}: P(Right|up)={proba}")
+plt.show()
+# %%
+# Late trials
+lateTrials = 200
+sns.histplot(
+    data=df[(df.proba == p) & (df.trial > lateTrials)],
+    x="meanVelo",
+    hue="arrow",
+    alpha=0.5,
+    # multiple="dodge",
+)
+plt.title(f"Early Trials>{lateTrials}: P(Right|up)={proba}")
+plt.show()
+# %%
 # Repeated measures ANOVA
 # Perform mixed ANOVA
 model = ols("meanVelo ~ C(arrow)*(proba) ", data=dd).fit()
@@ -1076,7 +1164,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~ C(proba,Treatment(0.5))*C(arrow,Treatment('up'))",
     data=df,
-    # re_formula="~proba",
+    re_formula="~proba*arrow",
     groups=df["sub"],
 ).fit()
 model.summary()
@@ -1091,7 +1179,7 @@ plt.title("ASEM over 3 different probabilites for down & up.", fontsize=40)
 plt.xlabel("P(Right|up)=P(Left|down)", fontsize=25)
 plt.ylabel("Anticipatory Velocity", fontsize=25)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrowsFullProba.png")
+plt.savefig(pathFig + "/meanVeloarrows.png")
 plt.show()
 
 # %%
@@ -1256,6 +1344,7 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="TD_prev",
+    errorbar="ci",
     palette=downarrowsPalette,
     data=learningCurve[learningCurve.arrow == "down"],
 )
