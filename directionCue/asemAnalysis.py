@@ -23,48 +23,75 @@ jobLibData = "JobLibProcessing.csv"
 
 # %%
 # jlData = pd.read_csv(os.path.join(path, jobLibData))
-# # %%
-# exampleJL = jlData[
-#     (jlData["sub"] == 9)
-#     & (jlData["proba"] == 0.75)
-#     & (jlData["trial"] == 130)
-#     #   & (jlData["time"] <= 100)
-# ]
-# # %%
+jlData = pd.read_csv("/Users/mango/PhD/output.csv")
+# %%
+jlData.columns
+# %%
+
+# %%
+exampleJL = jlData[
+    (jlData["sub"] == 6)
+    & (jlData["proba"] == 1.0)
+    # & (jlData["trial"] == 122)
+    #   & (jlData["time"] <= 100)
+].copy()
+# %%
+exampleJL.time = exampleJL.time.values / 1000
+# %%
+emTypes = exampleJL["EYE_MOVEMENT_TYPE"].unique()
+emTypes
+# %%
+
 # # Plotting one example
-# # Plotting one example
-# for t in exampleJL.trial.unique():
-#     plt.plot(
-#         exampleJL[exampleJL["trial"] == t].time,
-#         exampleJL[exampleJL["trial"] == t].filtVelo,
-#         alpha=0.5,
-#     )
-#     plt.plot(
-#         exampleJL[exampleJL["trial"] == t].time,
-#         exampleJL[exampleJL["trial"] == t].velo,
-#         alpha=0.5,
-#     )
-#     plt.xlabel("Time in ms", fontsize=20)
-#     plt.ylabel("Filteup Velocity in deg/s", fontsize=20)
-#     plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
-#     plt.show()
+for t in exampleJL.trial.unique():
+    sns.lineplot(
+        data=exampleJL,
+        x="time",
+        y="speed_8",
+        alpha=0.5,
+    )
+    sns.lineplot(
+        data=exampleJL,
+        x="time",
+        y="speed_16",
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Filteup Velocity in deg/s", fontsize=20)
+    plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
+    plt.show()
 # # %%
-# for t in exampleJL.trial.unique():
-#     plt.plot(
-#         exampleJL[exampleJL["trial"] == t].time,
-#         exampleJL[exampleJL["trial"] == t].xp,
-#         alpha=0.5,
-#     )
-#     plt.plot(
-#         exampleJL[exampleJL["trial"] == t].time,
-#         exampleJL[exampleJL["trial"] == t].filtPos,
-#         alpha=0.5,
-#     )
-#     plt.xlabel("Time in ms", fontsize=20)
-#     plt.ylabel("Eye Position", fontsize=20)
-#     plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
-#     plt.show()
-#
+for t in exampleJL.trial.unique():
+    sns.scatterplot(
+        data=exampleJL[exampleJL.trial == t],
+        x="time",
+        y="x",
+        alpha=0.5,
+        hue="EYE_MOVEMENT_TYPE",
+    )
+
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Eye position in pix", fontsize=20)
+    plt.title(f"Eye position of trial {t} ", fontsize=30)
+    plt.show()
+# %%
+for t in exampleJL.trial.unique():
+    sns.lineplot(
+        data=exampleJL,
+        x="time",
+        y="x",
+        alpha=0.5,
+    )
+    # plt.plot(
+    #     exampleJL[exampleJL["trial"] == t].time,
+    #     exampleJL[exampleJL["trial"] == t].filtPos,
+    #     alpha=0.5,
+    # )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Eye Position", fontsize=20)
+    plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
+    plt.show()
+
 
 # %%
 uparrowsPalette = ["#e83865", "#cc3131"]
@@ -193,7 +220,7 @@ facet_grid.map_dataframe(sns.histplot, x="meanVelo", hue="arrow", alpha=0.3)
 facet_grid.add_legend()
 
 # Set titles for each subplot
-for ax, p in zip(facet_grid.axes.flat, df.proba.unique()):
+for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
 # Adjust spacing between subplots
 facet_grid.fig.subplots_adjust(

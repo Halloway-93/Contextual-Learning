@@ -765,16 +765,18 @@ def detect_saccades(data, mono=True):
 dirPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/"
 dirFig = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/figures/"
 # %%
-filePath = "~/boubou/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.asc"
+filePath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.asc"
 
 # %%
-eventsPath = "~/boubou/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.csv"
+eventsPath = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-002/session-04/sub-002_ses-04_proba-100.csv"
 # %%
 data = read_asc(filePath)
 # %%
 df = data["raw"]
 df.head()
-
+# %%
+info = data["info"]
+info
 # %%
 mono = data["info"]["mono"]
 events = pd.read_csv(eventsPath)

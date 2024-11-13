@@ -12,6 +12,7 @@ import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/voluntaryColor/"
@@ -28,7 +29,7 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 jlData
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 4) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
+    (jlData["sub"] == 16) & (jlData["proba"] == 75) & (jlData["trial"] == 240)
 ]
 exampleJL
 # %%
@@ -78,7 +79,7 @@ df = pd.read_csv(
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
 badTrials
 # %%
-df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
+df = df[(df["meanVelo"] <= 3) & (df["meanVelo"] >= -3)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -299,11 +300,14 @@ result = model.fit()
 print(result.summary())
 # %%
 colors = ["green", "red"]
-sns.histplot(
+sns.displot(
     data=df[df.proba == 25],
     x="meanVelo",
     hue="color",
     alpha=0.5,
+    # element="step",
+    kind="kde",
+    fill=True,
     # multiple="dodge",
     palette=colors,
 )
@@ -312,12 +316,13 @@ plt.show()
 # Early trials
 earlyTrials = 40
 p = 75
-sns.histplot(
+sns.displot(
     data=df[(df.proba == p) & (df.trial <= earlyTrials)],
     x="meanVelo",
     hue="color",
     hue_order=colors,
     alpha=0.5,
+    element="step",
     # multiple="dodge",
     palette=colors,
 )
@@ -423,7 +428,7 @@ anova_results = pg.rm_anova(
     dv="meanVelo",
     within="proba",
     subject="sub",
-    data=df[df.color == "red"],
+    data=dd[dd.color == "red"],
 )
 
 print(anova_results)
@@ -440,6 +445,25 @@ sns.pointplot(
 _ = plt.title("asem across porba")
 plt.show()
 # %%
+sns.catplot(
+    data=dd,
+    x="proba",
+    y="meanVelo",
+    hue="color",
+    kind="violin",
+    split=True,
+    palette=colors,
+)
+plt.show()
+# %%
+cmapR = LinearSegmentedColormap.from_list(
+    "redCmap", ["w", "red"], N=len(df["sub"].unique())
+)
+
+# %%
+cmapG = LinearSegmentedColormap.from_list(
+    "redCmap", ["w", "green"], N=len(df["sub"].unique())
+)
 sns.pointplot(
     data=df[df.color == "red"],
     x="proba",
@@ -447,12 +471,13 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    palette="tab20",
+    alpha=0.8,
 )
 _ = plt.title("ASEM  across porba: Red")
 plt.show()
 # %%
-
+# %%
 sns.pointplot(
     data=df[df.color == "green"],
     x="proba",
@@ -460,7 +485,8 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    palette="tab20",
+    alpha=0.8,
 )
 _ = plt.title("asem across porba: Green")
 plt.show()
@@ -476,7 +502,39 @@ anova_results = pg.rm_anova(
 
 print(anova_results)
 # %%
+model = smf.mixedlm(
+    "meanVelo~C( proba,Treatment(50)) *color",
+    data=df,
+    # re_formula="~proba",
+    groups=df["sub"],
+).fit()
+model.summary()
 
+# %%
+residuals = model.resid
+
+# Q-Q plot
+stats.probplot(residuals, dist="norm", plot=plt)
+plt.title("Q-Q plot of residuals")
+plt.show()
+# %%
+pg.qqplot(residuals, dist="norm")
+plt.show()
+# %%
+# Histogram
+plt.hist(residuals, bins=50)
+plt.title("Histogram of residuals")
+plt.show()
+# %%
+# Shapiro-Wilk test for normality# Perform the KS test on the residuals
+stat, p = stats.kstest(residuals, "norm")
+
+print(f"KS test statistic: {stat:.4f}")
+print(f"KS test p-value: {p:.4f}")
+# %%
+normaltest_result = stats.normaltest(residuals)
+print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
+# %%
 model = smf.mixedlm(
     "meanVelo~C( proba,Treatment(50))",
     data=df[df.color == "red"],
@@ -494,7 +552,25 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 
+# %%
+residuals = model.resid
 
+# Q-Q plot
+stats.probplot(residuals, dist="norm", plot=plt)
+plt.title("Q-Q plot of residuals")
+plt.show()
+
+# Histogram
+plt.hist(residuals, bins=50)
+plt.title("Histogram of residuals")
+plt.show()
+# %%
+stat, p = stats.kstest(residuals, "norm")
+
+print(f"KS test statistic: {stat:.4f}")
+print(f"KS test p-value: {p:.4f}")
+normaltest_result = stats.normaltest(residuals)
+print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(color)",
@@ -503,7 +579,21 @@ model = smf.mixedlm(
     groups=df[df.proba == 25]["sub"],
 ).fit()
 model.summary()
+# %%
+residuals = model.resid
 
+# Q-Q plot
+stats.probplot(residuals, dist="norm", plot=plt)
+plt.title("Q-Q plot of residuals")
+plt.show()
+
+# Histogram
+plt.hist(residuals, bins=50)
+plt.title("Histogram of residuals")
+plt.show()
+
+normaltest_result = stats.normaltest(residuals)
+print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(color)",

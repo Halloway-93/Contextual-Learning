@@ -82,8 +82,8 @@ df["meanVelo"].max()
 sns.histplot(data=df, x="meanVelo")
 plt.show()
 # %%
-df
-# %%
+df.trial.unique()
+#%%
 # df = pd.read_csv(os.path.join(path, fileName))
 # [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
@@ -365,7 +365,7 @@ stat, p = stats.kstest(
 )
 print(f"Statistic: {stat}, p-value: {p}")
 # %%
-x = dd["meanVelo"]
+x = df["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
 plt.show()
 # %%
@@ -438,6 +438,11 @@ sns.pointplot(
 _ = plt.title("asem across porba")
 plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+
 sns.pointplot(
     data=df[df.color == "red"],
     x="proba",
@@ -445,12 +450,19 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    palette="tab20",
 )
-_ = plt.title("ASEM  across porba: Red")
+_ = plt.title("ASEM  across porba: Red", fontsize=30)
+plt.xlabel("P(Right|RED)", fontsize=20)
+plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
+plt.savefig(pathFig + "/individualsRed.png")
 plt.show()
 # %%
 
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.color == "green"],
     x="proba",
@@ -458,9 +470,12 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    palette="tab20",
 )
-_ = plt.title("asem across porba: Green")
+_ = plt.title("Asem across porba: Green", fontsize=30)
+plt.xlabel("P(Left|Green)", fontsize=20)
+plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
+plt.savefig(pathFig + "/individualsGreen.svg")
 plt.show()
 # %%
 # pg.normality(df[df.color == "red"], group="proba", dv="meanVelo")
@@ -476,18 +491,18 @@ print(anova_results)
 # %%
 
 model = smf.mixedlm(
-    "meanVelo~C( proba,Treatment(50))",
+    "meanVelo~( proba)",
     data=df[df.color == "red"],
-    re_formula="~proba",
+    # re_formula="~proba",
     groups=df[df.color == "red"]["sub"],
 ).fit()
 model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~C( proba,Treatment(50))",
+    "meanVelo~( proba)",
     data=df[df.color == "green"],
-    re_formula="~proba",
+    # re_formula="~proba",
     groups=df[df.color == "green"]["sub"],
 ).fit()
 model.summary()
@@ -531,8 +546,12 @@ sns.barplot(
     palette=colors,
     data=df,
 )
-plt.title("ASEM over 3 different probabilites for Green & Red.")
-plt.xlabel("P(Right|RED)=P(Left|Green)")
+plt.legend(fontsize=15)
+plt.title("ASEM across 3 different probabilites", fontsize=30)
+plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.ylabel("Anticipatory Velocity", fontsize=20)
 plt.savefig(pathFig + "/meanVeloColors.png")
 plt.show()
 
@@ -549,8 +568,12 @@ sns.barplot(
     palette=colors,
     data=df,
 )
-plt.title("ASEM over 3 different probabilites for Green & Red.")
-plt.xlabel("P(Right|RED)=P(Left|Green)")
+plt.legend(fontsize=15)
+plt.title("ASEM across 3 different probabilites", fontsize=30)
+plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.ylabel("Position Offset", fontsize=20)
 plt.savefig(pathFig + "/posOffSetColors.png")
 plt.show()
 # %%
