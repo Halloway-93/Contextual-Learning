@@ -642,7 +642,7 @@ def filter_velocity(velocity, sampling_freq=1000, velocity_cutoff=20):
         # This is important if you want to exclude these periods from analysis
         final_data = filtered_velocity.copy()
         final_data[~valid_indices] = np.nan
-        return final_data
+        return np.array(final_data)
     else:
         np.full_like(velocity, np.nan)
 
