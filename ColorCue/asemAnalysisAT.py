@@ -12,14 +12,11 @@ import seaborn as sns
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
 
-path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
-pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/voluntaryColor/"
+path = "/Volumes/work/brainets/oueld.h/attentionalTask/data/"
+pathFig = "/Users/mango/PhD/Contextual-Learning/attentionTask/figures/"
 jobLibData = "jobLibProcessingCC.csv"
-allEventsFile = (
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
-)
+allEventsFile = "/Volumes/work/brainets/oueld.h/attentionalTask/data/allEvents.csv"
 
 
 # %%
@@ -29,7 +26,7 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 jlData
 # %%
 exampleJL = jlData[
-    (jlData["sub"] == 16) & (jlData["proba"] == 75) & (jlData["trial"] == 240)
+    (jlData["sub"] == 4) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
 ]
 exampleJL
 # %%
@@ -73,13 +70,13 @@ greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(80,120).csv"
+    "/Volumes/work/brainets/oueld.h/attentionalTask/data/processedResultsWindow(80,120).csv"
 )
 # %%
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
-badTrials
+badTrials[["trial_color_imposed", "trial_color_chosen"]]
 # %%
-df = df[(df["meanVelo"] <= 3) & (df["meanVelo"] >= -3)]
+df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -88,14 +85,12 @@ plt.show()
 # df = pd.read_csv(os.path.join(path, fileName))
 # [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
-df["color"] = df["trial_color_chosen"].apply(lambda x: "green" if x == 0 else "red")
+df["color"] = df["trial_color_imposed"].apply(lambda x: "green" if x == 0 else "red")
 
 
 # df = df.dropna(subset=["meanVelo"])
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
-# %%
-df = df[(df["sub"] != 9)]
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -300,14 +295,11 @@ result = model.fit()
 print(result.summary())
 # %%
 colors = ["green", "red"]
-sns.displot(
+sns.histplot(
     data=df[df.proba == 25],
     x="meanVelo",
     hue="color",
     alpha=0.5,
-    # element="step",
-    kind="kde",
-    fill=True,
     # multiple="dodge",
     palette=colors,
 )
@@ -316,13 +308,12 @@ plt.show()
 # Early trials
 earlyTrials = 40
 p = 75
-sns.displot(
+sns.histplot(
     data=df[(df.proba == p) & (df.trial <= earlyTrials)],
     x="meanVelo",
     hue="color",
     hue_order=colors,
     alpha=0.5,
-    element="step",
     # multiple="dodge",
     palette=colors,
 )
@@ -428,7 +419,7 @@ anova_results = pg.rm_anova(
     dv="meanVelo",
     within="proba",
     subject="sub",
-    data=dd[dd.color == "red"],
+    data=df[df.color == "red"],
 )
 
 print(anova_results)
@@ -440,30 +431,12 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="color",
+    hue_order=colors,
     palette=colors,
 )
 _ = plt.title("asem across porba")
 plt.show()
 # %%
-sns.catplot(
-    data=dd,
-    x="proba",
-    y="meanVelo",
-    hue="color",
-    kind="violin",
-    split=True,
-    palette=colors,
-)
-plt.show()
-# %%
-cmapR = LinearSegmentedColormap.from_list(
-    "redCmap", ["w", "red"], N=len(df["sub"].unique())
-)
-
-# %%
-cmapG = LinearSegmentedColormap.from_list(
-    "redCmap", ["w", "green"], N=len(df["sub"].unique())
-)
 sns.pointplot(
     data=df[df.color == "red"],
     x="proba",
@@ -471,13 +444,12 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="tab20",
-    alpha=0.8,
+    palette="Set2",
 )
 _ = plt.title("ASEM  across porba: Red")
 plt.show()
 # %%
-# %%
+
 sns.pointplot(
     data=df[df.color == "green"],
     x="proba",
@@ -485,8 +457,7 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="tab20",
-    alpha=0.8,
+    palette="Set2",
 )
 _ = plt.title("asem across porba: Green")
 plt.show()
@@ -502,39 +473,7 @@ anova_results = pg.rm_anova(
 
 print(anova_results)
 # %%
-model = smf.mixedlm(
-    "meanVelo~C( proba,Treatment(50)) *color",
-    data=df,
-    # re_formula="~proba",
-    groups=df["sub"],
-).fit()
-model.summary()
 
-# %%
-residuals = model.resid
-
-# Q-Q plot
-stats.probplot(residuals, dist="norm", plot=plt)
-plt.title("Q-Q plot of residuals")
-plt.show()
-# %%
-pg.qqplot(residuals, dist="norm")
-plt.show()
-# %%
-# Histogram
-plt.hist(residuals, bins=50)
-plt.title("Histogram of residuals")
-plt.show()
-# %%
-# Shapiro-Wilk test for normality# Perform the KS test on the residuals
-stat, p = stats.kstest(residuals, "norm")
-
-print(f"KS test statistic: {stat:.4f}")
-print(f"KS test p-value: {p:.4f}")
-# %%
-normaltest_result = stats.normaltest(residuals)
-print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
-# %%
 model = smf.mixedlm(
     "meanVelo~C( proba,Treatment(50))",
     data=df[df.color == "red"],
@@ -552,53 +491,21 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 
-# %%
-residuals = model.resid
 
-# Q-Q plot
-stats.probplot(residuals, dist="norm", plot=plt)
-plt.title("Q-Q plot of residuals")
-plt.show()
-
-# Histogram
-plt.hist(residuals, bins=50)
-plt.title("Histogram of residuals")
-plt.show()
-# %%
-stat, p = stats.kstest(residuals, "norm")
-
-print(f"KS test statistic: {stat:.4f}")
-print(f"KS test p-value: {p:.4f}")
-normaltest_result = stats.normaltest(residuals)
-print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(color)",
     data=df[df.proba == 25],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 25]["sub"],
 ).fit()
 model.summary()
-# %%
-residuals = model.resid
 
-# Q-Q plot
-stats.probplot(residuals, dist="norm", plot=plt)
-plt.title("Q-Q plot of residuals")
-plt.show()
-
-# Histogram
-plt.hist(residuals, bins=50)
-plt.title("Histogram of residuals")
-plt.show()
-
-normaltest_result = stats.normaltest(residuals)
-print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(color)",
     data=df[df.proba == 50],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 50]["sub"],
 ).fit()
 model.summary()
@@ -606,7 +513,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~ C(color)",
     data=df[df.proba == 75],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 75]["sub"],
 ).fit()
 model.summary()
@@ -620,6 +527,8 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="color",
+    hue_order=colors,
+    errorbar="ci",
     palette=colors,
     data=df,
 )
@@ -638,6 +547,7 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     hue="color",
+    hue_order=colors,
     palette=colors,
     data=df,
 )
@@ -914,6 +824,7 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     palette="viridis",
+    errorbar="ci",
     hue="interaction",
     data=learningCurveInteraction[learningCurveInteraction.color == "green"],
 )
@@ -968,9 +879,7 @@ model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
     data=df[df.proba == 50],
     re_formula="~color",
-    groups=df[df.proba == 5]["sub"],
+    groups=df[df.proba == 50]["sub"],
 ).fit(method=["lbfgs"])
 model.summary()
 # %%
-# %%
-dd

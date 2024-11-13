@@ -992,7 +992,7 @@ path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data"
 
 # %%
 filename = (
-    "/Users/mango/contextuaLearning/ColorCue/data/sub-06/sub-06_col50-dir50_eyeData.asc"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/sub-06/sub-06_col50-dir50_eyeData.asc"
 )
 # %%
 data = read_asc(filename)
