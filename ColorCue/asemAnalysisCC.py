@@ -1,4 +1,3 @@
-import os
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 import scikit_posthocs as sp
@@ -17,60 +16,60 @@ from matplotlib.colors import LinearSegmentedColormap
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/"
 pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/voluntaryColor/"
 jobLibData = "jobLibProcessingCC.csv"
-allEventsFile = (
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
-)
 
 
-# %%
-jlData = pd.read_csv(os.path.join(path, jobLibData))
-
-# %%
-jlData
-# %%
-exampleJL = jlData[
-    (jlData["sub"] == 16) & (jlData["proba"] == 75) & (jlData["trial"] == 240)
-]
-exampleJL
-# %%
-# Plotting one example
-for t in exampleJL.trial.unique():
-    plt.plot(
-        exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].filtVelo,
-        alpha=0.5,
-    )
-    plt.plot(
-        exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].velo,
-        alpha=0.5,
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.show()
-# %%
-for t in exampleJL.trial.unique():
-    plt.plot(
-        exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].xp,
-        alpha=0.5,
-    )
-    plt.plot(
-        exampleJL[exampleJL["trial"] == t].time,
-        exampleJL[exampleJL["trial"] == t].filtPos,
-        alpha=0.5,
-    )
-    plt.xlabel("Time in ms", fontsize=20)
-    plt.ylabel("Eye Position", fontsize=20)
-    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
-    plt.show()
-
-
+# # %%
+# jlData = pd.read_csv(os.path.join(path, jobLibData))
+#
+# # %%
+# jlData
+# # %%
+# exampleJL = jlData[
+#     (jlData["sub"] == 16) & (jlData["proba"] == 75) & (jlData["trial"] == 240)
+# ]
+# exampleJL
+# # %%
+# # Plotting one example
+# for t in exampleJL.trial.unique():
+#     plt.plot(
+#         exampleJL[exampleJL["trial"] == t].time,
+#         exampleJL[exampleJL["trial"] == t].filtVelo,
+#         alpha=0.5,
+#     )
+#     plt.plot(
+#         exampleJL[exampleJL["trial"] == t].time,
+#         exampleJL[exampleJL["trial"] == t].velo,
+#         alpha=0.5,
+#     )
+#     plt.xlabel("Time in ms", fontsize=20)
+#     plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+#     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+#     plt.show()
+# # %%
+# for t in exampleJL.trial.unique():
+#     plt.plot(
+#         exampleJL[exampleJL["trial"] == t].time,
+#         exampleJL[exampleJL["trial"] == t].xp,
+#         alpha=0.5,
+#     )
+#     plt.plot(
+#         exampleJL[exampleJL["trial"] == t].time,
+#         exampleJL[exampleJL["trial"] == t].filtPos,
+#         alpha=0.5,
+#     )
+#     plt.xlabel("Time in ms", fontsize=20)
+#     plt.ylabel("Eye Position", fontsize=20)
+#     plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+#     plt.show()
+#
+#
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
 # %%
+allEventsFile = (
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/allEvents.csv"
+)
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
     "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(80,120).csv"
@@ -79,7 +78,7 @@ df = pd.read_csv(
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
 badTrials
 # %%
-df = df[(df["meanVelo"] <= 3) & (df["meanVelo"] >= -3)]
+df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -289,12 +288,12 @@ corrected_p_values = corrected_p_values.reshape(posthoc.shape)
 print("Holm-Bonferroni corrected Wilcoxon Test p-values:")
 print(pd.DataFrame(corrected_p_values, index=posthoc.index, columns=posthoc.columns))
 # %%
-model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "red"])
+model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "red"])
 result = model.fit()
 
 print(result.summary())
 # %%
-model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "green"])
+model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "green"])
 result = model.fit()
 
 print(result.summary())
@@ -365,10 +364,10 @@ anova_table = sm.stats.anova_lm(model, typ=2)
 print(anova_table)
 # %%
 # cehcking the normality of the data
-print(pg.normality(df["meanVelo"]))
+print(pg.normality(dd["meanVelo"]))
 # %%
 stat, p = stats.kstest(
-    df["meanVelo"], "norm", args=(df["meanVelo"].mean(), df["meanVelo"].std(ddof=1))
+    dd["meanVelo"], "norm", args=(dd["meanVelo"].mean(), dd["meanVelo"].std(ddof=1))
 )
 print(f"Statistic: {stat}, p-value: {p}")
 # %%
@@ -464,6 +463,11 @@ cmapR = LinearSegmentedColormap.from_list(
 cmapG = LinearSegmentedColormap.from_list(
     "redCmap", ["w", "green"], N=len(df["sub"].unique())
 )
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.color == "red"],
     x="proba",
@@ -474,10 +478,19 @@ sns.pointplot(
     palette="tab20",
     alpha=0.8,
 )
-_ = plt.title("ASEM  across porba: Red")
+_ = plt.title("ASEM Per Subject: Color Red", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|RED)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/individualsRed.svg")
 plt.show()
 # %%
-# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.color == "green"],
     x="proba",
@@ -488,7 +501,13 @@ sns.pointplot(
     palette="tab20",
     alpha=0.8,
 )
-_ = plt.title("asem across porba: Green")
+_ = plt.title("ASEM Per Subject: Color Green", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/individualsGreen.svg")
 plt.show()
 # %%
 # pg.normality(df[df.color == "red"], group="proba", dv="meanVelo")
@@ -620,12 +639,19 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="color",
+    errorbar="ci",
     palette=colors,
     data=df,
 )
-plt.title("ASEM over 3 different probabilites for Green & Red.")
-plt.xlabel("P(Right|RED)=P(Left|Green)")
-plt.savefig(pathFig + "/meanVeloColors.png")
+plt.legend(fontsize=20)
+plt.title("ASEM across 3 different probabilites", fontsize=30)
+plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+plt.legend(fontsize=20)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/meanVeloColors.svg")
 plt.show()
 
 # %%
@@ -660,6 +686,8 @@ for sub in df["sub"].unique():
 # %%
 df.columns
 # %%
+df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == -1 else "right")
+# %%
 df_prime = df[
     [
         "sub",
@@ -681,7 +709,9 @@ learningCurve = (
 
 learningCurve
 # %%
-df_prime.groupby(["proba", "color", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
+df_prime.groupby(["sub", "proba", "color", "TD_prev"]).count()[
+    ["posOffSet", "meanVelo"]
+]
 
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
@@ -711,8 +741,9 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     hue="TD_prev",
+    hue_order=["left", "right"],
     palette=redColorsPalette,
-    data=learningCurve[learningCurve.color == "red"],
+    data=df[df.color == "red"],
 )
 plt.legend(fontsize=20)
 plt.title("Position Offset: Color Red Given Previous Target Direction", fontsize=30)
@@ -729,12 +760,15 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     color="red",
-    data=df_prime[df_prime.color == "red"],
+    data=df[df.color == "red"],
 )
-plt.title("ASEM: Color Red", fontsize=30)
-plt.xlabel("P(Right|RED)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVeloRed.png")
+plt.title("Anticipatory Smooth Eye Movement: Color Red", fontsize=30)
+plt.xlabel("P(Right|RED)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/meanVeloRed.svg")
 plt.show()
 # %%
 fig = plt.figure()
@@ -745,14 +779,19 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="TD_prev",
+    hue_order=["left", "right"],
+    errorbar="ci",
     palette=redColorsPalette,
-    data=df_prime[df_prime.color == "red"],
+    data=df[df.color == "red"],
 )
 plt.legend(fontsize=20)
 plt.title("Anticipatory Velocity Given Previous TD: Color Red ", fontsize=30)
-plt.xlabel("P(Right|RED)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVeloRedTD.png")
+plt.xlabel("P(Right|RED)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+plt.savefig(pathFig + "/meanVeloRedTD.svg")
 plt.show()
 # %%
 fig = plt.figure()
@@ -779,11 +818,12 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     hue="TD_prev",
+    hue_order=["left", "right"],
     palette=greenColorsPalette,
     data=df[df.color == "green"],
 )
 plt.legend(fontsize=20)
-plt.title("Position Offset:Color Green \n  ", fontsize=30)
+plt.title("Anticipatory Velocity Given Previous TD: Color Green ", fontsize=30)
 plt.xlabel("P(Left|GREEN)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
 plt.savefig(pathFig + "/posOffSetGreenTD.png")
@@ -797,12 +837,16 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     color="green",
+    errorbar="ci",
     data=df[df.color == "green"],
 )
-plt.title("ASEM: Color Green", fontsize=30)
-plt.xlabel("P(Left|GREEN)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVeloGreen.png")
+plt.title("Anticipatory Smooth Eye Movement: Color Green", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+plt.savefig(pathFig + "/meanVeloGreen.svg")
 plt.show()
 # %%
 fig = plt.figure()
@@ -813,16 +857,19 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="TD_prev",
+    hue_order=["left", "right"],
     palette=greenColorsPalette,
-    data=learningCurve[learningCurve.color == "green"],
+    data=df[df.color == "green"],
 )
 plt.legend(fontsize=20)
-plt.title("meanVelo: Color Green\n ", fontsize=30)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.xlabel("P(Left|GREEN)", fontsize=20)
-plt.savefig(pathFig + "/meanVeloGreenTD.png")
+plt.title("Anticipatory Velocity Given Previous TD: Color Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+plt.savefig(pathFig + "/meanVeloGreenTD.svg")
 plt.show()
-# Adding the interacrion between  previous color and previous TD.
 # %%
 df["interaction"] = list(zip(df["TD_prev"], df["color_prev"]))
 df_prime = df[
@@ -854,12 +901,23 @@ learningCurveInteraction = (
 # %%
 df.columns
 # %%
-df_prime.groupby(["sub", "proba", "interaction", "color"]).count()[
-    ["posOffSet", "meanVelo"]
-]
+df_prime.groupby(["proba", "interaction", "color"]).count()[["posOffSet", "meanVelo"]]
 
 # %%
 learningCurveInteraction
+# %%
+# Cmap for green and red for the interaction plots
+
+cmapRed = LinearSegmentedColormap.from_list("Red", ["w", "red"])
+colorsRed = list(cmapRed(np.linspace(0.5, 1, 4)))
+cmapGreen = LinearSegmentedColormap.from_list("Green", ["w", "green"])
+colorsGreen = list(cmapGreen(np.linspace(0, 1, 4)))
+# %%
+redColorsPalette = ["#e83865", "#cc3131"]
+greenColorsPalette = ["#8cd790", "#285943"]
+colorsPalette = ["#285943", "#cc3131", "#e83865", "#8cd790"]
+# %%
+df_prime["interaction"].unique()
 # %%
 # Create a figure and axis
 fig = plt.figure()
@@ -871,20 +929,22 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    palette="magma",
+    palette=colorsPalette,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.color == "red"],
+    hue_order=df_prime["interaction"].unique(),
+    data=df[df.color == "red"],
 )
 plt.legend(fontsize=20)
 plt.title(
     "Position Offset:Color Red\n Interaction of Previous Target Direction & Color Chosen ",
     fontsize=30,
 )
-plt.xlabel("P(Right|RED)", fontsize=20)
-plt.ylabel("Position Offset", fontsize=20)
+plt.xlabel("P(Right|RED)", fontsize=30)
+plt.ylabel("Position Offset", fontsize=30)
 plt.savefig(pathFig + "/posOffSetUpRedInteraction.png")
 plt.show()
 # %%
+
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
@@ -892,17 +952,22 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="coolwarm",
+    palette=colorsPalette,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.color == "red"],
+    hue_order=df_prime["interaction"].unique(),
+    data=df_prime[df_prime.color == "red"],
 )
 plt.title(
     "ASEM: Color Red\n Interaction of Previous Target Direction & Color Chosen",
     fontsize=30,
 )
-plt.xlabel("P(Right|Color)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVeloRedInteraction.png")
+plt.legend(fontsize=20)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1.25, 1.25)
+plt.xlabel("P(Right|Red)", fontsize=30)
+plt.ylabel("ASEM(deg/s)", fontsize=30)
+plt.savefig(pathFig + "/meanVeloRedInteraction.svg")
 plt.show()
 # %%
 fig = plt.figure()
@@ -913,16 +978,17 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    palette="viridis",
+    palette=colorsPalette,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.color == "green"],
+    hue_order=df_prime["interaction"].unique(),
+    data=df[df.color == "green"],
 )
 plt.title(
     "Position Offset: Color Green\n Interaction of Previous Target Direction & Color Chosen",
     fontsize=30,
 )
-plt.xlabel("P(Left|GREEN)", fontsize=20)
-plt.ylabel("Position Offset", fontsize=20)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.ylabel("Position Offset", fontsize=30)
 plt.savefig(pathFig + "/posOffSetGreenInteraction.png")
 plt.show()
 # %%
@@ -934,19 +1000,28 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="viridis",
+    palette=colorsPalette,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.color == "green"],
+    hue_order=df_prime["interaction"].unique(),
+    data=df_prime[df_prime.color == "green"],
 )
-plt.title("ASEM:Color Green\n Interaction of Previous Target Direction & Color Chosen")
-plt.xlabel("P(Left|GREEN)", fontsize=20)
-plt.ylabel("ASEM", fontsize=20)
 plt.legend(fontsize=20)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1.25, 1.25)
+plt.title(
+    "ASEM:Color Green\n Interaction of Previous Target Direction & Color Chosen",
+    fontsize=30,
+)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/meanVeloGreenInteraction.svg")
 plt.show()
 # %%
 df
 # %%
 df.dropna(subset=["TD_prev"], inplace=True)
+df.dropna(subset=["color_prev"], inplace=True)
 # %%
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
@@ -957,7 +1032,7 @@ model = smf.mixedlm(
 model.summary()
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
+    "meanVelo~  C(color,Treatment('red')) * C(interaction)",
     data=df[df.proba == 75],
     re_formula="~color",
     groups=df[df.proba == 75]["sub"],
@@ -967,10 +1042,14 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
     data=df[df.proba == 50],
-    re_formula="~color",
-    groups=df[df.proba == 5]["sub"],
+    # re_formula="~color",
+    groups=df[df.proba == 50]["sub"],
 ).fit(method=["lbfgs"])
 model.summary()
 # %%
 # %%
-dd
+df.color_prev
+# %%
+# Sampling Bias analysis
+df.groupby(['sub',"proba", "interaction", "color"]).count()[["posOffSet", "meanVelo"]]
+

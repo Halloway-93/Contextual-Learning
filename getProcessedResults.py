@@ -13,8 +13,8 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
     # Handle training trials
     numOfTrials = len(trials)
     print("Number of Trials:", numOfTrials)
-    if numOfTrials > 240 and numOfTrials<400:
-        pos = pos[pos["trial"] > (numOfTrials - 240) ]
+    if numOfTrials > 240 and numOfTrials < 400:
+        pos = pos[pos["trial"] > (numOfTrials - 240)]
 
     # Taking just the non-training trials
     trials = pos[(pos["sub"] == sub) & (pos["proba"] == proba)].trial.unique()
@@ -149,9 +149,21 @@ dirPath5 = "/envau/work/brainets/oueld.h/attentionalTask/data"
 filteredRawData5 = "JobLibProcessingCC.csv"
 allEventsFile5 = "allEvents.csv"
 
-paths = [dirPath1, dirPath2,dirPath3, dirPath4, dirPath5]
-filteredRawDatas = [filteredRawData1, filteredRawData2, filteredRawData3, filteredRawData4, filteredRawData5]
-allEventsFiles = [allEventsFile1, allEventsFile2, allEventsFile4, allEventsFile4, allEventsFile5]
+paths = [dirPath1, dirPath2, dirPath3, dirPath4, dirPath5]
+filteredRawDatas = [
+    filteredRawData1,
+    filteredRawData2,
+    filteredRawData3,
+    filteredRawData4,
+    filteredRawData5,
+]
+allEventsFiles = [
+    allEventsFile1,
+    allEventsFile2,
+    allEventsFile4,
+    allEventsFile4,
+    allEventsFile5,
+]
 windows = [(-50, 50), (80, 120), (-100, 100), (-200, 120)]
 for w in windows:
     for p, f, e in zip(paths, filteredRawDatas, allEventsFiles):

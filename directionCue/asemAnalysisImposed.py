@@ -5,17 +5,12 @@ Saccades and blinks has been removed from the data. on the window -200ms(Fixatio
 
 import os
 from scipy import stats
-from statsmodels.stats.multitest import multipletests
-import scikit_posthocs as sp
-from scipy.stats import friedmanchisquare, wilcoxon
 from scipy.stats import spearmanr
 import statsmodels.formula.api as smf
 import pingouin as pg
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
 import numpy as np
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/"
@@ -47,7 +42,7 @@ jobLibData = "JobLibProcessing.csv"
 #     plt.xlabel("Time in ms", fontsize=20)
 #     plt.ylabel("Filteup Velocity in deg/s", fontsize=20)
 #     plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
-#     plt.show()
+#     #plt.show()
 # # %%
 # for t in exampleJL.trial.unique():
 #     plt.plot(
@@ -63,12 +58,9 @@ jobLibData = "JobLibProcessing.csv"
 #     plt.xlabel("Time in ms", fontsize=20)
 #     plt.ylabel("Eye Position", fontsize=20)
 #     plt.title(f"Filteup Velocity of trial {t} ", fontsize=30)
-#     plt.show()
+#     #plt.show()
 
 
-# %%
-uparrowsPalette = ["#e83865", "#cc3131"]
-downarrowsPalette = ["#8cd790", "#285943"]
 # %%
 pathFig = "/Users/mango/PhD/Contextual-Learning/directionCue/figures/imposeDirection"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/allEvents.csv"
@@ -79,25 +71,40 @@ df = pd.read_csv(
 
 # %%
 
-df.columns
+df = df[(df["sub"] != 10) & (df["sub"] != 11)]
+if "arrow" not in df.columns:
+    df["arrow"] = df["chosen_arrow"].values
+print(df)
+# %%
+# getting previous TD for each trial for each subject and each proba
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub]["proba"].unique():
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "target_direction"
+        ].shift(1)
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "arrow_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "arrow"
+        ].shift(1)
+# %%
+df[df["TD_prev"].isna()]
 # %%
 # df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
 # df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
-df = df[df.trial >= 40]
+df = df[~(df["TD_prev"].isna())]
+df[df["TD_prev"].isna()]
 # %%
-badTrials = df[(df["meanVelo"] <= -10) | (df["meanVelo"] >= 10)]
+df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == -1 else "right")
+df["interaction"] = list(zip(df["TD_prev"], df["arrow_prev"]))
+# %%
+badTrials = df[(df["meanVelo"] <= -8) | (df["meanVelo"] >= 8)]
 badTrials
 # %%
-df = df[(df["meanVelo"] < 11) & (df["meanVelo"] > -11)]
+df = df[(df["meanVelo"] <= 8) & (df["meanVelo"] >= -8)]
 # %%
 df[df["meanVelo"] == df["meanVelo"].max()]
 # %%
 sns.histplot(data=df, x="meanVelo")
-plt.show()
-# %%
-if "arrow" not in df.columns:
-    df["arrow"] = df["chosen_arrow"].values
-print(df)
+# plt.show()
 # %%
 balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
 balance
@@ -105,7 +112,7 @@ balance
 for sub in balance["sub"].unique():
     sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
     plt.title(f"Subject {sub}")
-    plt.show()
+    # plt.show()
 # %%
 dd = (
     df.groupby(["sub", "arrow", "proba"])[["meanVelo", "posOffSet"]]
@@ -161,103 +168,58 @@ print(f"Spearman's correlation(Proba 0.5): {correlation}, p-value: {p_value}")
 
 
 # %%
-sns.histplot(
-    data=df[df.proba == 0.25],
-    x="meanVelo",
-    hue="arrow",
-)
-plt.show()
-# %%
-# Early trials
-earlyTrials = 40
-p = 0.75
-sns.histplot(
-    data=df[(df.proba == p) & (df.trial <= earlyTrials)],
-    x="meanVelo",
-    hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
-)
-plt.title(f"Early Trials: {earlyTrials}, P(Right|up)={proba}")
-plt.show()
-
-# %%
-# Mid trials
-midTrials = [60, 180]
-sns.histplot(
-    data=df[(df.proba == p) & (df.trial <= midTrials[1]) & (df.trial > midTrials[0])],
-    x="meanVelo",
-    hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
-)
-plt.title(f"Mid Trials{midTrials[0]},{midTrials[1]}: P(Right|up)={proba}")
-plt.show()
-# %%
-# Late trials
-lateTrials = 200
-sns.histplot(
-    data=df[(df.proba == p) & (df.trial > lateTrials)],
-    x="meanVelo",
-    hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
-)
-plt.title(f"Early Trials>{lateTrials}: P(Right|up)={proba}")
-plt.show()
-# %%
-# Repeated measures ANOVA
-# Perform mixed ANOVA
-model = ols("meanVelo ~ C(arrow)*(proba) ", data=dd).fit()
-anova_table = sm.stats.anova_lm(model, typ=2)
-print(anova_table)
-# %%
 # cehcking the normality of the data
-print(pg.normality(df[df.proba == 0.5]["meanVelo"]))
+print(pg.normality(dd[dd.proba == 0.5]["meanVelo"]))
 # %%
 stat, p = stats.kstest(
-    df["meanVelo"], "norm", args=(df["meanVelo"].mean(), df["meanVelo"].std(ddof=1))
+    dd["meanVelo"], "norm", args=(dd["meanVelo"].mean(), dd["meanVelo"].std(ddof=1))
 )
 print(f"Statistic: {stat}, p-value: {p}")
 # %%
-x = df[df.proba == 0.5]["meanVelo"]
+x = dd["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
-plt.show()
+# plt.show()
 # %%
 sns.histplot(data=df, x="meanVelo", alpha=0.5)
-plt.show()
+# plt.show()
 # %%
 sns.histplot(data=df, x="meanVelo", hue="arrow", bins=20, alpha=0.5)
-plt.show()
+# plt.show()
 # %%
 sns.histplot(data=df, x="meanVelo", hue="proba", bins=20, palette="viridis", alpha=0.5)
-plt.show()
+# plt.show()
 # %%
 
 
 # Set up the FacetGrid
 facet_grid = sns.FacetGrid(data=df, col="proba", col_wrap=3, height=8, aspect=1.5)
 
+facet_grid.add_legend()
 # Create pointplots for each sub
 facet_grid.map_dataframe(
-    sns.histplot, x="meanVelo", hue="arrow", hue_order=["down", "up"], alpha=0.3
+    sns.histplot,
+    x="meanVelo",
+    hue="arrow",
+    hue_order=["down", "up"],
+    alpha=0.3,
 )
-
-# Add legends
-facet_grid.add_legend()
-
 # Set titles for each subplot
 for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
+    ax.legend(["up", "down"])
 # Adjust spacing between subplots
 facet_grid.fig.subplots_adjust(
     wspace=0.2, hspace=0.2
 )  # Adjust wspace and hspace as needed
 
 # Show the plot
-plt.show()
+# plt.show()
 
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df,
     x="proba",
@@ -267,9 +229,20 @@ sns.pointplot(
     hue="arrow",
     hue_order=["down", "up"],
 )
-_ = plt.title("asem across porba")
-plt.show()
+_ = plt.title("ASEM Across Probabilities", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|UP)=P(Left|DOWN)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-1.25, 1.25)
+plt.savefig(pathFig + "/asemAcrossProbappFullProba.svg")
+# plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.arrow == "up"],
     x="proba",
@@ -277,12 +250,22 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    alpha=0.7,
+    palette="tab20",
 )
-_ = plt.title("ASEM  across porba: up")
-plt.show()
+_ = plt.title("ASEM Per Subject: Arrow UP", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|UP)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/individualsUPFullProba.svg")
+# plt.show()
 # %%
-
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.arrow == "down"],
     x="proba",
@@ -290,12 +273,27 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    alpha=0.7,
+    palette="tab20",
 )
-_ = plt.title("asem across porba: down")
-plt.show()
+_ = plt.title("ASEM Per Subject: Arrow DOWN", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Left|DOWN)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/individualsDOWNFullProba.svg")
+# plt.show()
 # %%
 
+model = smf.mixedlm(
+    "meanVelo~C( arrow )",
+    data=df[df.proba == 1.0],
+    # re_formula="~arrow",
+    groups=df[df.proba == 1.0]["sub"],
+).fit()
+model.summary()
+# %%
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
     data=df[df.proba == 0.0],
@@ -317,13 +315,13 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
     data=df[df.proba == 0.25],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.25]["sub"],
 ).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
-    "meanVelo~C( arrow )",
+    "meanVelo~C( arrow,Treatment('up') )",
     data=df[df.proba == 0.5],
     # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
@@ -331,15 +329,6 @@ model = smf.mixedlm(
 model.summary()
 
 
-# %%
-
-model = smf.mixedlm(
-    "meanVelo~C( arrow )",
-    data=df[df.proba == 1],
-    re_formula="~arrow",
-    groups=df[df.proba == 1]["sub"],
-).fit()
-model.summary()
 # %%
 model = smf.mixedlm(
     "meanVelo~ C(proba,Treatment(0.5))",
@@ -360,39 +349,31 @@ model.summary()
 
 
 # %%
-model = smf.mixedlm(
-    "meanVelo~ C(proba,Treatment(0.5))*C(arrow,Treatment('up'))",
-    data=df,
-    re_formula="~proba*arrow",
-    groups=df["sub"],
-).fit()
-model.summary()
-
+downarrowsPalette = ["#0000FF", "#A2D9FF"]
+uparrowsPalette = ["#FFA500", "#FFD699"]
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
-sns.barplot(x="proba", y="meanVelo", hue="arrow", data=df, errorbar="ci")
-plt.title("ASEM over 3 different probabilites for down & up.", fontsize=40)
-plt.xlabel("P(Right|up)=P(Left|down)", fontsize=25)
-plt.ylabel("Anticipatory Velocity", fontsize=25)
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="arrow",
+    hue_order=["down", "up"],
+    data=df,
+    errorbar="ci",
+    palette=[downarrowsPalette[1], uparrowsPalette[1]],
+)
+plt.title("Anticipatory Velocity across  probabilites", fontsize=30)
+plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+ylim = (-1.5, 1.5)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrowsFullProba.png")
-plt.show()
-
-# %%
-# getting previous TD for each trial for each subject and each proba
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub]["proba"].unique():
-        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "target_direction"
-        ].shift(1)
-        df.loc[(df["sub"] == sub) & (df["proba"] == p), "arrow_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "arrow"
-        ].shift(1)
-# %%
-df.columns
+plt.savefig(pathFig + "/meanVeloarrowsFullProba.svg")
+# plt.show()
 # %%
 df_prime = df[
     [
@@ -408,6 +389,10 @@ df_prime = df[
 ]
 df_prime
 # %%
+df["TD_prev"].unique()
+# %%
+df["arrow_prev"].unique()
+# %%
 learningCurve = (
     df_prime.groupby(["sub", "proba", "arrow", "TD_prev"])
     .mean()[["posOffSet", "meanVelo"]]
@@ -417,11 +402,11 @@ learningCurve = (
 
 learningCurve
 # %%
-df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
+df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["meanVelo"]]
 
 # %%
-uparrowsPalette = ["#e83865", "#cc3131"]
-downarrowsPalette = ["#8cd790", "#285943"]
+df_prime.groupby(["sub", "proba", "arrow", "TD_prev"]).count()[["meanVelo"]]
+
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -430,13 +415,14 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    data=df_prime[df_prime.arrow == "up"],
+    data=df[df.arrow == "up"],
+    color=uparrowsPalette[0],
 )
 plt.title("Position Offset: arrow up", fontsize=30)
 plt.xlabel("P(Right|up)")
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetupFullProba.png")
-plt.show()
+plt.savefig(pathFig + "/posOffSetupFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -447,27 +433,34 @@ sns.barplot(
     y="posOffSet",
     hue="TD_prev",
     palette=uparrowsPalette,
-    data=learningCurve[learningCurve.arrow == "up"],
+    data=df[df.arrow == "up"],
 )
 plt.legend(fontsize=20)
 plt.title("Position Offset: arrow up Given Previous Target Direction", fontsize=30)
 plt.xlabel("P(Right|up)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetupTDFullProba.png")
-plt.show()
+plt.savefig(pathFig + "/posOffSetupTDFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.barplot(
-    x="proba", y="meanVelo", data=df_prime[df_prime.arrow == "up"], errorbar="se"
+    x="proba",
+    y="meanVelo",
+    data=df[df.arrow == "up"],
+    errorbar="se",
+    color=uparrowsPalette[1],
 )
-plt.title("ASEM: arrow up", fontsize=30)
-plt.xlabel("P(Right|up)", fontsize=25)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=25)
-plt.savefig(pathFig + "/meanVeloupFullProba.png")
-plt.show()
+plt.title("Anticipatory Smooth Eye Movement: Arrow Up", fontsize=30)
+plt.xlabel("P(Right|UP)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+# plt.ylim(-1.5, 1.5)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVeloupFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -478,14 +471,17 @@ sns.barplot(
     y="meanVelo",
     hue="TD_prev",
     palette=uparrowsPalette,
-    data=df_prime[df_prime.arrow == "up"],
+    data=df[df.arrow == "up"],
+    errorbar="ci",
 )
 plt.legend(fontsize=20)
-plt.title("Anticipatory Velocity Given Previous TD: arrow up ", fontsize=30)
-plt.xlabel("P(Right|up)", fontsize=25)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=25)
-plt.savefig(os.path.join(pathFig, "meanVeloupTDFullProba.png"))
-plt.show()
+plt.title("Anticipatory Velocity Given Previous TD: arrow UP ", fontsize=30)
+plt.xlabel("P(Right|UP)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(os.path.join(pathFig, "meanVeloupTDFullProba.svg"))
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -494,13 +490,15 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    data=learningCurve[learningCurve.arrow == "down"],
+    data=df[df.arrow == "down"],
 )
 plt.title("Position Offset: arrow down", fontsize=30)
-plt.xlabel("P(Left|down)", fontsize=20)
-plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdownFullProba.png")
-plt.show()
+plt.xlabel("P(Left|down)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylabel("Position Offset", fontsize=30)
+plt.savefig(pathFig + "/posOffSetdownFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -517,23 +515,25 @@ plt.legend(fontsize=20)
 plt.title("Position Offset:arrow down \n  ", fontsize=30)
 plt.xlabel("P(Left|down)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdownTDFullPrba.png")
-plt.show()
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/posOffSetdownTDFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.barplot(
-    x="proba",
-    y="meanVelo",
-    data=df[df.arrow == "down"],
+    x="proba", y="meanVelo", data=df[df.arrow == "down"], color=downarrowsPalette[1]
 )
-plt.title("ASEM: arrow down", fontsize=30)
-plt.xlabel("P(Left|down)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVelodownFullProba.png")
-plt.show()
+plt.title("Anticipatory Smooth Eye Movement: Arrow Down", fontsize=30)
+plt.xlabel("P(Left|down)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVelodownFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -543,17 +543,19 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="TD_prev",
-    errorbar="ci",
+    hue_order=["right", "left"],
     palette=downarrowsPalette,
-    data=learningCurve[learningCurve.arrow == "down"],
+    data=df[df.arrow == "down"],
 )
 plt.legend(fontsize=20)
-plt.title("meanVelo: arrow down\n ", fontsize=30)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.xlabel("P(Left|down)", fontsize=20)
-plt.savefig(pathFig + "/meanVelodownTDFullPrba.png")
-plt.show()
-# Adding the interacrion between  previous arrow and previous TD.
+plt.title("Anticipatory Velocity Given Previous TD: Arrow DOWN ", fontsize=30)
+plt.xlabel("P(Left|Down)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVelodownTDFullProba.svg")
+# plt.show()
+# Adding the interacton between  previous arrow and previous TD.
 # %%
 df["interaction"] = list(zip(df["TD_prev"], df["arrow_prev"]))
 df_prime = df[
@@ -569,13 +571,6 @@ df_prime = df[
 ]
 df_prime
 # %%
-valueToKeep = df_prime.interaction.unique()[1:]
-valueToKeep
-# %%
-df_prime = df_prime[df_prime["interaction"].isin(valueToKeep)]
-df_prime.interaction.unique()
-# %%
-
 learningCurveInteraction = (
     df_prime.groupby(["sub", "proba", "interaction", "arrow"])
     .mean()[["posOffSet", "meanVelo"]]
@@ -583,14 +578,20 @@ learningCurveInteraction = (
 )
 
 # %%
-df.columns
+learningCurveInteraction
 # %%
-df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[
-    ["posOffSet", "meanVelo"]
-]
+df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[["meanVelo"]]
+
+# %%
+df_prime.groupby(["proba", "interaction", "arrow"]).count()[["posOffSet", "meanVelo"]]
 
 # %%
 learningCurveInteraction
+# %%
+df["interaction"].unique()
+# %%
+colorsPalettes = ["#0000FF", "#FFA500", "#A2D9FF", "#FFD699"]
+hue_order = [("right", "down"), ("right", "up"), ("left", "down"), ("left", "up")]
 # %%
 # Create a figure and axis
 fig = plt.figure()
@@ -602,9 +603,10 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    palette="magma",
+    palette=colorsPalettes,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "up"],
+    hue_order=hue_order,
+    data=df[df.arrow == "up"],
 )
 plt.legend(fontsize=20)
 plt.title(
@@ -613,8 +615,8 @@ plt.title(
 )
 plt.xlabel("P(Right|up)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetUpupInteractionFullProba.png")
-plt.show()
+plt.savefig(pathFig + "/posOffSetUpupInteractionFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -623,19 +625,23 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="coolwarm",
+    palette=colorsPalettes,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "up"],
+    hue_order=hue_order,
+    data=df[df.arrow == "up"],
 )
 plt.title(
-    "ASEM: arrow up\n Interaction of Previous Target Direction & arrow Chosen",
+    "ASEM: Arrow Up\n Interaction of Previous Target Direction & arrow Chosen",
     fontsize=30,
 )
-plt.xlabel("P(Right|Up)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
+plt.xlabel("P(Right|Up)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-1.5, 1.5)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloupInteractionFullPrba.png")
-plt.show()
+plt.savefig(pathFig + "/meanVeloupInteractionFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 
@@ -647,7 +653,7 @@ sns.barplot(
     y="posOffSet",
     palette="viridis",
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
+    data=df[df.arrow == "down"],
 )
 plt.title(
     "Position Offset: arrow down\n Interaction of Previous Target Direction & arrow Chosen",
@@ -655,8 +661,11 @@ plt.title(
 )
 plt.xlabel("P(Left|down)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdownInteractionFullProba.png")
-plt.show()
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.legend(fontsize=20)
+plt.savefig(pathFig + "/posOffSetdownInteractionFullProba.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 
@@ -666,40 +675,43 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="viridis",
+    palette=colorsPalettes,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
+    hue_order=hue_order,
+    data=df[df.arrow == "down"],
 )
 plt.title(
-    "ASEM:arrow down\n Interaction of Previous Target Direction & arrow Chosen",
+    "ASEM:Arrow Down\n Interaction of Previous Target Direction & arrow Chosen",
     fontsize=30,
 )
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/asemInteractionFullProba.png")
-plt.xlabel("P(Left|down)")
-plt.show()
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-1.5, 1.5)
+plt.xlabel("P(Left|Down)", fontsize=30)
+plt.savefig(pathFig + "/meanVeloDownInteractionFullProba.svg")
+# plt.show()
 # %%
 df
 # %%
 dd = df.groupby(["sub", "proba", "arrow", "TD_prev"])["meanVelo"].mean().reset_index()
 dd
 # %%
-df.dropna(subset=["TD_prev"], inplace=True)
-# %%
 model = smf.mixedlm(
-    "meanVelo~  C(arrow,Treatment('up'))*C(TD_prev)",
+    "meanVelo~  C(arrow)*C(TD_prev)",
     data=df[df.proba == 0.25],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.25]["sub"],
-).fit(method="lbfgs")
+).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(arrow,Treatment('up'))*C(TD_prev)",
+    "meanVelo~  C(arrow)*C(TD_prev)",
     data=df[df.proba == 0.75],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.75]["sub"],
-).fit(method="lbfgs")
+).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
@@ -707,51 +719,24 @@ model = smf.mixedlm(
     data=df[df.proba == 0.5],
     # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
-).fit(method=["lbfgs"])
+).fit()
 model.summary()
 # %%
-# %%
-# %%
-uparrowsPalette = ["#e83865", "#cc3131"]
-downarrowsPalette = ["#8cd790", "#285943"]
-# %%
-pathFig = "PhD/Contextual-Learning/directionCue/figures/imposeDirection"
-allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/allEvents.csv"
-allEvents = pd.read_csv(allEventsFile)
-df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/processedResultsWindow(80,120).csv"
-)
 
-# %%
 
-df.columns
+# Doing the same analysis without the determinstic condition
 # %%
 df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
 # df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
-# df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
-df = df[df.trial >= 40]
 # %%
-badTrials = df[(df["meanVelo"] <= -10) | (df["meanVelo"] >= 10)]
-badTrials
-# %%
-df = df[(df["meanVelo"] < 11) & (df["meanVelo"] > -11)]
-# %%
-df[df["meanVelo"] == df["meanVelo"].max()]
-# %%
-sns.histplot(data=df, x="meanVelo")
-plt.show()
-# %%
-if "arrow" not in df.columns:
-    df["arrow"] = df["chosen_arrow"].values
-print(df)
-# %%
+
 balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
 balance
 # %%
 for sub in balance["sub"].unique():
     sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
     plt.title(f"Subject {sub}")
-    plt.show()
+    # plt.show()
 # %%
 dd = (
     df.groupby(["sub", "arrow", "proba"])[["meanVelo", "posOffSet"]]
@@ -807,206 +792,26 @@ print(f"Spearman's correlation(Proba 0.5): {correlation}, p-value: {p_value}")
 
 
 # %%
-
-# Friedman test for up arrow
-pg.friedman(data=dd[dd.arrow == "up"], dv="meanVelo", within="proba", subject="sub")
-# %%
-
-pg.friedman(data=dd[dd.arrow == "down"], dv="meanVelo", within="proba", subject="sub")
-# %%
-# Wilcoxon Test to see whether the arrow has an effect within each proba
-# It is the equivalent of paiup t-test
-pg.wilcoxon(
-    x=dd[(dd.arrow == "down") & (dd.proba == 0.5)].meanVelo,
-    y=dd[(dd.arrow == "up") & (dd.proba == 0.5)].meanVelo,
-)
-# %%
-
-pg.wilcoxon(
-    x=dd[(dd.arrow == "down") & (dd.proba == 0.25)].meanVelo,
-    y=dd[(dd.arrow == "up") & (dd.proba == 0.25)].meanVelo,
-)
-# %%
-pg.wilcoxon(
-    x=dd[(dd.arrow == "down") & (dd.proba == 0.75)].meanVelo,
-    y=dd[(dd.arrow == "up") & (dd.proba == 0.75)].meanVelo,
-)
-# %%
-# Pivot the data for proba
-pivot_proba = dd[dd.arrow == "up"].pivot(
-    index="sub", columns="proba", values="meanVelo"
-)
-pivot_proba
-# %%
-# Perform the Friedman Test for proba
-statistic_proba, p_value_proba = friedmanchisquare(
-    pivot_proba[0.25], pivot_proba[0.5], pivot_proba[0.75]
-)
-print(
-    f"Friedman Test for proba: Statistic(up) = {statistic_proba}, p-value = {p_value_proba}"
-)
-
-
-# %%
-# Pivot the data for proba
-pivot_proba = dd[dd.arrow == "down"].pivot(
-    index="sub", columns="proba", values="meanVelo"
-)
-pivot_proba
-# %%
-# Perform the Friedman Test for proba
-statistic_proba, p_value_proba = friedmanchisquare(
-    pivot_proba[0.25], pivot_proba[0.5], pivot_proba[0.75]
-)
-print(
-    f"Friedman Test for proba: Statistic(down) = {statistic_proba}, p-value = {p_value_proba}"
-)
-
-
-# %%
-# Pivot the data for proba
-pivot_arrow = dd[dd.proba == 0.25].pivot(
-    index="sub", columns="arrow", values="meanVelo"
-)
-pivot_arrow
-
-# a %%
-# Perform the wilcoxon Test for arrow
-statistic_arrow, p_value_arrow = wilcoxon(pivot_arrow["down"], pivot_arrow["up"])
-print(
-    f"Wilcoxon Test for arrow Statistic(P(Right|up)=0.25) = {statistic_arrow}, p-value = {p_value_arrow}"
-)
-
-
-# %%
-# Pivot the data for proba
-pivot_arrow = dd[dd.proba == 0.5].pivot(index="sub", columns="arrow", values="meanVelo")
-pivot_arrow
-
-# a %%
-# Perform the wilcoxon Test for arrow
-statistic_arrow, p_value_arrow = wilcoxon(pivot_arrow["down"], pivot_arrow["up"])
-print(
-    f"Wilcoxon Test for arrow Statistic(P(Right|up)=0.5) = {statistic_arrow}, p-value = {p_value_arrow}"
-)
-
-
-# %%
-# Pivot the data for proba
-pivot_arrow = dd[dd.proba == 0.75].pivot(
-    index="sub", columns="arrow", values="meanVelo"
-)
-pivot_arrow
-
-# a %%
-# Perform the wilcoxon Test for arrow
-statistic_arrow, p_value_arrow = wilcoxon(pivot_arrow["down"], pivot_arrow["up"])
-print(
-    f"Wilcoxon Test for arrow Statistic(P(Right|up)=0.75) = {statistic_arrow}, p-value = {p_value_arrow}"
-)
-
-
-# %%
-# pos-hoc analysis
-
-# Perform the Nemenyi Test
-posthoc = sp.posthoc_nemenyi_friedman(pivot_proba.values)
-print(posthoc)
-
-# %%
-
-# Perform the Wilcoxon Test post-hoc analysis
-posthoc = sp.posthoc_wilcoxon(pivot_proba.values.T)
-print(posthoc)
-# %%
-# Apply the Holm-Bonferroni correction to the Wilcoxon Test p-values
-corrected_p_values = multipletests(posthoc.values.flatten(), method="holm")[1]
-corrected_p_values = corrected_p_values.reshape(posthoc.shape)
-
-print("Holm-Bonferroni corrected Wilcoxon Test p-values:")
-print(pd.DataFrame(corrected_p_values, index=posthoc.index, columns=posthoc.columns))
-# %%
-model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.arrow == "up"])
-result = model.fit()
-
-print(result.summary())
-# %%
-model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.arrow == "down"])
-result = model.fit()
-
-print(result.summary())
-# %%
-sns.histplot(
-    data=df[df.proba == 0.25],
-    x="meanVelo",
-    hue="arrow",
-)
-plt.show()
-# %%
-# Early trials
-earlyTrials = 40
-p = 0.75
-sns.histplot(
-    data=df[(df.proba == p) & (df.trial <= earlyTrials)],
-    x="meanVelo",
-    hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
-)
-plt.title(f"Early Trials: {earlyTrials}, P(Right|up)={proba}")
-plt.show()
-
-# %%
-# Mid trials
-midTrials = [60, 180]
-sns.histplot(
-    data=df[(df.proba == p) & (df.trial <= midTrials[1]) & (df.trial > midTrials[0])],
-    x="meanVelo",
-    hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
-)
-plt.title(f"Mid Trials{midTrials[0]},{midTrials[1]}: P(Right|up)={proba}")
-plt.show()
-# %%
-# Late trials
-lateTrials = 200
-sns.histplot(
-    data=df[(df.proba == p) & (df.trial > lateTrials)],
-    x="meanVelo",
-    hue="arrow",
-    alpha=0.5,
-    # multiple="dodge",
-)
-plt.title(f"Early Trials>{lateTrials}: P(Right|up)={proba}")
-plt.show()
-# %%
-# Repeated measures ANOVA
-# Perform mixed ANOVA
-model = ols("meanVelo ~ C(arrow)*(proba) ", data=dd).fit()
-anova_table = sm.stats.anova_lm(model, typ=2)
-print(anova_table)
-# %%
 # cehcking the normality of the data
-print(pg.normality(df[df.proba == 0.5]["meanVelo"]))
+print(pg.normality(dd[dd.proba == 0.5]["meanVelo"]))
 # %%
 stat, p = stats.kstest(
-    df["meanVelo"], "norm", args=(df["meanVelo"].mean(), df["meanVelo"].std(ddof=1))
+    dd["meanVelo"], "norm", args=(dd["meanVelo"].mean(), dd["meanVelo"].std(ddof=1))
 )
 print(f"Statistic: {stat}, p-value: {p}")
 # %%
-x = df[df.proba == 0.5]["meanVelo"]
+x = dd["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
-plt.show()
-# %%
+# plt.show()
+# s%%
 sns.histplot(data=df, x="meanVelo", alpha=0.5)
-plt.show()
+# plt.show()
 # %%
 sns.histplot(data=df, x="meanVelo", hue="arrow", bins=20, alpha=0.5)
-plt.show()
+# plt.show()
 # %%
 sns.histplot(data=df, x="meanVelo", hue="proba", bins=20, palette="viridis", alpha=0.5)
-plt.show()
+# plt.show()
 # %%
 
 
@@ -1014,72 +819,58 @@ plt.show()
 facet_grid = sns.FacetGrid(data=df, col="proba", col_wrap=3, height=8, aspect=1.5)
 
 # Create pointplots for each sub
-facet_grid.map_dataframe(sns.histplot, x="meanVelo", hue="arrow", alpha=0.3)
+facet_grid.map_dataframe(
+    sns.histplot,
+    x="meanVelo",
+    hue="arrow",
+    hue_order=["down", "up"],
+    alpha=0.3,
+    # palette=[downarrowsPalette[0], uparrowsPalette[0]],
+)
 
 # Add legends
 facet_grid.add_legend()
 
 # Set titles for each subplot
-for ax, p in zip(facet_grid.axes.flat, df.proba.unique()):
+for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
+    ax.legend(["up", "down"])
 # Adjust spacing between subplots
 facet_grid.fig.subplots_adjust(
     wspace=0.2, hspace=0.2
 )  # Adjust wspace and hspace as needed
 
 # Show the plot
-plt.show()
+# plt.show()
 
 # %%
-# Perform mixed repeated measures ANOVA
-anova_results = pg.rm_anova(
-    dv="meanVelo",
-    within="proba",
-    subject="sub",
-    data=dd[dd.arrow == "down"],
-    correction=True,
-)
-
-print(anova_results)
-# %%
-corrected_results = pg.pairwise_corr(
-    pivot_proba, columns=pivot_proba.columns, padjust="fdr_bh"
-)
-print(corrected_results)
-# %%
-anova_results = pg.rm_anova(
-    dv="meanVelo",
-    within="proba",
-    subject="sub",
-    data=dd[dd.arrow == "up"],
-    correction=True,
-)
-
-print(anova_results)
-# %%
-test = dd[dd.proba == 0.25]
-test
-# %%
-ttest_results = pg.ttest(
-    x=test[test.arrow == "up"]["meanVelo"].values,
-    y=test[test.arrow == "down"]["meanVelo"].values,
-    correction=True,
-    paired=True,
-)
-
-print(ttest_results)
-# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
-    data=df,
+    data=dd,
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="ci",
+    errorbar="se",
     hue="arrow",
+    hue_order=["down", "up"],
 )
-_ = plt.title("asem across porba")
-plt.show()
+_ = plt.title("ASEM across porbabilities", fontsize="30")
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|UP)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylim(-0.5, 0.5)
+plt.savefig(pathFig + "/asemAcrossProbapp.svg")
+# plt.show()
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.arrow == "up"],
     x="proba",
@@ -1087,12 +878,23 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    alpha=0.7,
+    palette="tab20",
 )
-_ = plt.title("ASEM  across porba: up")
-plt.show()
+_ = plt.title("ASEM Per Subject: Arrow UP", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|UP)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylim(-1.5, 1.5)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/individualsUP.svg")
+# plt.show()
 # %%
-
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df[df.arrow == "down"],
     x="proba",
@@ -1100,19 +902,18 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="sub",
-    palette="Set2",
+    alpha=0.7,
+    palette="tab20",
 )
-_ = plt.title("asem across porba: down")
-plt.show()
-# %%
-anova_results = pg.rm_anova(
-    dv="meanVelo",
-    within=["proba", "arrow"],
-    subject="sub",
-    data=dd,
-)
-
-print(anova_results)
+_ = plt.title("ASEM Per Subject: Arrow DOWN", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Left|DOWN)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-1.75, 1.75)
+plt.savefig(pathFig + "/individualsDOWN.svg")
+# plt.show()
 # %%
 
 model = smf.mixedlm(
@@ -1127,7 +928,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
     data=df[df.proba == 0.25],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.25]["sub"],
 ).fit()
 model.summary()
@@ -1135,7 +936,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
     data=df[df.proba == 0.5],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
 ).fit()
 model.summary()
@@ -1143,58 +944,50 @@ model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~ C(proba,Treatment(0.5))",
+    "meanVelo~ C(proba, Treatment(0.5))",
     data=df[df.arrow == "up"],
-    re_formula="~proba",
+    # re_formula="~proba",
     groups=df[df.arrow == "up"]["sub"],
 ).fit()
 model.summary()
 
 # %%
 model = smf.mixedlm(
-    "meanVelo~ C(proba,Treatment(0.5))",
+    "meanVelo~ C(proba, Treatment(0.5))",
     data=df[df.arrow == "down"],
-    re_formula="~proba",
+    # re_formula="~proba",
     groups=df[df.arrow == "down"]["sub"],
 ).fit()
 model.summary()
 
 
 # %%
-model = smf.mixedlm(
-    "meanVelo~ C(proba,Treatment(0.5))*C(arrow,Treatment('up'))",
-    data=df,
-    re_formula="~proba*arrow",
-    groups=df["sub"],
-).fit()
-model.summary()
-
+downarrowsPalette = ["#0000FF", "#A2D9FF"]
+uparrowsPalette = ["#FFA500", "#FFD699"]
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
-sns.barplot(x="proba", y="meanVelo", hue="arrow", data=df, errorbar="ci")
-plt.title("ASEM over 3 different probabilites for down & up.", fontsize=40)
-plt.xlabel("P(Right|up)=P(Left|down)", fontsize=25)
-plt.ylabel("Anticipatory Velocity", fontsize=25)
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="arrow",
+    hue_order=dd["arrow"].unique(),
+    data=df,
+    errorbar="ci",
+    palette=[downarrowsPalette[1], uparrowsPalette[1]],
+)
+plt.title("Anticipatory Velocity across  probabilites", fontsize=30)
+plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrows.png")
-plt.show()
+plt.savefig(pathFig + "/meanVeloarrows.svg")
+# plt.show()
 
-# %%
-# getting previous TD for each trial for each subject and each proba
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub]["proba"].unique():
-        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "target_direction"
-        ].shift(1)
-        df.loc[(df["sub"] == sub) & (df["proba"] == p), "arrow_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "arrow"
-        ].shift(1)
-# %%
-df.columns
-# %%
 df_prime = df[
     [
         "sub",
@@ -1221,9 +1014,6 @@ learningCurve
 df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
 
 # %%
-uparrowsPalette = ["#e83865", "#cc3131"]
-downarrowsPalette = ["#8cd790", "#285943"]
-# %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
@@ -1231,13 +1021,14 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    data=df_prime[df_prime.arrow == "up"],
+    data=df[df.arrow == "up"],
+    color=uparrowsPalette[0],
 )
 plt.title("Position Offset: arrow up", fontsize=30)
 plt.xlabel("P(Right|up)")
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetup.png")
-plt.show()
+plt.savefig(pathFig + "/posOffSetup.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -1248,27 +1039,34 @@ sns.barplot(
     y="posOffSet",
     hue="TD_prev",
     palette=uparrowsPalette,
-    data=learningCurve[learningCurve.arrow == "up"],
+    data=df[df.arrow == "up"],
 )
 plt.legend(fontsize=20)
 plt.title("Position Offset: arrow up Given Previous Target Direction", fontsize=30)
 plt.xlabel("P(Right|up)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetupTD.png")
-plt.show()
+plt.savefig(pathFig + "/posOffSetupTD.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.barplot(
-    x="proba", y="meanVelo", data=df_prime[df_prime.arrow == "up"], errorbar="se"
+    x="proba",
+    y="meanVelo",
+    data=df[df.arrow == "up"],
+    errorbar="ci",
+    color=uparrowsPalette[1],
 )
-plt.title("ASEM: arrow up", fontsize=30)
-plt.xlabel("P(Right|up)", fontsize=25)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=25)
-plt.savefig(pathFig + "/meanVeloup.png")
-plt.show()
+plt.title("Anticipatory Smooth Eye Movement: Arrow Up", fontsize=30)
+plt.xlabel("P(Right|UP)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.ylim(-0.75, 0.75)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVeloup.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -1279,14 +1077,18 @@ sns.barplot(
     y="meanVelo",
     hue="TD_prev",
     palette=uparrowsPalette,
-    data=df_prime[df_prime.arrow == "up"],
+    data=df[df.arrow == "up"],
+    errorbar="ci",
 )
 plt.legend(fontsize=20)
-plt.title("Anticipatory Velocity Given Previous TD: arrow up ", fontsize=30)
-plt.xlabel("P(Right|up)", fontsize=25)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=25)
-plt.savefig(os.path.join(pathFig, "meanVeloupTD.png"))
-plt.show()
+plt.title("Anticipatory Velocity Given Previous TD: arrow UP ", fontsize=30)
+plt.xlabel("P(Right|UP)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.ylim(-0.75, 0.75)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(os.path.join(pathFig, "meanVeloupTD.svg"))
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -1295,13 +1097,15 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    data=learningCurve[learningCurve.arrow == "down"],
+    data=df[df.arrow == "down"],
 )
 plt.title("Position Offset: arrow down", fontsize=30)
-plt.xlabel("P(Left|down)", fontsize=20)
-plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdown.png")
-plt.show()
+plt.xlabel("P(Left|down)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylabel("Position Offset", fontsize=30)
+plt.savefig(pathFig + "/posOffSetdown.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -1318,23 +1122,26 @@ plt.legend(fontsize=20)
 plt.title("Position Offset:arrow down \n  ", fontsize=30)
 plt.xlabel("P(Left|down)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdownTD.png")
-plt.show()
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/posOffSetdownTD.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.barplot(
-    x="proba",
-    y="meanVelo",
-    data=df[df.arrow == "down"],
+    x="proba", y="meanVelo", data=df[df.arrow == "down"], color=downarrowsPalette[1]
 )
-plt.title("ASEM: arrow down", fontsize=30)
-plt.xlabel("P(Left|down)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.savefig(pathFig + "/meanVelodown.png")
-plt.show()
+plt.title("Anticipatory Smooth Eye Movement: Arrow Down", fontsize=30)
+plt.xlabel("P(Left|down)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-0.75, 0.75)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVelodown.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -1344,19 +1151,67 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="TD_prev",
-    errorbar="ci",
+    hue_order=df["TD_prev"].unique(),
     palette=downarrowsPalette,
-    data=learningCurve[learningCurve.arrow == "down"],
+    data=df[df.arrow == "down"],
 )
 plt.legend(fontsize=20)
-plt.title("meanVelo: arrow down\n ", fontsize=30)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
-plt.xlabel("P(Left|down)", fontsize=20)
-plt.savefig(pathFig + "/meanVelodownTD.png")
-plt.show()
+plt.title("Anticipatory Velocity Given Previous TD: Arrow DOWN ", fontsize=30)
+plt.xlabel("P(Left|Down)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.ylim(-0.75, 0.75)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVelodownTD.svg")
+# plt.show()
 # Adding the interacrion between  previous arrow and previous TD.
 # %%
-df["interaction"] = list(zip(df["TD_prev"], df["arrow_prev"]))
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="arrow",
+    hue_order=["down", "up"],
+    palette=[downarrowsPalette[0], uparrowsPalette[0]],
+    data=df[df.TD_prev == "right"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given Previous TD(Right) ", fontsize=30)
+plt.xlabel("P(Left|Down)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.ylim(-0.75, 0.75)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVeloTDRight.svg")
+# plt.show()
+# Adding the interacrion between  previous arrow and previous TD.
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="arrow",
+    hue_order=["down", "up"],
+    palette=[downarrowsPalette[1], uparrowsPalette[1]],
+    data=df[df.TD_prev == "left"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given Previous TD(Left) ", fontsize=30)
+plt.xlabel("P(Left|Down)", fontsize=25)
+plt.ylabel("ASEM (deg/s)", fontsize=25)
+plt.ylim(-0.75, 0.75)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.savefig(pathFig + "/meanVeloTDLeft.svg")
+# plt.show()
+# Adding the interacrion between  previous arrow and previous TD.
+# %%
 df_prime = df[
     [
         "sub",
@@ -1370,12 +1225,6 @@ df_prime = df[
 ]
 df_prime
 # %%
-valueToKeep = df_prime.interaction.unique()[1:]
-valueToKeep
-# %%
-df_prime = df_prime[df_prime["interaction"].isin(valueToKeep)]
-df_prime.interaction.unique()
-# %%
 
 learningCurveInteraction = (
     df_prime.groupby(["sub", "proba", "interaction", "arrow"])
@@ -1386,12 +1235,15 @@ learningCurveInteraction = (
 # %%
 df.columns
 # %%
-df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[
-    ["posOffSet", "meanVelo"]
-]
+df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[["meanVelo"]]
 
 # %%
 learningCurveInteraction
+# %%
+df["interaction"].unique()
+# %%
+colorsPalettes = ["#0000FF", "#FFA500", "#A2D9FF", "#FFD699"]
+hue_order = [("right", "down"), ("right", "up"), ("left", "down"), ("left", "up")]
 # %%
 # Create a figure and axis
 fig = plt.figure()
@@ -1403,9 +1255,10 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="posOffSet",
-    palette="magma",
+    palette=colorsPalettes,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "up"],
+    hue_order=hue_order,
+    data=df[df.arrow == "up"],
 )
 plt.legend(fontsize=20)
 plt.title(
@@ -1414,8 +1267,8 @@ plt.title(
 )
 plt.xlabel("P(Right|up)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetUpupInteraction.png")
-plt.show()
+plt.savefig(pathFig + "/posOffSetUpupInteraction.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 # Toggle full screen mode
@@ -1424,19 +1277,23 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="coolwarm",
+    palette=colorsPalettes,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "up"],
+    hue_order=hue_order,
+    data=df[df.arrow == "up"],
 )
 plt.title(
-    "ASEM: arrow up\n Interaction of Previous Target Direction & arrow Chosen",
+    "Anticipatory Smooth Eye Movement: Arrow Up\n Interaction of Previous Target Direction & arrow Chosen",
     fontsize=30,
 )
-plt.xlabel("P(Right|Up)", fontsize=20)
-plt.ylabel("Anticipatory Smooth Eye Movement", fontsize=20)
+plt.xlabel("P(Right|Up)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.ylim(-1.25, 1.25)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloupInteraction.png")
-plt.show()
+plt.savefig(pathFig + "/meanVeloUpInteraction.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 
@@ -1448,7 +1305,7 @@ sns.barplot(
     y="posOffSet",
     palette="viridis",
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
+    data=df[df.arrow == "down"],
 )
 plt.title(
     "Position Offset: arrow down\n Interaction of Previous Target Direction & arrow Chosen",
@@ -1456,8 +1313,11 @@ plt.title(
 )
 plt.xlabel("P(Left|down)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
-plt.savefig(pathFig + "/posOffSetdownInteraction.png")
-plt.show()
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.legend(fontsize=20)
+plt.savefig(pathFig + "/posOffSetdownInteraction.svg")
+# plt.show()
 # %%
 fig = plt.figure()
 
@@ -1467,31 +1327,35 @@ figManager.full_screen_toggle()
 sns.barplot(
     x="proba",
     y="meanVelo",
-    palette="coolwarm",
+    palette=colorsPalettes,
     hue="interaction",
-    data=learningCurveInteraction[learningCurveInteraction.arrow == "down"],
+    hue_order=hue_order,
+    data=df[df.arrow == "down"],
 )
 plt.title(
-    "ASEM:arrow down\n Interaction of Previous Target Direction & arrow Chosen",
+    "ASEM:Arrow Down\n Interaction of Previous Target Direction & arrow Chosen",
     fontsize=30,
 )
+plt.ylim(-1.25, 1.25)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
 plt.legend(fontsize=20)
-plt.xlabel("P(Left|down)")
-plt.show()
+plt.xlabel("P(Left|Down)", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/meanVeloDownInteraction.svg")
+# plt.show()
 # %%
 df
 # %%
 dd = df.groupby(["sub", "proba", "arrow", "TD_prev"])["meanVelo"].mean().reset_index()
 dd
 # %%
-df.dropna(subset=["TD_prev"], inplace=True)
-# %%
 model = smf.mixedlm(
     "meanVelo~  C(arrow,Treatment('up'))*C(TD_prev)",
     data=df[df.proba == 0.25],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.25]["sub"],
-).fit(method="lbfgs")
+).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
@@ -1499,15 +1363,14 @@ model = smf.mixedlm(
     data=df[df.proba == 0.75],
     re_formula="~arrow",
     groups=df[df.proba == 0.75]["sub"],
-).fit(method="lbfgs")
+).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
     "meanVelo~  C(arrow)*C(TD_prev)",
     data=df[df.proba == 0.5],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
-).fit(method=["lbfgs"])
+).fit()
 model.summary()
-# %%
 # %%
