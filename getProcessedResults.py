@@ -13,7 +13,7 @@ def process_single_condition(sub, proba, pos, degToPix=27.28):
     # Handle training trials
     numOfTrials = len(trials)
     print("Number of Trials:", numOfTrials)
-    if numOfTrials > 240 and numOfTrials < 400:
+    if numOfTrials > 240 and numOfTrials < 350:
         pos = pos[pos["trial"] > (numOfTrials - 240)]
 
     # Taking just the non-training trials

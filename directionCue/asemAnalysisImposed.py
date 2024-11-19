@@ -1374,3 +1374,50 @@ model = smf.mixedlm(
 ).fit()
 model.summary()
 # %%
+# %%
+# sampling Bias:
+df["sampling"] = list(zip(df["arrow"], df["arrow_prev"]))
+# %%
+# Group by and count
+# Group by and count
+grouped = (
+    df.groupby(["sub", "proba", "sampling"])["meanVelo"]
+    .count()
+    .reset_index(name="count")
+)
+
+grouped["sampling"] = grouped["sampling"].astype(str)
+# Calculate percentages using transform to keep the original DataFrame structure
+grouped["percentage"] = grouped.groupby(["sub", "proba"])["count"].transform(
+    lambda x: x / x.sum() * 100
+)
+grouped
+# %%
+grouped["sampling"].count()
+# %%
+sns.histplot(data=grouped, x="sampling")
+plt.show()
+# %%
+for s in grouped["sub"].unique():
+    # Set up the FacetGrid
+    facet_grid = sns.FacetGrid(
+        data=grouped[grouped["sub"] == s], col="proba", col_wrap=3, height=8, aspect=1.5
+    )
+
+    facet_grid.add_legend()
+    # Create pointplots for each sub
+    facet_grid.map_dataframe(
+        sns.barplot,
+        x="sampling",
+        y="percentage",
+    )
+    # Set titles for each subplot
+    for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
+        ax.set_title(f"Sampling Bias p={p} : P(C(t+1)|C(t))")
+    # Adjust spacing between subplots
+    facet_grid.fig.subplots_adjust(
+        wspace=0.2, hspace=0.2
+    )  # Adjust wspace and hspace as needed
+
+    # Show the plot
+    plt.show()

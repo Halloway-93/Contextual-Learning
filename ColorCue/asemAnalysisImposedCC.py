@@ -72,27 +72,42 @@ allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
     "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/processedResultsWindow(80,120).csv"
 )
-# %%
 badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
 badTrials
 # %%
-df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
+df = df[(df["meanVelo"] <= 8) & (df["meanVelo"] >= -8)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
 plt.show()
 # %%
-df.trial.unique()
+df.columns
 # %%
 # df = pd.read_csv(os.path.join(path, fileName))
 # [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
 df["color"] = df["trial_color"].apply(lambda x: "green" if x == 0 else "red")
-
+# %%
 
 # df = df.dropna(subset=["meanVelo"])
 # Assuming your DataFrame is named 'df' and the column you want to rename is 'old_column'
 # df.rename(columns={'old_column': 'new_column'}, inplace=True)
+for sub in df["sub"].unique():
+    for p in df[df["sub"] == sub]["proba"].unique():
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "trial_direction"
+        ].shift(1)
+        df.loc[(df["sub"] == sub) & (df["proba"] == p), "color_prev"] = df.loc[
+            (df["sub"] == sub) & (df["proba"] == p), "color"
+        ].shift(1)
+# %%
+df.columns
+df[(df["TD_prev"].isna())]
+# %%
+df = df[~(df["TD_prev"].isna())]
+
+# %%
+df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == -1 else "right")
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -286,12 +301,12 @@ corrected_p_values = corrected_p_values.reshape(posthoc.shape)
 print("Holm-Bonferroni corrected Wilcoxon Test p-values:")
 print(pd.DataFrame(corrected_p_values, index=posthoc.index, columns=posthoc.columns))
 # %%
-model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "red"])
+model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "red"])
 result = model.fit()
 
 print(result.summary())
 # %%
-model = sm.OLS.from_formula("meanVelo~ C(proba) ", data=dd[dd.color == "green"])
+model = sm.OLS.from_formula("meanVelo~ (proba) ", data=dd[dd.color == "green"])
 result = model.fit()
 
 print(result.summary())
@@ -301,7 +316,6 @@ sns.displot(
     data=df[df.proba == 25],
     x="meanVelo",
     hue="color",
-    hue_order=colors,
     alpha=0.5,
     # element="step",
     kind="kde",
@@ -402,7 +416,7 @@ facet_grid.add_legend()
 # Set titles for each subplot
 for ax, p in zip(facet_grid.axes.flat, df.proba.unique()):
     ax.set_title(f"ASEM: P(Right|Red)=P(Left|Green)={p}")
-
+    ax.legend(["red", "green"])
 # Adjust spacing between subplots
 facet_grid.fig.subplots_adjust(
     wspace=0.2, hspace=0.2
@@ -431,6 +445,10 @@ anova_results = pg.rm_anova(
 
 print(anova_results)
 # %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
 sns.pointplot(
     data=df,
     x="proba",
@@ -438,9 +456,16 @@ sns.pointplot(
     capsize=0.1,
     errorbar="ci",
     hue="color",
+    hue_order=colors,
     palette=colors,
 )
-_ = plt.title("asem across porba")
+_ = plt.title("ASEM Across Probabilities", fontsize=30)
+plt.legend(fontsize=20)
+plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.savefig(pathFig + "/asemAcrossProbapp.svg")
 plt.show()
 # %%
 sns.catplot(
@@ -515,7 +540,7 @@ anova_results = pg.rm_anova(
     dv="meanVelo",
     within=["proba", "color"],
     subject="sub",
-    data=df,
+    data=dd,
 )
 
 print(anova_results)
@@ -638,9 +663,9 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="color",
-    hue_order=colors,
     errorbar="ci",
     palette=colors,
+    hue_order=colors,
     data=df,
 )
 plt.legend(fontsize=20)
@@ -648,7 +673,7 @@ plt.title("ASEM across 3 different probabilites", fontsize=30)
 plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
-plt.ylim(-1, 1)
+plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.savefig(pathFig + "/meanVeloColors.svg")
@@ -664,8 +689,8 @@ sns.barplot(
     x="proba",
     y="posOffSet",
     hue="color",
-    palette=colors,
     hue_order=colors,
+    palette=colors,
     data=df,
 )
 plt.title("ASEM over 3 different probabilites for Green & Red.")
@@ -676,18 +701,6 @@ plt.show()
 # Adding the column of the color of the  previous trial
 # %%
 # getting previous TD for each trial for each subject and each proba
-for sub in df["sub"].unique():
-    for p in df[df["sub"] == sub]["proba"].unique():
-        df.loc[(df["sub"] == sub) & (df["proba"] == p), "TD_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "trial_direction"
-        ].shift(1)
-        df.loc[(df["sub"] == sub) & (df["proba"] == p), "color_prev"] = df.loc[
-            (df["sub"] == sub) & (df["proba"] == p), "color"
-        ].shift(1)
-# %%
-df.columns
-# %%
-df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == 0 else "right")
 # %%
 df_prime = df[
     [
@@ -767,7 +780,7 @@ plt.title("Anticipatory Smooth Eye Movement: Color Red", fontsize=30)
 plt.xlabel("P(Right|RED)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
-plt.ylim(-1, 1)
+plt.ylim(-0.75, 0.75)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.savefig(pathFig + "/meanVeloRed.svg")
 plt.show()
@@ -791,7 +804,7 @@ plt.xlabel("P(Right|RED)", fontsize=30)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
-plt.ylim(-1, 1)
+plt.ylim(-0.75, 0.75)
 plt.savefig(pathFig + "/meanVeloRedTD.svg")
 plt.show()
 # %%
@@ -846,7 +859,7 @@ plt.xlabel("P(Left|GREEN)", fontsize=30)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
-plt.ylim(-1, 1)
+plt.ylim(-0.75, 0.75)
 plt.savefig(pathFig + "/meanVeloGreen.svg")
 plt.show()
 # %%
@@ -886,12 +899,6 @@ df_prime = df[
 ]
 df_prime
 # %%
-valueToKeep = df_prime.interaction.unique()[1:]
-valueToKeep
-# %%
-df_prime = df_prime[df_prime["interaction"].isin(valueToKeep)]
-df_prime.interaction.unique()
-# %%
 
 learningCurveInteraction = (
     df_prime.groupby(["sub", "proba", "interaction", "color"])
@@ -916,7 +923,7 @@ colorsGreen = list(cmapGreen(np.linspace(0, 1, 4)))
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
-colorsPalette = ["#e83865", "#cc3131", "#8cd790", "#285943"]
+colorsPalette = ["#285943", "#cc3131", "#e83865", "#8cd790"]
 # %%
 df_prime["interaction"].unique()
 # %%
@@ -1021,8 +1028,6 @@ plt.show()
 # %%
 df
 # %%
-df.dropna(subset=["TD_prev"], inplace=True)
-df.dropna(subset=["color_prev"], inplace=True)
 # %%
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
@@ -1033,7 +1038,7 @@ model = smf.mixedlm(
 model.summary()
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(color,Treatment('red')) * C(interaction)",
+    "meanVelo~  C(color,Treatment('red')) * C(TD_prev)",
     data=df[df.proba == 75],
     re_formula="~color",
     groups=df[df.proba == 75]["sub"],
@@ -1043,11 +1048,59 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
     data=df[df.proba == 50],
-    # re_formula="~color",
+    re_formula="~color",
     groups=df[df.proba == 50]["sub"],
 ).fit(method=["lbfgs"])
 model.summary()
 # %%
 # %%
 df.color_prev
+# %%
+# Sampling Bias analysis
+
+df["sampling"] = list(zip(df["color"], df["color_prev"]))
+# %%
+# Group by and count
+# Group by and count
+grouped = (
+    df.groupby(["sub", "proba", "sampling"])["meanVelo"]
+    .count()
+    .reset_index(name="count")
+)
+
+grouped["sampling"] = grouped["sampling"].astype(str)
+# Calculate percentages using transform to keep the original DataFrame structure
+grouped["percentage"] = grouped.groupby(["sub", "proba"])["count"].transform(
+    lambda x: x / x.sum() * 100
+)
+grouped
+# %%
+grouped["sampling"].count()
+# %%
+sns.histplot(data=grouped, x="sampling")
+plt.show()
+# %%
+for s in grouped["sub"].unique():
+    # Set up the FacetGrid
+    facet_grid = sns.FacetGrid(
+        data=grouped[grouped["sub"] == s], col="proba", col_wrap=3, height=8, aspect=1.5
+    )
+
+    facet_grid.add_legend()
+    # Create pointplots for each sub
+    facet_grid.map_dataframe(
+        sns.barplot,
+        x="sampling",
+        y="percentage",
+    )
+    # Set titles for each subplot
+    for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
+        ax.set_title(f"Sampling Bias p={p} : P(C(t+1)|C(t))")
+    # Adjust spacing between subplots
+    facet_grid.fig.subplots_adjust(
+        wspace=0.2, hspace=0.2
+    )  # Adjust wspace and hspace as needed
+
+    # Show the plot
+    plt.show()
 # %%
