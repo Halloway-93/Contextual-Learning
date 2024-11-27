@@ -101,7 +101,7 @@ pathFig = "Contextual-Learning/directionCue/figures/voluntaryDirection/"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allEvents.csv"
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResultsWindow(-50,50).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/processedResultsWindow(80,120).csv"
 )
 
 # %%
@@ -345,11 +345,11 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
     data=df[df.proba == 0.25],
-    # re_formula="~arrow",
+    re_formula="~arrow",
     groups=df[df.proba == 0.25]["sub"],
 ).fit()
 model.summary()
-# %%
+#a %%
 model = smf.mixedlm(
     "meanVelo~C( arrow,Treatment('up') )",
     data=df[df.proba == 0.5],
@@ -747,7 +747,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~  C(arrow)*C(TD_prev)",
     data=df[df.proba == 0.5],
-    # re_formula="~arrow",
+    re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
 ).fit()
 model.summary()
