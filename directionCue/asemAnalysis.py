@@ -747,7 +747,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~  C(arrow)*C(TD_prev)",
     data=df[df.proba == 0.5],
-    re_formula="~arrow",
+    # re_formula="~arrow",
     groups=df[df.proba == 0.5]["sub"],
 ).fit()
 model.summary()
@@ -908,21 +908,6 @@ subject_classification = classify_subject_behavior(conditional_probabilities)
 summary = subject_classification.groupby('behavior_class').size()
 print("\nBehavior Classification Summary:")
 print(summary)
-# %%
-# Detailed view of transition probabilities
-plt.subplot(1, 2, 1)
-subject_classification.boxplot(column=['prob_down_to_down', 'prob_up_to_up'], by='behavior_class')
-plt.title('Staying in Same State')
-plt.ylabel('Probability')
-
-plt.subplot(1, 2, 2)
-subject_classification.boxplot(column=['prob_down_to_up', 'prob_up_to_down'], by='behavior_class')
-plt.title('Switching States')
-plt.ylabel('Probability')
-
-plt.tight_layout()
-plt.show()
-# Doing the same analysis without the determinstic condition
 # %%
 df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
 # df = df[~((df["sub"] == 6) & (df["proba"] == 0.5))]
@@ -1754,23 +1739,6 @@ summary = subject_classification.groupby('behavior_class').size()
 print("\nBehavior Classification Summary:")
 print(summary)
 # %%
-# Detailed view of transition probabilities
-plt.subplot(1, 2, 1)
-subject_classification.boxplot(column=['prob_down_to_down', 'prob_up_to_up'], by='behavior_class')
-plt.title('Staying in Same State')
-plt.ylabel('Probability')
-
-plt.subplot(1, 2, 2)
-subject_classification.boxplot(column=['prob_down_to_up', 'prob_up_to_down'], by='behavior_class')
-plt.title('Switching States')
-plt.ylabel('Probability')
-
-plt.tight_layout()
-plt.show()
-
-# %%
-subject_classification[subject_classification['sub']==2]['behavior_class'].values[0]
-# %%
 dd=df.groupby(['sub','proba','arrow'])['meanVelo'].mean().reset_index()
 # %%
 for s in dd['sub'].unique():
@@ -1782,3 +1750,121 @@ dd
 # %%
 sns.lmplot(data=dd[dd['arrow']=='up'],x='proba',y='meanVelo',hue='behavior')
 plt.show()
+
+# Computing the peristance score based on the transition probabilites
+dd
+# %%
+conditional_probabilities.columns
+# %%
+dd = (
+    conditional_probabilities.groupby(["sub", "transition_state"])["conditional_prob"]
+    .mean()
+    .reset_index()
+)
+dd
+# %%
+dd["sub"].value_counts()
+# %%
+dd["transition_state"].unique()
+# %%
+ts = dd["transition_state"].unique()
+new_rows = []
+for s in dd["sub"].unique():
+    existing_ts = dd[dd["sub"] == s]["transition_state"].unique()
+    for t in ts:
+        if t not in existing_ts:
+            # Add a new row with sub = s and transition_state = t, setting transition_state to 0
+            new_row = {"sub": s, "transition_state": t, "conditional_prob": 0}
+            new_rows.append(new_row)
+
+# Concatenate the new rows to the original DataFrame
+dd = pd.concat([dd, pd.DataFrame(new_rows)], ignore_index=True)
+
+print(dd)
+# %%
+
+dd = dd.groupby(["sub", "transition_state"])["conditional_prob"].mean().reset_index()
+dd
+# %%
+dd["transition_state"].unique()
+
+
+# %%
+# Function to classify transition_state as persistent or alternating
+def classify_transition(state):
+    return (
+        "persistent"
+        if state == "('up', 'up')" or state == "('down', 'down')"
+        else "alternating"
+    )
+
+
+# Apply the classification function
+dd["transition_type"] = dd["transition_state"].apply(classify_transition)
+dd
+# %%
+
+# Group by 'sub' and calculate the score
+result = (
+    dd.groupby("sub")
+    .apply(
+        lambda x: x[x["transition_type"] == "persistent"]["conditional_prob"].sum()
+        - x[x["transition_type"] == "alternating"]["conditional_prob"].sum()
+    )
+    .reset_index(name="percistence_score")
+)
+
+print(result)
+
+# %%
+df
+# %%
+
+# Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
+mean_velo = df.groupby(["sub", "proba", "arrow"])["meanVelo"].mean().reset_index()
+
+# Pivot the table to have 'proba' as columns
+pivot_table = mean_velo.pivot_table(
+    index=["sub", "arrow"], columns="proba", values="meanVelo"
+).reset_index()
+
+# Calculate the adaptation
+pivot_table["adaptation"] = np.abs(pivot_table[0.75] - pivot_table[0.25])
+# %%
+print(pivot_table)
+# %%
+
+# Select the relevant columns
+adaptation = pivot_table[["sub", "arrow", "adaptation"]]
+
+print(adaptation)
+# %%
+adaptation.groupby("sub")["adaptation"].mean().values
+# %%
+
+
+result["adaptation"] = adaptation.groupby("sub")["adaptation"].mean().values
+
+# %%
+result.reset_index(inplace=True)
+# %%
+result = pd.DataFrame(result)
+result
+# %%
+sns.lmplot(data=result[result["sub"] != 2], x="percistence_score", y="adaptation")
+plt.show()
+
+# %%
+correlation, p_value = spearmanr(
+    result[result["sub"] != 2]["percistence_score"],
+    result[result["sub"] != 2]["adaptation"],
+)
+print(
+    f"Spearman's correlation for the adaptation score): {correlation}, p-value: {p_value}"
+)
+
+# %%
+model = sm.OLS.from_formula("adaptation~ percistence_score ", result).fit()
+
+print(model.summary())
+
