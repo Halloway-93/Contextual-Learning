@@ -231,7 +231,7 @@ print(
 
 # %%
 # Pivot the data for proba
-pivot_proba = dd[dd.color == "green"].pivot(
+pivot_proba = dd[dd.color == "red"].pivot(
     index="sub", columns="proba", values="meanVelo"
 )
 pivot_proba
@@ -1031,7 +1031,6 @@ plt.show()
 # %%
 df
 # %%
-# %%
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
     data=df[df.proba == 25],
@@ -1412,13 +1411,38 @@ result = (
         lambda x: x[x["transition_type"] == "persistent"]["conditional_prob"].sum()
         - x[x["transition_type"] == "alternating"]["conditional_prob"].sum()
     )
-    .reset_index(name="percistence_score")
+    .reset_index(name="persistence_score")
 )
 
 print(result)
 
 # %%
-df
+dd["transition_state"].unique()
+# %%
+result["persistence_score_red"] = np.nan
+result["persistence_score_green"] = np.nan
+result
+# %%
+for s in dd["sub"].unique():
+    red_red_prob = dd[(dd["sub"] == s) & (dd["transition_state"] == "('red', 'red')")][
+        "conditional_prob"
+    ].values[0]
+    green_red_prob = dd[
+        (dd["sub"] == s) & (dd["transition_state"] == "('green', 'red')")
+    ]["conditional_prob"].values[0]
+    result.loc[result["sub"] == s, "persistence_score_red"] = (
+        red_red_prob - green_red_prob
+    )
+    green_green_prob = dd[
+        (dd["sub"] == s) & (dd["transition_state"] == "('green', 'green')")
+    ]["conditional_prob"].values[0]
+    red_green_prob = dd[
+        (dd["sub"] == s) & (dd["transition_state"] == "('red', 'green')")
+    ]["conditional_prob"].values[0]
+    result.loc[result["sub"] == s, "persistence_score_green"] = (
+        green_green_prob - red_green_prob
+    )
+result
 # %%
 
 # Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
@@ -1443,28 +1467,75 @@ print(adaptation)
 adaptation.groupby("sub")["adaptation"].mean().values
 # %%
 
-
 result["adaptation"] = adaptation.groupby("sub")["adaptation"].mean().values
-
+result["adaptation_green"] = adaptation[adaptation["color"] == "green"][
+    "adaptation"
+].values
+result["adaptation_red"] = adaptation[adaptation["color"] == "red"]["adaptation"].values
 # %%
 result.reset_index(inplace=True)
 # %%
 result = pd.DataFrame(result)
 result
 # %%
-sns.lmplot(data=result[result["sub"] != 2], x="percistence_score", y="adaptation")
+sns.lmplot(data=result, x="persistence_score", y="adaptation")
 plt.show()
+# %%
+sns.lmplot(data=result, x="persistence_score_green", y="adaptation_green")
+plt.show()
+# %%
+sns.lmplot(
+    data=result, x="persistence_score_red", y="adaptation_red", palette=redColorsPalette
+)
+plt.show()
+# %%
+sns.lmplot(
+    data=result, x="adaptation_green", y="adaptation_red", palette=redColorsPalette
+)
+plt.show()
+# %%
+sns.lmplot(
+    data=result,
+    x="persistence_score_green",
+    y="persistence_score_red",
+    palette=redColorsPalette,
+)
+plt.show()
+# %%
 
 # %%
+
 correlation, p_value = spearmanr(
-    result[result["sub"] != 2]["percistence_score"],
-    result[result["sub"] != 2]["adaptation"],
+    result["persistence_score"],
+    result["adaptation"],
 )
 print(
     f"Spearman's correlation for the adaptation score): {correlation}, p-value: {p_value}"
 )
 
 # %%
-model = sm.OLS.from_formula("adaptation~ percistence_score ", result).fit()
+correlation, p_value = spearmanr(
+    result["persistence_score_green"],
+    result["adaptation_green"],
+)
+print(
+    f"Spearman's correlation for the adaptation score for Green): {correlation}, p-value: {p_value}"
+)
+
+# %%
+correlation, p_value = spearmanr(
+    result["persistence_score_red"],
+    result["adaptation_red"],
+)
+print(
+    f"Spearman's correlation for the adaptation score for Red): {correlation}, p-value: {p_value}"
+)
+
+# %%
+model = sm.OLS.from_formula("adaptation_red~ persistence_score_red ", result).fit()
+
+print(model.summary())
+# %%
+model = sm.OLS.from_formula("adaptation_green~ persistence_score_green ", result).fit()
 
 print(model.summary())
