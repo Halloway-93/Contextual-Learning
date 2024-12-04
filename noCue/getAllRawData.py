@@ -745,10 +745,18 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
                 #     )
                 #     for t in df.trial.unique()
                 # ]
-                velo = [
-                    np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
-                    for t in df.trial.unique()
-                ]
+                if "xp" in df.columns:
+                    velo = [
+                        np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
+                        for t in df.trial.unique()
+                    ]
+
+                else:
+
+                    velo = [
+                        np.gradient(df[df["trial"] == t]["xpr"]) * sampling_freq / degToPix
+                        for t in df.trial.unique()
+                    ]
                 # Concatenate the list of arrays into a single array
                 # allFiltData = pd.concat(filtered_data, axis=0, ignore_index=True)
                 allVelo = np.concatenate(velo)
