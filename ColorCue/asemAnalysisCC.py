@@ -75,7 +75,7 @@ df = pd.read_csv(
     "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(80,120).csv"
 )
 # %%
-badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
+badTrials = df[(df["meanVelo"] <= -8) | (df["meanVelo"] >= 8)]
 badTrials
 # %%
 df = df[(df["meanVelo"] <= 8) & (df["meanVelo"] >= -8)]
@@ -157,7 +157,7 @@ proba = dd[dd.color == "green"]["proba"]
 
 # Spearman's rank correlation
 correlation, p_value = spearmanr(meanVelo, proba)
-print(f"Spearman's correlation: {correlation}, p-value: {p_value}")
+print(f"Spearman's correlation (Green): {correlation}, p-value: {p_value}")
 
 # %%
 meanVelo = dd[dd.proba == 75]["meanVelo"]
@@ -1342,7 +1342,7 @@ sns.lmplot(
 plt.show()
 # %%
 sns.lmplot(
-    data=dd[(dd["color"] == "red") & (dd["sub"] != 2)],
+    data=dd[(dd["color"] == "red")],
     x="proba",
     y="meanVelo",
     hue="behavior",
@@ -1473,20 +1473,42 @@ result["adaptation_green"] = adaptation[adaptation["color"] == "green"][
 ].values
 result["adaptation_red"] = adaptation[adaptation["color"] == "red"]["adaptation"].values
 # %%
-result.reset_index(inplace=True)
-# %%
 result = pd.DataFrame(result)
 result
 # %%
 sns.lmplot(data=result, x="persistence_score", y="adaptation")
-plt.show()
-# %%
-sns.lmplot(data=result, x="persistence_score_green", y="adaptation_green")
+plt.savefig(pathFig + "/samplingBiasColours.svg")
+plt.ylabel("adaptation", fontsize=20)
+plt.xlabel("persistence_score", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
 plt.show()
 # %%
 sns.lmplot(
-    data=result, x="persistence_score_red", y="adaptation_red", palette=redColorsPalette
+    data=result,
+    x="persistence_score_green",
+    y="adaptation_green",
+    scatter_kws={"color": "seagreen"},
+    line_kws={"color": "seagreen"},
 )
+plt.ylabel("adaptation_green", fontsize=20)
+plt.xlabel("persistence_score", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.show()
+# %%
+sns.lmplot(
+    data=result,
+    x="persistence_score_red",
+    y="adaptation_red",
+    scatter_kws={"color": "salmon"},
+    line_kws={"color": "salmon"},
+)
+plt.ylabel("adaptation_red", fontsize=20)
+plt.xlabel("persistence_score", fontsize=20)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.savefig(pathFig + "/samplingBiasRed.svg")
 plt.show()
 # %%
 sns.lmplot(
@@ -1501,7 +1523,6 @@ sns.lmplot(
     palette=redColorsPalette,
 )
 plt.show()
-# %%
 
 # %%
 
@@ -1532,6 +1553,16 @@ print(
 )
 
 # %%
+correlation, p_value = spearmanr(
+    result["adaptation_green"],
+    result["adaptation_red"],
+)
+print(
+    f"Spearman's correlation for the adaptation score for Red): {correlation}, p-value: {p_value}"
+)
+
+# %%
+
 model = sm.OLS.from_formula("adaptation_red~ persistence_score_red ", result).fit()
 
 print(model.summary())

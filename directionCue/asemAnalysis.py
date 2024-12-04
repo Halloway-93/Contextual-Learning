@@ -3,12 +3,8 @@ Script to analyze the data from the voluntaryDirection task.
 Saccades and blinks has been removed from the data. on the window -200ms(Fixation Offset) to 600ms the end of the trials
 """
 
-from enum import unique
 import os
-from types import CellType
-from typing import DefaultDict, Union
 import statsmodels.api as sm
-from seaborn.axisgrid import FacetGrid
 from scipy import stats
 from scipy.stats import spearmanr
 import statsmodels.formula.api as smf
@@ -41,7 +37,7 @@ exampleJL = jlData[
 # emTypes = exampleJL["EYE_MOVEMENT_TYPE"].unique()
 # emTypes
 # %%
-
+assert isinstance(exampleJL, pd.DataFrame)
 # # Plotting one example
 for t in exampleJL.trial.unique():
     sns.lineplot(
@@ -64,6 +60,7 @@ for t in exampleJL.trial.unique():
     plt.show()
 # # %%
 for t in exampleJL.trial.unique():
+    assert isinstance(exampleJL[exampleJL.trial == t], pd.DataFrame)
     sns.scatterplot(
         data=exampleJL[exampleJL.trial == t],
         x="time",
@@ -85,7 +82,7 @@ for t in exampleJL.trial.unique():
         y="xp",
         alpha=0.5,
     )
-    plt.plot(
+    # plt.plot(
     #     exampleJL[exampleJL["trial"] == t].time,
     #     exampleJL[exampleJL["trial"] == t].filtPos,
     #     alpha=0.5,
@@ -131,7 +128,7 @@ df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == -1 else "right")
 df["interaction"] = list(zip(df["TD_prev"], df["arrow_prev"]))
 # %%
 badTrials = df[(df["meanVelo"] <= -8) | (df["meanVelo"] >= 8)]
-badTrials
+print(badTrials)
 # %%
 df = df[(df["meanVelo"] <= 8) & (df["meanVelo"] >= -8)]
 # %%
@@ -141,7 +138,7 @@ sns.histplot(data=df, x="meanVelo")
 plt.show()
 # %%
 balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
-balance
+print(balance)
 # %%
 for sub in balance["sub"].unique():
     sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
@@ -153,7 +150,6 @@ dd = (
     .mean()
     .reset_index()
 )
-dd
 # %%
 np.abs(dd.meanVelo.values).max()
 # %%
@@ -239,7 +235,7 @@ for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
     ax.legend(["up", "down"])
 # Adjust spacing between subplots
-facet_grid.fig.subplots_adjust(
+facet_grid.figure.subplots_adjust(
     wspace=0.2, hspace=0.2
 )  # Adjust wspace and hspace as needed
 
@@ -349,7 +345,7 @@ model = smf.mixedlm(
     groups=df[df.proba == 0.25]["sub"],
 ).fit()
 model.summary()
-#a %%
+# a %%
 model = smf.mixedlm(
     "meanVelo~C( arrow,Treatment('up') )",
     data=df[df.proba == 0.5],
@@ -417,7 +413,6 @@ df_prime = df[
         "meanVelo",
     ]
 ]
-df_prime
 # %%
 df["TD_prev"].unique()
 # %%
@@ -430,7 +425,7 @@ learningCurve = (
 )
 
 
-learningCurve
+print(learningCurve)
 # %%
 df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["meanVelo"]]
 
@@ -599,7 +594,6 @@ df_prime = df[
         "meanVelo",
     ]
 ]
-df_prime
 # %%
 learningCurveInteraction = (
     df_prime.groupby(["sub", "proba", "interaction", "arrow"])
@@ -608,7 +602,6 @@ learningCurveInteraction = (
 )
 
 # %%
-learningCurveInteraction
 # %%
 df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[["meanVelo"]]
 
@@ -616,7 +609,7 @@ df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[["meanVelo"]]
 df_prime.groupby(["proba", "interaction", "arrow"]).count()[["posOffSet", "meanVelo"]]
 
 # %%
-learningCurveInteraction
+print(learningCurveInteraction)
 # %%
 df["interaction"].unique()
 # %%
@@ -723,10 +716,7 @@ plt.xlabel("P(Left|Down)", fontsize=30)
 plt.savefig(pathFig + "/meanVeloDownInteractionFullProba.svg")
 plt.show()
 # %%
-df
-# %%
 dd = df.groupby(["sub", "proba", "arrow", "TD_prev"])["meanVelo"].mean().reset_index()
-dd
 # %%
 model = smf.mixedlm(
     "meanVelo~  C(arrow)*C(TD_prev)",
@@ -754,158 +744,217 @@ model.summary()
 # %%
 
 # Define transition counts for previous state = down
-down_transitions = df[df["arrow_prev"] == "down"].groupby(["sub", "proba", "arrow"])["meanVelo"].count().reset_index(name="count")
-down_transitions["total"] = down_transitions.groupby(["sub", "proba"])["count"].transform("sum")
-down_transitions["conditional_prob"] = down_transitions["count"] / down_transitions["total"]
+down_transitions = (
+    df[df["arrow_prev"] == "down"]
+    .groupby(["sub", "proba", "arrow"])["meanVelo"]
+    .count()
+    .reset_index(name="count")
+)
+down_transitions["total"] = down_transitions.groupby(["sub", "proba"])[
+    "count"
+].transform("sum")
+down_transitions["conditional_prob"] = (
+    down_transitions["count"] / down_transitions["total"]
+)
 down_transitions = down_transitions.rename(columns={"arrow": "current_state"})
-down_transitions['previous_state']='down'
+down_transitions["previous_state"] = "down"
 
 # Define transition counts for previous state = up
-up_transitions = df[df["arrow_prev"] == "up"].groupby(["sub", "proba", "arrow"])["meanVelo"].count().reset_index(name="count")
-up_transitions["total"] = up_transitions.groupby(["sub", "proba"])["count"].transform("sum")
+up_transitions = (
+    df[df["arrow_prev"] == "up"]
+    .groupby(["sub", "proba", "arrow"])["meanVelo"]
+    .count()
+    .reset_index(name="count")
+)
+up_transitions["total"] = up_transitions.groupby(["sub", "proba"])["count"].transform(
+    "sum"
+)
 up_transitions["conditional_prob"] = up_transitions["count"] / up_transitions["total"]
 up_transitions = up_transitions.rename(columns={"arrow": "current_state"})
-up_transitions['previous_state']='up'
+up_transitions["previous_state"] = "up"
 # %%
 # Combine results
 conditional_probabilities = pd.concat([down_transitions, up_transitions])
-conditional_probabilities
+print(conditional_probabilities)
 # %%
-conditional_probabilities['transition_state']=list(zip(conditional_probabilities['current_state'],conditional_probabilities['previous_state']))
+conditional_probabilities["transition_state"] = list(
+    zip(
+        conditional_probabilities["current_state"],
+        conditional_probabilities["previous_state"],
+    )
+)
 
-conditional_probabilities["transition_state"] = conditional_probabilities["transition_state"].astype(str)
-conditional_probabilities
+conditional_probabilities["transition_state"] = conditional_probabilities[
+    "transition_state"
+].astype(str)
+print(conditional_probabilities)
 # %%
 for s in conditional_probabilities["sub"].unique():
     # Set up the FacetGrid
     facet_grid = sns.FacetGrid(
-        data=conditional_probabilities[conditional_probabilities["sub"] == s], 
-        col="proba", 
-        col_wrap=3, 
-        height=8, 
-        aspect=1.5
+        data=conditional_probabilities[conditional_probabilities["sub"] == s],
+        col="proba",
+        col_wrap=3,
+        height=8,
+        aspect=1.5,
     )
-    
+
     # Create barplots for each sub
     facet_grid.map_dataframe(
         sns.barplot,
         x="transition_state",
         y="conditional_prob",
     )
-    
+
     # Adjust the layout to prevent title overlap
     plt.subplots_adjust(top=0.85)  # Increases space above subplots
-    
+
     # Add a main title for the entire figure
-    facet_grid.fig.suptitle(f'Subject {s}', fontsize=16, y=0.98)
-    
+    facet_grid.figure.suptitle(f"Subject {s}", fontsize=16, y=0.98)
+
     # Set titles for each subplot
-    for ax, p in zip(facet_grid.axes.flat, np.sort(conditional_probabilities.proba.unique())):
+    for ax, p in zip(
+        facet_grid.axes.flat, np.sort(conditional_probabilities.proba.unique())
+    ):
         ax.set_title(f"Sampling Bias p={p} : P(C(t+1)|C(t))")
         ax.set_xlabel("Transition State")
         ax.set_ylabel("Conditional Probability")
         # ax.tick_params(axis='x', rotation=45)
-    
+
     # Adjust spacing between subplots
-    facet_grid.fig.subplots_adjust(
-        wspace=0.2, 
-        hspace=0.3  # Slightly increased to provide more vertical space
+    facet_grid.figure.subplots_adjust(
+        wspace=0.2, hspace=0.3  # Slightly increased to provide more vertical space
     )
-    
+
     # Show the plot
     plt.show()
 # %%
 # Define transition counts for previous state = down
-down_transitions = df[df["arrow_prev"] == "down"].groupby(["sub", "proba", "arrow"])["meanVelo"].count().reset_index(name="count")
-down_transitions["total"] = down_transitions.groupby(["sub", "proba"])["count"].transform("sum")
-down_transitions["conditional_prob"] = down_transitions["count"] / down_transitions["total"]
+down_transitions = (
+    df[df["arrow_prev"] == "down"]
+    .groupby(["sub", "proba", "arrow"])["meanVelo"]
+    .count()
+    .reset_index(name="count")
+)
+down_transitions["total"] = down_transitions.groupby(["sub", "proba"])[
+    "count"
+].transform("sum")
+down_transitions["conditional_prob"] = (
+    down_transitions["count"] / down_transitions["total"]
+)
 down_transitions = down_transitions.rename(columns={"arrow": "current_state"})
-down_transitions['previous_state']='down'
+down_transitions["previous_state"] = "down"
 
 # Define transition counts for previous state = up
-up_transitions = df[df["arrow_prev"] == "up"].groupby(["sub", "proba", "arrow"])["meanVelo"].count().reset_index(name="count")
-up_transitions["total"] = up_transitions.groupby(["sub", "proba"])["count"].transform("sum")
+up_transitions = (
+    df[df["arrow_prev"] == "up"]
+    .groupby(["sub", "proba", "arrow"])["meanVelo"]
+    .count()
+    .reset_index(name="count")
+)
+up_transitions["total"] = up_transitions.groupby(["sub", "proba"])["count"].transform(
+    "sum"
+)
 up_transitions["conditional_prob"] = up_transitions["count"] / up_transitions["total"]
 up_transitions = up_transitions.rename(columns={"arrow": "current_state"})
-up_transitions['previous_state']='up'
+up_transitions["previous_state"] = "up"
 # %%
 # Combine results
 conditional_probabilities = pd.concat([down_transitions, up_transitions])
-conditional_probabilities
 # %%
-conditional_probabilities['transition_state']=list(zip(conditional_probabilities['current_state'],conditional_probabilities['previous_state']))
+conditional_probabilities["transition_state"] = list(
+    zip(
+        conditional_probabilities["current_state"],
+        conditional_probabilities["previous_state"],
+    )
+)
 
-conditional_probabilities["transition_state"] = conditional_probabilities["transition_state"].astype(str)
-conditional_probabilities
-conditional_probabilities['transition_state'].unique()
+conditional_probabilities["transition_state"] = conditional_probabilities[
+    "transition_state"
+].astype(str)
+conditional_probabilities["transition_state"].unique()
+
+
 # %%
 def classify_subject_behavior(conditional_probabilities):
     # Create a function to categorize behavior for a single probability condition
     def categorize_single_proba(group):
         # Transition probabilities for this probability condition
-        down_to_down = group[group['transition_state']=="('down', 'down')"]['conditional_prob'].values[0]
-        up_to_up = group[group['transition_state']=="('up', 'up')"]['conditional_prob'].values[0]
-        down_to_up = group[group['transition_state']=="('up', 'down')"]['conditional_prob'].values[0]
-        up_to_down = group[group['transition_state']=="('down', 'up')"]['conditional_prob'].values[0]
-        
+        down_to_down = group[group["transition_state"] == "('down', 'down')"][
+            "conditional_prob"
+        ].values[0]
+        up_to_up = group[group["transition_state"] == "('up', 'up')"][
+            "conditional_prob"
+        ].values[0]
+        down_to_up = group[group["transition_state"] == "('up', 'down')"][
+            "conditional_prob"
+        ].values[0]
+        up_to_down = group[group["transition_state"] == "('down', 'up')"][
+            "conditional_prob"
+        ].values[0]
+
         # Persistent: high probability of staying in the same state
         if down_to_down > 0.6 and up_to_up > 0.6:
-            return 'Persistent'
-        
+            return "Persistent"
+
         # Alternating: high probability of switching states
         if down_to_up > 0.6 and up_to_down > 0.6:
-            return 'Alternating'
-        
-        return 'Random'
+            return "Alternating"
+
+        return "Random"
 
     # Classify behavior for each subject and probability
-    subject_proba_behavior = conditional_probabilities.groupby(['sub', 'proba']).apply(
-        lambda x: categorize_single_proba(x)
-    ).reset_index(name='behavior')
+    subject_proba_behavior = (
+        conditional_probabilities.groupby(["sub", "proba"])
+        .apply(lambda x: categorize_single_proba(x))
+        .reset_index(name="behavior")
+    )
     print(subject_proba_behavior)
 
-
     # Count behaviors for each subject across probabilities
-    behavior_counts = subject_proba_behavior.groupby(['sub', 'behavior']).size().unstack(fill_value=0)
-    
+    behavior_counts = (
+        subject_proba_behavior.groupby(["sub", "behavior"]).size().unstack(fill_value=0)
+    )
+
     # Classify subject based on behavior consistency across at least two probabilities
     def final_classification(row):
-        if row['Persistent'] >= 2:
-            return 'Persistent'
-        elif row['Alternating'] >= 2:
-            return 'Alternating'
+        if row["Persistent"] >= 2:
+            return "Persistent"
+        elif row["Alternating"] >= 2:
+            return "Alternating"
         else:
-            return 'Random'
-    
-    subject_classification = behavior_counts.apply(final_classification, axis=1).reset_index()
-    subject_classification.columns = ['sub', 'behavior_class']
-    
+            return "Random"
+
+    subject_classification = behavior_counts.apply(
+        final_classification, axis=1
+    ).reset_index()
+    subject_classification.columns = ["sub", "behavior_class"]
+
     # Visualize classification
     plt.figure(figsize=(10, 6))
-    behavior_counts = subject_classification['behavior_class'].value_counts()
-    plt.pie(behavior_counts, labels=behavior_counts.index, autopct='%1.1f%%')
-    plt.title('Subject Behavior Classification\n(Consistent Across Probabilities)')
+    behavior_counts = subject_classification["behavior_class"].value_counts()
+    plt.pie(behavior_counts, labels=behavior_counts.index, autopct="%1.1f%%")
+    plt.title("Subject Behavior Classification\n(Consistent Across Probabilities)")
     plt.show()
-    
+
     # Print detailed results
     print(subject_classification)
-    
+
     # Additional detailed view
     detailed_behavior = subject_proba_behavior.pivot_table(
-        index='sub', 
-        columns='proba', 
-        values='behavior', 
-        aggfunc='first'
+        index="sub", columns="proba", values="behavior", aggfunc="first"
     )
     print("\nDetailed Behavior Across Probabilities:")
     print(detailed_behavior)
-    
+
     return subject_classification
+
+
 subject_classification = classify_subject_behavior(conditional_probabilities)
 # %%
 # Perform classification
 # Optional: Create a more detailed summary
-summary = subject_classification.groupby('behavior_class').size()
+summary = subject_classification.groupby("behavior_class").size()
 print("\nBehavior Classification Summary:")
 print(summary)
 # %%
@@ -917,7 +966,6 @@ df = df[~((df["proba"] == 0) | (df["proba"] == 1))]
 # %%
 
 balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
-balance
 # %%
 for sub in balance["sub"].unique():
     sns.barplot(x="proba", y="trial", hue="arrow", data=balance[balance["sub"] == sub])
@@ -929,7 +977,6 @@ dd = (
     .mean()
     .reset_index()
 )
-dd
 # %%
 np.abs(dd.meanVelo.values).max()
 # %%
@@ -1022,7 +1069,7 @@ for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
     ax.set_title(f"ASEM: P(Right|up)=P(Left|down)={p}")
     ax.legend(["up", "down"])
 # Adjust spacing between subplots
-facet_grid.fig.subplots_adjust(
+facet_grid.figure.subplots_adjust(
     wspace=0.2, hspace=0.2
 )  # Adjust wspace and hspace as needed
 
@@ -1186,7 +1233,6 @@ df_prime = df[
         "meanVelo",
     ]
 ]
-df_prime
 # %%
 learningCurve = (
     df_prime.groupby(["sub", "proba", "arrow", "TD_prev"])
@@ -1195,7 +1241,6 @@ learningCurve = (
 )
 
 
-learningCurve
 # %%
 df_prime.groupby(["proba", "arrow", "TD_prev"]).count()[["posOffSet", "meanVelo"]]
 
@@ -1409,7 +1454,6 @@ df_prime = df[
         "meanVelo",
     ]
 ]
-df_prime
 # %%
 
 learningCurveInteraction = (
@@ -1424,7 +1468,6 @@ df.columns
 df_prime.groupby(["sub", "proba", "interaction", "arrow"]).count()[["meanVelo"]]
 
 # %%
-learningCurveInteraction
 # %%
 df["interaction"].unique()
 # %%
@@ -1531,10 +1574,8 @@ plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.savefig(pathFig + "/meanVeloDownInteraction.svg")
 plt.show()
 # %%
-df
 # %%
 dd = df.groupby(["sub", "proba", "arrow", "TD_prev"])["meanVelo"].mean().reset_index()
-dd
 # %%
 model = smf.mixedlm(
     "meanVelo~  C(arrow,Treatment('up'))*C(TD_prev)",
@@ -1577,7 +1618,6 @@ grouped["sampling"] = grouped["sampling"].astype(str)
 grouped["percentage"] = grouped.groupby(["sub", "proba"])["count"].transform(
     lambda x: x / x.sum() * 100
 )
-grouped
 # %%
 grouped["sampling"].count()
 # %%
@@ -1601,7 +1641,7 @@ for s in grouped["sub"].unique():
     for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
         ax.set_title(f"Sampling Bias p={p} : P(C(t+1)|C(t))")
     # Adjust spacing between subplots
-    facet_grid.fig.subplots_adjust(
+    facet_grid.figure.subplots_adjust(
         wspace=0.2, hspace=0.2
     )  # Adjust wspace and hspace as needed
 
@@ -1637,15 +1677,12 @@ up_transitions = (
 up_transitions["total"] = up_transitions.groupby(["sub", "proba"])["count"].transform(
     "sum"
 )
-up_transitions["conditional_prob"] = (
-    up_transitions["count"] / up_transitions["total"]
-)
+up_transitions["conditional_prob"] = up_transitions["count"] / up_transitions["total"]
 up_transitions = up_transitions.rename(columns={"arrow": "current_state"})
 up_transitions["previous_state"] = "up"
 # %%
 # Combine results
 conditional_probabilities = pd.concat([down_transitions, up_transitions])
-conditional_probabilities
 # %%
 conditional_probabilities["transition_state"] = list(
     zip(
@@ -1657,7 +1694,6 @@ conditional_probabilities["transition_state"] = list(
 conditional_probabilities["transition_state"] = conditional_probabilities[
     "transition_state"
 ].astype(str)
-conditional_probabilities
 
 
 # %%
@@ -1682,7 +1718,7 @@ for s in conditional_probabilities["sub"].unique():
     plt.subplots_adjust(top=0.85)  # Increases space above subplots
 
     # Add a main title for the entire figure
-    facet_grid.fig.suptitle(f"Subject {s}", fontsize=16, y=0.98)
+    facet_grid.figure.suptitle(f"Subject {s}", fontsize=16, y=0.98)
 
     # Set titles for each subplot
     for ax, p in zip(
@@ -1694,7 +1730,7 @@ for s in conditional_probabilities["sub"].unique():
         # ax.tick_params(axis='x', rotation=45)
 
     # Adjust spacing between subplots
-    facet_grid.fig.subplots_adjust(
+    facet_grid.figure.subplots_adjust(
         wspace=0.2, hspace=0.3  # Slightly increased to provide more vertical space
     )
 
@@ -1722,9 +1758,7 @@ def classify_subject_behavior(conditional_probabilities):
             down_to_down = 0
 
         if (
-            len(
-                group[group["transition_state"] == "('up', 'up')"]["conditional_prob"]
-            )
+            len(group[group["transition_state"] == "('up', 'up')"]["conditional_prob"])
             > 0
         ):
             up_to_up = group[group["transition_state"] == "('up', 'up')"][
@@ -1735,9 +1769,7 @@ def classify_subject_behavior(conditional_probabilities):
 
         if (
             len(
-                group[group["transition_state"] == "('up', 'down')"][
-                    "conditional_prob"
-                ]
+                group[group["transition_state"] == "('up', 'down')"]["conditional_prob"]
             )
             > 0
         ):
@@ -1816,9 +1848,6 @@ def classify_subject_behavior(conditional_probabilities):
 
 subject_classification = classify_subject_behavior(conditional_probabilities)
 # %%
-subject_classification
-
-# %%
 # Perform classification
 # Optional: Create a more detailed summary
 summary = subject_classification.groupby("behavior_class").size()
@@ -1834,7 +1863,6 @@ for s in dd["sub"].unique():
     dd.loc[dd["sub"] == s, "behavior"] = behavior_value
 
 # %%
-dd
 # %%
 sns.lmplot(
     data=dd[(dd["arrow"] == "down")],
@@ -1842,22 +1870,21 @@ sns.lmplot(
     y="meanVelo",
     hue="behavior",
 )
-plt.title('Down Arrow',fontsize=30)
+plt.title("Down Arrow", fontsize=30)
 plt.show()
 # %%
 sns.lmplot(
-    data=dd[(dd["arrow"] == "up") ],
+    data=dd[(dd["arrow"] == "up")],
     x="proba",
     y="meanVelo",
     hue="behavior",
 )
-plt.title('Up Arrow',fontsize=30)
+plt.title("Up Arrow", fontsize=30)
 plt.show()
 
 # %%
 
 # Computing the peristance score based on the transition probabilites
-dd
 # %%
 conditional_probabilities.columns
 # %%
@@ -1866,7 +1893,6 @@ dd = (
     .mean()
     .reset_index()
 )
-dd
 # %%
 dd["sub"].value_counts()
 # %%
@@ -1889,7 +1915,6 @@ print(dd)
 # %%
 
 dd = dd.groupby(["sub", "transition_state"])["conditional_prob"].mean().reset_index()
-dd
 # %%
 dd["transition_state"].unique()
 
@@ -1906,7 +1931,6 @@ def classify_transition(state):
 
 # Apply the classification function
 dd["transition_type"] = dd["transition_state"].apply(classify_transition)
-dd
 # %%
 
 # Group by 'sub' and calculate the score
@@ -1926,28 +1950,26 @@ dd["transition_state"].unique()
 # %%
 result["persistence_score_up"] = np.nan
 result["persistence_score_down"] = np.nan
-result
+print(result)
 # %%
 for s in dd["sub"].unique():
     up_up_prob = dd[(dd["sub"] == s) & (dd["transition_state"] == "('up', 'up')")][
         "conditional_prob"
     ].values[0]
-    down_up_prob = dd[
-        (dd["sub"] == s) & (dd["transition_state"] == "('down', 'up')")
-    ]["conditional_prob"].values[0]
-    result.loc[result["sub"] == s, "persistence_score_up"] = (
-        up_up_prob - down_up_prob
-    )
+    down_up_prob = dd[(dd["sub"] == s) & (dd["transition_state"] == "('down', 'up')")][
+        "conditional_prob"
+    ].values[0]
+    result.loc[result["sub"] == s, "persistence_score_up"] = up_up_prob - down_up_prob
     down_down_prob = dd[
         (dd["sub"] == s) & (dd["transition_state"] == "('down', 'down')")
     ]["conditional_prob"].values[0]
-    up_down_prob = dd[
-        (dd["sub"] == s) & (dd["transition_state"] == "('up', 'down')")
-    ]["conditional_prob"].values[0]
+    up_down_prob = dd[(dd["sub"] == s) & (dd["transition_state"] == "('up', 'down')")][
+        "conditional_prob"
+    ].values[0]
     result.loc[result["sub"] == s, "persistence_score_down"] = (
         down_down_prob - up_down_prob
     )
-result
+print(result)
 # %%
 
 # Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
@@ -1978,24 +2000,30 @@ result["adaptation_down"] = adaptation[adaptation["arrow"] == "down"][
 ].values
 result["adaptation_up"] = adaptation[adaptation["arrow"] == "up"]["adaptation"].values
 # %%
-result.reset_index(inplace=True)
-# %%
 result = pd.DataFrame(result)
-result
+print(result)
 # %%
 sns.lmplot(data=result, x="persistence_score", y="adaptation")
+plt.savefig(pathFig + "/samplingBiasArrows.svg")
 plt.show()
 # %%
 sns.lmplot(data=result, x="persistence_score_down", y="adaptation_down")
+plt.savefig(pathFig + "/samplingBiasDown.svg")
 plt.show()
 # %%
 sns.lmplot(
-    data=result, x="persistence_score_up", y="adaptation_up", 
+    data=result,
+    x="persistence_score_up",
+    y="adaptation_up",
 )
+plt.savefig(pathFig + "/samplingBiasUp.svg")
+
 plt.show()
 # %%
 sns.lmplot(
-    data=result, x="adaptation_down", y="adaptation_up",
+    data=result,
+    x="adaptation_down",
+    y="adaptation_up",
 )
 plt.show()
 # %%
@@ -2007,7 +2035,6 @@ sns.lmplot(
 plt.show()
 # %%
 
-# %%
 
 correlation, p_value = spearmanr(
     result["persistence_score"],
@@ -2041,6 +2068,14 @@ model = sm.OLS.from_formula("adaptation_up~ persistence_score_up ", result).fit(
 print(model.summary())
 # %%
 model = sm.OLS.from_formula("adaptation_down~ persistence_score_down ", result).fit()
+
+print(model.summary())
+# %%
+model = sm.OLS.from_formula("adaptation~ persistence_score ", result).fit()
+
+print(model.summary())
+# %%
+model = sm.OLS.from_formula("adaptation_up~ adaptation_down ", result).fit()
 
 print(model.summary())
 # %%
