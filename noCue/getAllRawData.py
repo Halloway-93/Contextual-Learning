@@ -784,9 +784,9 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
 
 
 # Executing the code:
-pathAdo = "/Volumes/work/brainets/oueld.h/Probant_DevAsd/DATA/Controles/Ados/"
+pathAdo = "/envau/work/brainets/oueld.h/Probant_DevAsd/DATA/Controles/Ados/"
 getAllRawData(pathAdo)
-pathAdulte = "/Volumes/work/brainets/oueld.h/Probant_DevAsd/DATA/Controles/Adultes/"
+pathAdulte = "/envau/work/brainets/oueld.h/Probant_DevAsd/DATA/Controles/Adultes/"
 getAllRawData(pathAdulte)
-pathEnfant = "/Volumes/work/brainets/oueld.h/Probant_DevAsd/DATA/Controles/Enfants/"
+pathEnfant = "/envau/work/brainets/oueld.h/Probant_DevAsd/DATA/Controles/Enfants/"
 getAllRawData(pathEnfant)
