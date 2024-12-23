@@ -88,6 +88,9 @@ plt.show()
 # [print(df[df["sub"] == i]["meanVelo"].isna().sum()) for i in range(1, 13)]
 # df.dropna(inplace=True)
 df["color"] = df["trial_color_chosen"].apply(lambda x: "red" if x == 1 else "green")
+df["trial_color_UP"] = df["trial_color_UP"].apply(
+    lambda x: "red" if x == 1 else "green"
+)
 
 
 # df = df.dropna(subset=["meanVelo"])
@@ -111,6 +114,7 @@ df = df[~(df["TD_prev"].isna())]
 df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == -1 else "right")
 # %%
 df = df[(df["sub"] != 9)]
+# df = df[df["sub"].isin([1, 2, 5, 7, 8, 11, 13])]
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -421,12 +425,45 @@ for ax, p in zip(facet_grid.axes.flat, df.proba.unique()):
     ax.set_title(f"ASEM: P(Right|Red)=P(Left|Green)={p}")
     ax.legend(["red", "green"])
 # Adjust spacing between subplots
-facet_grid.fig.subplots_adjust(
+facet_grid.figure.subplots_adjust(
     wspace=0.2, hspace=0.2
 )  # Adjust wspace and hspace as needed
 
 # Show the plot
 plt.show()
+
+# %%
+for s in df["sub"].unique():
+    df_s = df[df["sub"] == s]
+
+    # Set up the FacetGrid
+    facet_grid = sns.FacetGrid(
+        data=df_s,
+        col="proba",
+        col_wrap=3,
+        height=8,
+        aspect=1.5,
+    )
+
+    # Create pointplots for each sub
+    facet_grid.map_dataframe(
+        sns.histplot, x="meanVelo", hue="color", palette=colors, hue_order=colors
+    )
+
+    # Add legends
+    facet_grid.add_legend()
+
+    # Set titles for each subplot
+    for ax, p in zip(facet_grid.axes.flat, df_s.proba.unique()):
+        ax.set_title(f"ASEM Subject {s}: P(Right|Red)=P(Left|Green)={p}")
+        ax.legend(["red", "green"])
+    # Adjust spacing between subplots
+    facet_grid.figure.subplots_adjust(
+        wspace=0.2, hspace=0.2
+    )  # Adjust wspace and hspace as needed
+
+    # Show the plot
+    plt.show()
 
 # %%
 # Perform mixed repeated measures ANOVA
@@ -577,7 +614,7 @@ stat, p = stats.kstest(residuals, "norm")
 
 print(f"KS test statistic: {stat:.4f}")
 print(f"KS test p-value: {p:.4f}")
-# %%
+# a %%
 normaltest_result = stats.normaltest(residuals)
 print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
 # %%
@@ -1059,55 +1096,6 @@ df.color_prev
 # %%
 # Sampling Bias analysis
 
-df["sampling"] = list(zip(df["color"], df["color_prev"]))
-# %%
-# Group by and count
-# Group by and count
-grouped = (
-    df.groupby(["sub", "proba", "sampling"])["meanVelo"]
-    .count()
-    .reset_index(name="count")
-)
-
-grouped["sampling"] = grouped["sampling"].astype(str)
-# Calculate percentages using transform to keep the original DataFrame structure
-grouped["percentage"] = grouped.groupby(["sub", "proba"])["count"].transform(
-    lambda x: x / x.sum() * 100
-)
-grouped
-# %%
-grouped["sampling"].count()
-# %%
-sns.histplot(data=grouped, x="sampling")
-plt.show()
-# %%
-for s in grouped["sub"].unique():
-    # Set up the FacetGrid
-    facet_grid = sns.FacetGrid(
-        data=grouped[grouped["sub"] == s], col="proba", col_wrap=3, height=8, aspect=1.5
-    )
-
-    facet_grid.add_legend()
-    # Create pointplots for each sub
-    facet_grid.map_dataframe(
-        sns.barplot,
-        x="sampling",
-        y="percentage",
-    )
-    # Set titles for each subplot
-    for ax, p in zip(facet_grid.axes.flat, np.sort(df.proba.unique())):
-        ax.set_title(f"Sampling Bias p={p} : P(C(t+1)|C(t))")
-    # Adjust spacing between subplots
-    facet_grid.fig.subplots_adjust(
-        wspace=0.2, hspace=0.2
-    )  # Adjust wspace and hspace as needed
-
-    # Show the plot
-    plt.show()
-
-# %%
-
-
 # Define transition counts for previous state = green
 green_transitions = (
     df[df["color_prev"] == "green"]
@@ -1118,11 +1106,14 @@ green_transitions = (
 green_transitions["total"] = green_transitions.groupby(["sub", "proba"])[
     "count"
 ].transform("sum")
+
 green_transitions["conditional_prob"] = (
     green_transitions["count"] / green_transitions["total"]
 )
+
 green_transitions = green_transitions.rename(columns={"color": "current_state"})
 green_transitions["previous_state"] = "green"
+
 
 # Define transition counts for previous state = red
 red_transitions = (
@@ -1179,7 +1170,7 @@ for s in conditional_probabilities["sub"].unique():
     plt.subplots_adjust(top=0.85)  # Increases space above subplots
 
     # Add a main title for the entire figure
-    facet_grid.fig.suptitle(f"Subject {s}", fontsize=16, y=0.98)
+    facet_grid.figure.suptitle(f"Subject {s}", fontsize=16, y=0.98)
 
     # Set titles for each subplot
     for ax, p in zip(
@@ -1191,7 +1182,7 @@ for s in conditional_probabilities["sub"].unique():
         # ax.tick_params(axis='x', rotation=45)
 
     # Adjust spacing between subplots
-    facet_grid.fig.subplots_adjust(
+    facet_grid.figure.subplots_adjust(
         wspace=0.2, hspace=0.3  # Slightly increased to provide more vertical space
     )
 
@@ -1350,14 +1341,30 @@ sns.lmplot(
 plt.show()
 
 # %%
-
-# Computing the peristance score based on the transition probabilites
 dd
 # %%
-conditional_probabilities.columns
+# Computing the peristance score based on the transition probabilites
+# One should expect a U shape fit here
+for p in df["proba"].unique():
+    ddp = dd[dd["proba"] == p].copy()
+    sns.regplot(
+        data=ddp,
+        x=ddp[ddp["color"] == "green"]["meanVelo"].values,
+        y=ddp[ddp["color"] == "red"]["meanVelo"].values,
+    )
+    plt.ylabel("adaptation_red", fontsize=20)
+    plt.xlabel("adaptation_green", fontsize=20)
+    plt.title(f"Proba={p}")
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.show()
+# %%
+conditional_probabilities
 # %%
 dd = (
-    conditional_probabilities.groupby(["sub", "transition_state"])["conditional_prob"]
+    conditional_probabilities.groupby(["sub", "transition_state", "proba"])[
+        "conditional_prob"
+    ]
     .mean()
     .reset_index()
 )
@@ -1365,17 +1372,23 @@ dd
 # %%
 dd["sub"].value_counts()
 # %%
-dd["transition_state"].unique()
-# %%
 ts = dd["transition_state"].unique()
 new_rows = []
 for s in dd["sub"].unique():
-    existing_ts = dd[dd["sub"] == s]["transition_state"].unique()
-    for t in ts:
-        if t not in existing_ts:
-            # Add a new row with sub = s and transition_state = t, setting transition_state to 0
-            new_row = {"sub": s, "transition_state": t, "conditional_prob": 0}
-            new_rows.append(new_row)
+    for p in dd[dd["sub"] == s]["proba"].unique():
+        existing_ts = dd[(dd["sub"] == s) & (dd["proba"] == p)][
+            "transition_state"
+        ].unique()
+        for t in ts:
+            if t not in existing_ts:
+                # Add a new row with sub = s and transition_state = t, setting transition_state to 0
+                new_row = {
+                    "sub": s,
+                    "proba": p,
+                    "transition_state": t,
+                    "conditional_prob": 0,
+                }
+                new_rows.append(new_row)
 
 # Concatenate the new rows to the original DataFrame
 dd = pd.concat([dd, pd.DataFrame(new_rows)], ignore_index=True)
@@ -1383,10 +1396,17 @@ dd = pd.concat([dd, pd.DataFrame(new_rows)], ignore_index=True)
 print(dd)
 # %%
 
-dd = dd.groupby(["sub", "transition_state"])["conditional_prob"].mean().reset_index()
+dd = (
+    dd.groupby(["sub", "proba", "transition_state"])["conditional_prob"]
+    .mean()
+    .reset_index()
+)
 dd
 # %%
 dd["transition_state"].unique()
+
+# %%
+dd["sub"].value_counts()
 
 
 # %%
@@ -1403,19 +1423,22 @@ def classify_transition(state):
 dd["transition_type"] = dd["transition_state"].apply(classify_transition)
 dd
 # %%
-
-# Group by 'sub' and calculate the score
-result = (
-    dd.groupby("sub")
-    .apply(
-        lambda x: x[x["transition_type"] == "persistent"]["conditional_prob"].sum()
-        - x[x["transition_type"] == "alternating"]["conditional_prob"].sum()
-    )
-    .reset_index(name="persistence_score")
+adaptation = (
+    dd.groupby(["sub", "transition_type"])["conditional_prob"].mean().reset_index()
 )
-
-print(result)
-
+adaptation
+# %%
+# Group by 'sub' and calculate the score
+result = pd.DataFrame()
+result["sub"] = df["sub"].unique()
+# %%
+result["persistence_score"] = (
+    adaptation[adaptation["transition_type"] == "persistent"]["conditional_prob"].values
+    - adaptation[adaptation["transition_type"] == "alternating"][
+        "conditional_prob"
+    ].values
+)
+result
 # %%
 dd["transition_state"].unique()
 # %%
@@ -1423,22 +1446,36 @@ result["persistence_score_red"] = np.nan
 result["persistence_score_green"] = np.nan
 result
 # %%
+dd
+# %%
+
 for s in dd["sub"].unique():
-    red_red_prob = dd[(dd["sub"] == s) & (dd["transition_state"] == "('red', 'red')")][
-        "conditional_prob"
-    ].values[0]
-    green_red_prob = dd[
-        (dd["sub"] == s) & (dd["transition_state"] == "('green', 'red')")
-    ]["conditional_prob"].values[0]
+    red_red_prob = np.mean(
+        dd[(dd["sub"] == s) & (dd["transition_state"] == "('red', 'red')")][
+            "conditional_prob"
+        ]
+    )
+    green_red_prob = np.mean(
+        dd[(dd["sub"] == s) & (dd["transition_state"] == "('green', 'red')")][
+            "conditional_prob"
+        ]
+    )
+
     result.loc[result["sub"] == s, "persistence_score_red"] = (
         red_red_prob - green_red_prob
     )
-    green_green_prob = dd[
-        (dd["sub"] == s) & (dd["transition_state"] == "('green', 'green')")
-    ]["conditional_prob"].values[0]
-    red_green_prob = dd[
-        (dd["sub"] == s) & (dd["transition_state"] == "('red', 'green')")
-    ]["conditional_prob"].values[0]
+
+    green_green_prob = np.mean(
+        dd[(dd["sub"] == s) & (dd["transition_state"] == "('green', 'green')")][
+            "conditional_prob"
+        ]
+    )
+
+    red_green_prob = np.mean(
+        dd[(dd["sub"] == s) & (dd["transition_state"] == "('red', 'green')")][
+            "conditional_prob"
+        ]
+    )
     result.loc[result["sub"] == s, "persistence_score_green"] = (
         green_green_prob - red_green_prob
     )
@@ -1454,7 +1491,9 @@ pivot_table = mean_velo.pivot_table(
 ).reset_index()
 
 # Calculate the adaptation
-pivot_table["adaptation"] = np.abs(pivot_table[75] - pivot_table[25])
+pivot_table["adaptation"] = (
+    np.abs(pivot_table[75] + pivot_table[25] - 2 * pivot_table[50]) / 2
+)
 # %%
 print(pivot_table)
 # %%
@@ -1463,8 +1502,6 @@ print(pivot_table)
 adaptation = pivot_table[["sub", "color", "adaptation"]]
 
 print(adaptation)
-# %%
-adaptation.groupby("sub")["adaptation"].mean().values
 # %%
 
 result["adaptation"] = adaptation.groupby("sub")["adaptation"].mean().values
@@ -1476,18 +1513,19 @@ result["adaptation_red"] = adaptation[adaptation["color"] == "red"]["adaptation"
 result = pd.DataFrame(result)
 result
 # %%
-sns.lmplot(data=result, x="persistence_score", y="adaptation")
-plt.savefig(pathFig + "/samplingBiasColours.svg")
+sns.lmplot(data=result, x="persistence_score", y="adaptation", height=10)
 plt.ylabel("adaptation", fontsize=20)
 plt.xlabel("persistence_score", fontsize=20)
 plt.xticks(fontsize=15)
 plt.yticks(fontsize=15)
+plt.savefig(pathFig + "/samplingBiasColours.svg")
 plt.show()
 # %%
 sns.lmplot(
     data=result,
     x="persistence_score_green",
     y="adaptation_green",
+    height=10,
     scatter_kws={"color": "seagreen"},
     line_kws={"color": "seagreen"},
 )
@@ -1495,12 +1533,15 @@ plt.ylabel("adaptation_green", fontsize=20)
 plt.xlabel("persistence_score", fontsize=20)
 plt.xticks(fontsize=15)
 plt.yticks(fontsize=15)
+plt.savefig(pathFig + "/samplingBiasGreen.svg")
 plt.show()
 # %%
+
 sns.lmplot(
     data=result,
     x="persistence_score_red",
     y="adaptation_red",
+    height=10,
     scatter_kws={"color": "salmon"},
     line_kws={"color": "salmon"},
 )
@@ -1511,16 +1552,24 @@ plt.yticks(fontsize=15)
 plt.savefig(pathFig + "/samplingBiasRed.svg")
 plt.show()
 # %%
-sns.lmplot(
-    data=result, x="adaptation_green", y="adaptation_red", palette=redColorsPalette
+sns.lmplot(data=result, x="adaptation_green", y="adaptation_red")
+plt.show()
+# %%
+sns.scatterplot(
+    data=result,
+    x="adaptation_green",
+    y="adaptation_red",
+    hue="sub",
+    s=100,
+    palette="tab20",
 )
 plt.show()
 # %%
+
 sns.lmplot(
     data=result,
     x="persistence_score_green",
     y="persistence_score_red",
-    palette=redColorsPalette,
 )
 plt.show()
 
@@ -1531,7 +1580,7 @@ correlation, p_value = spearmanr(
     result["adaptation"],
 )
 print(
-    f"Spearman's correlation for the adaptation score): {correlation}, p-value: {p_value}"
+    f"Spearman's correlation for the adaptation score: {correlation}, p-value: {p_value}"
 )
 
 # %%
@@ -1540,7 +1589,7 @@ correlation, p_value = spearmanr(
     result["adaptation_green"],
 )
 print(
-    f"Spearman's correlation for the adaptation score for Green): {correlation}, p-value: {p_value}"
+    f"Spearman's correlation for the adaptation score for Green: {correlation}, p-value: {p_value}"
 )
 
 # %%
@@ -1549,7 +1598,7 @@ correlation, p_value = spearmanr(
     result["adaptation_red"],
 )
 print(
-    f"Spearman's correlation for the adaptation score for Red): {correlation}, p-value: {p_value}"
+    f"Spearman's correlation for the adaptation score for Red: {correlation}, p-value: {p_value}"
 )
 
 # %%
@@ -1563,6 +1612,15 @@ print(
 
 # %%
 
+correlation, p_value = spearmanr(
+    result["persistence_score_red"],
+    result["persistence_score_green"],
+)
+print(
+    f"Spearman's correlation for the adaptation score for Red): {correlation}, p-value: {p_value}"
+)
+
+# %%
 model = sm.OLS.from_formula("adaptation_red~ persistence_score_red ", result).fit()
 
 print(model.summary())
@@ -1570,3 +1628,302 @@ print(model.summary())
 model = sm.OLS.from_formula("adaptation_green~ persistence_score_green ", result).fit()
 
 print(model.summary())
+# %%
+
+model = sm.OLS.from_formula("adaptation_red~ adaptation_green ", result).fit()
+
+print(model.summary())
+# %%
+df.columns
+# %%
+df.groupby(["sub", "proba", "color", "trial_color_UP", "TD_prev"])[
+    "meanVelo"
+].mean().reset_index()
+# %%
+# Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
+mean_velo = df.groupby(["sub", "proba", "color"])["meanVelo"].mean().reset_index()
+
+# Pivot the table to have 'proba' as columns
+pivot_table = mean_velo.pivot_table(
+    index=["sub", "proba"], columns="color", values="meanVelo"
+).reset_index()
+
+# Calculate the adaptation
+pivot_table["adaptation"] = (
+    np.abs(pivot_table["green"]) + np.abs(pivot_table["red"])
+) / 2
+
+print(pivot_table)
+# %%
+sns.scatterplot(
+    data=pivot_table, x="red", y="green", hue="proba", palette="viridis", s=50
+)
+plt.axhline(y=0, color="k", linestyle="--")  # Horizontal line at y=0
+plt.axvline(x=0, color="k", linestyle="--")  # Vertical line at x=0
+plt.show()
+# %%
+sns.boxplot(
+    data=pivot_table,
+    x="proba",
+    y="adaptation",
+)
+plt.show()
+# %%
+sns.boxplot(
+    data=pivot_table,
+    x="proba",
+    y="green",
+)
+plt.show()
+# %%
+sns.boxplot(
+    data=pivot_table,
+    x="proba",
+    y="green",
+)
+plt.show()
+# %%
+# Create the plot with connected dots for each participant
+plt.figure(figsize=(8, 6))
+sns.scatterplot(
+    data=pivot_table,
+    x="red",
+    y="green",
+    hue="proba",
+    palette="viridis",
+    style="proba",
+    markers=["o", "s", "D"],
+)
+# Connect dots for each participant
+for sub in pivot_table["sub"].unique():
+    subset = pivot_table[pivot_table["sub"] == sub]
+    plt.plot(subset["red"], subset["green"], color="gray", alpha=0.5, linestyle="--")
+# Add plot formatting
+plt.axhline(0, color="black", linestyle="--")
+plt.axvline(0, color="black", linestyle="--")
+plt.title(f"Participants adaptaion across probabilites")
+plt.xlabel("red")
+plt.ylabel("green")
+plt.ylim(-2.5, 2.5)
+plt.xlim(-2.5, 2.5)
+plt.legend(title="proba")
+plt.tight_layout()
+plt.show()
+plt.show()
+# %%
+# Connect dots for each participant
+for sub in pivot_table["sub"].unique():
+    subset = pivot_table[pivot_table["sub"] == sub]
+    plt.plot(subset["red"], subset["green"], color="gray", alpha=0.5, linestyle="--")
+    sns.scatterplot(
+        data=pivot_table[pivot_table["sub"] == sub],
+        x="red",
+        y="green",
+        hue="proba",
+        palette="viridis",
+        style="proba",
+        markers=["o", "s", "D"],
+    )
+    # Add plot formatting
+    plt.axhline(0, color="black", linestyle="--")
+    plt.axvline(0, color="black", linestyle="--")
+    plt.title(f"Participant:{sub}")
+    plt.xlabel("red")
+    plt.ylabel("green")
+    plt.legend(title="proba")
+    plt.tight_layout()
+    plt.show()
+# %%
+# Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
+mean_velo = df.groupby(["sub", "proba", "interaction"])["meanVelo"].mean().reset_index()
+print(mean_velo)
+mean_velo["interaction"] = mean_velo["interaction"].astype("str")
+# %%
+# Pivot the table to have 'proba' as columns
+pivot_table = mean_velo.pivot_table(
+    index=["sub", "proba"], columns="interaction", values="meanVelo"
+).reset_index()
+
+# Calculate the adaptation
+# pivot_table["adaptation"] = (
+#     np.abs(pivot_table["green"]) + np.abs(pivot_table["red"])
+# ) / 2
+
+print(pivot_table)
+pivot_table = pd.DataFrame(pivot_table)
+pivot_table.columns
+# %%
+pivot_table.columns[2]
+# %%
+# pivot_table.rename(
+#     columns={
+#         ('left', 'green'): "left_green",
+#         ('left', 'red'): "left_red",
+#         ('right', 'green'): "right_green",
+#         ('right', 'red'): "right_red",
+#     },
+#     inplace=True,
+# )
+#
+# pivot_table.columns
+# %%
+sns.scatterplot(
+    data=pivot_table, x="('right', 'red')", y="('right', 'green')", hue="proba"
+)
+# Or alternatively
+plt.axhline(y=0, color="k", linestyle="--")  # Horizontal line at y=0
+plt.axvline(x=0, color="k", linestyle="--")  # Vertical line at x=0
+plt.xlim(-2.5, 2.5)
+plt.ylim(-2.5, 2.5)
+plt.show()
+# a %%
+sns.pointplot(
+    data=pivot_table,
+    x="proba",
+    y="adaptation",
+)
+plt.show()
+
+# %%
+sns.scatterplot(
+    data=pivot_table, x="('left', 'red')", y="('left', 'green')", hue="proba"
+)
+# Or alternatively
+plt.axhline(y=0, color="k", linestyle="--")  # Horizontal line at y=0
+plt.axvline(x=0, color="k", linestyle="--")  # Vertical line at x=0
+plt.xlim(-2.5, 2.5)
+plt.ylim(-2.5, 2.5)
+plt.show()
+# a %%
+sns.pointplot(
+    data=pivot_table,
+    x="proba",
+    y="adaptation",
+)
+plt.show()
+
+# %%
+# Looking at the interaction between the position and the choice of the color
+
+plt.hist(
+    df.groupby(["sub", "proba", "color", "trial_color_UP"])["meanVelo"]
+    .count()
+    .reset_index(name="count")["count"]
+)
+plt.show()
+# %%
+df_inter = (
+    df.groupby(["sub", "proba", "color", "trial_color_UP", "TD_prev"])["meanVelo"]
+    .mean()
+    .reset_index()
+)
+
+# %%
+df_inter["interaction"] = list(zip(df_inter["color"], df_inter["trial_color_UP"]))
+df_inter["interaction"] = df_inter["interaction"].astype("str")
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interaction",
+    palette=greenColorsPalette,
+    data=df_inter[df_inter.color == "green"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interaction",
+    palette=redColorsPalette,
+    data=df_inter[df_inter.color == "red"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: RED", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+
+# %%
+
+df["interColPos"] = list(zip(df["color"], df["trial_color_UP"]))
+df["interColPos"] = df["interColPos"].astype("str")
+
+# %%
+
+for s in df["sub"].unique():
+    dfs = df[df["sub"] == s]
+    sns.histplot(data=dfs, x="interColPos")
+    plt.show()
+
+
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interColPos",
+    palette=greenColorsPalette,
+    data=df[df.color == "green"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+# %%
+for s in df["sub"].unique():
+    dfs = df[df["sub"] == s]
+    sns.histplot(data=dfs, x="interColPos")
+    plt.show()
+
+
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interColPos",
+    palette=redColorsPalette,
+    data=df[df.color == "red"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+# %%
