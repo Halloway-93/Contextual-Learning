@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 def detect_saccades(
-    data, mono=True, velocity_threshold=20, min_duration_ms=10, min_amplitude=3
+    data, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=1000
 ):
     """
     Detect saccades using Butterworth-filtered velocity and fixed threshold
@@ -166,11 +166,12 @@ def detect_saccades(
             # Position change during saccade
             x_displacement = xPos[end] - xPos[start]
             y_displacement = yPos[end] - yPos[start]
-            amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
+            # amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
 
+            acceleration=np.sqrt((xAcc[end]-xAcc[start])**2 + (yAcc[end]-yAcc[start])**2)
             # Only include if amplitude is significant
-            if amplitude < min_amplitude:
-                print(f"Rejecting saccade: amplitude {amplitude:.1f} pixels too small")
+            if acceleration < min_acc:
+                print(f"Rejecting saccade: acceleration {amplitude:.1f} accel too low")
                 continue
 
             valid_saccades += 1
@@ -212,7 +213,7 @@ condFiltered = filtered_df[
 condFiltered
 # %%
 saccades = detect_saccades(
-    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
+    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=200
 )
 # %%
 saccades
@@ -255,8 +256,8 @@ for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
     cond = filtered_df[
         (filtered_df["sub"] == 3)
         & (filtered_df["proba"] == proba)
-        & (filtered_df["time"] >= -200)
-        & (filtered_df["time"] <= 600)
+        # & (filtered_df["time"] >= -200)
+        # & (filtered_df["time"] <= 600)
     ]
     saccades = detect_saccades(
         cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5

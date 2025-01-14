@@ -7,8 +7,7 @@ import os
 
 
 def detect_saccades_no_plot(
-    data, mono=True, velocity_threshold=20, min_duration_ms=10, min_amplitude=3
-):
+    data, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=200):
     """
     Detect saccades using Butterworth-filtered velocity and fixed threshold (no plotting version)
 
@@ -30,7 +29,7 @@ def detect_saccades_no_plot(
     trials = data.trial.unique()
     saccades = []
 
-    def butter_lowpass(cutoff, fs, order=2):
+    def butter_lowpass(cutoff, fs=1000, order=2):
         """Design Butterworth lowpass filter"""
         nyq = 0.5 * fs
         normal_cutoff = cutoff / nyq
@@ -39,16 +38,14 @@ def detect_saccades_no_plot(
 
     def calculate_velocity(pos, fs=1000):
         """Calculate velocity using central difference and Butterworth filter"""
-        vel = np.zeros_like(pos)
-        vel[1:-1] = (pos[2:] - pos[:-2]) / (2 * sample_window * deg)
+        vel = np.gradient(pos)
         b, a = butter_lowpass(cutoff=30, fs=fs)
         vel_filtered = filtfilt(b, a, vel)
         return vel_filtered
 
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
-        acc = np.zeros_like(vel)
-        acc[1:-1] = (vel[2:] - vel[:-2]) / (2 * sample_window)
+        acc = np.gradient(vel)
         b, a = butter_lowpass(cutoff=30, fs=fs)
         # acc_filtered = filtfilt(b, a, acc)
         return acc
@@ -93,13 +90,12 @@ def detect_saccades_no_plot(
                 continue
 
             peakVelocity = np.max(euclidVel[start:end])
-            mean_acceleration = np.mean(euclidAcc[start:end])
+            acceleration = np.mean(euclidAcc[start:end])
 
-            x_displacement = xPos[end] - xPos[start]
-            y_displacement = yPos[end] - yPos[start]
-            amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
-
-            if amplitude < min_amplitude:
+            # x_displacement = xPos[end] - xPos[start]
+            # y_displacement = yPos[end] - yPos[start]
+            # amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
+            if acceleration < min_acc:
                 continue
 
             start_time = data[data.trial == iTrial].time.values[start]
@@ -127,12 +123,12 @@ def process_subject_probability(df, sub, proba):
     cond = df[
         (df["sub"] == sub)
         & (df["proba"] == proba)
-        & (df["time"] >= -200)
-        & (df["time"] <= 600)
+        # & (df["time"] >= -200)
+        # & (df["time"] <= 600)
     ]
 
     saccades = detect_saccades_no_plot(
-        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
+        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=200)
     )
 
     # Add subject and probability information to the saccades DataFrame

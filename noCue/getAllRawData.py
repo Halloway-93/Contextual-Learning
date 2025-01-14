@@ -554,19 +554,19 @@ def preprocess_data_file(filename, removeSaccades=True):
     t0 = MSG.loc[MSG.text == "StimulusOff", ["trial", "time"]]
     Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
     End = MSG.loc[MSG.text == "TargetOff", ["trial", "time"]]
-
+    print(len(MSG[MSG.text=="TargetOn"]))
     # Reset time based on 'Zero' time
     for t in Zero.trial.unique():
         df.loc[df["trial"] == t, "time"] = (
             df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
         )
-    tON.loc[:, "time"] = tON.time.values - Zero.time.values
-    t0.loc[:, "time"] = t0.time.values - Zero.time.values
-    End.loc[:, "time"] = End.time.values - Zero.time.values
-
-    print("StimulusOn:", tON)
-    print("StimulusOff:", t0)
-    print("End:", End)
+    # tON.loc[:, "time"] = tON.time.values - Zero.time.values
+    # t0.loc[:, "time"] = t0.time.values - Zero.time.values
+    # End.loc[:, "time"] = End.time.values - Zero.time.values
+    #
+    # print("StimulusOn:", tON)
+    # print("StimulusOff:", t0)
+    # print("End:", End)
 
     # Extract the blinks
     blinks = data["blinks"]
@@ -574,9 +574,13 @@ def preprocess_data_file(filename, removeSaccades=True):
 
     # Reset blinks time
     for t in blinks["trial"].unique():
+        print('Trial id:',t)
+        print("TargetOn:", Zero.loc[Zero.trial == t, "time"].values)
+            
         blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
             blinks.loc[blinks.trial == t, ["stime", "etime"]].values
             - Zero.loc[Zero.trial == t, "time"].values
+
         )
     # Preocessing the blinks.
     for t in blinks["trial"].unique():
