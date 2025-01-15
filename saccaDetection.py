@@ -4,9 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-# %%
-
-
 def detect_saccades(
     data, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=1000
 ):
@@ -38,7 +35,39 @@ def detect_saccades(
         sos = butter(order, normal_cutoff, output="sos")
         return sos
 
-    def calculate_velocity(pos, fs=1000):
+    def filter_pos(pos, fs=1000, cutoff=30):
+
+        # First interpolate across NaN values
+        valid_indices = ~np.isnan(pos)
+
+        # Get all indices
+        all_indices = np.arange(len(pos))
+
+        # Interpolate only if we have some valid data
+        if np.any(valid_indices):
+            # Use linear interpolation
+            interpolated_data = np.interp(
+                all_indices, all_indices[valid_indices], pos[valid_indices]
+            )
+
+            # Apply butterworth filter
+            nyquist = fs * 0.5
+            normalized_cutoff = cutoff / nyquist
+            sos = butter(2, normalized_cutoff, btype="low", output="sos")
+
+            # Apply filter
+            filtered_data = sosfiltfilt(sos, interpolated_data)
+
+            # Put NaN values back in their original positions
+            # This is important if you want to exclude these periods from analysis
+            final_data = filtered_data.copy()
+            final_data[~valid_indices] = np.nan
+
+            return final_data
+        else:
+            return np.full_like(pos, np.nan)
+
+    def calculate_velocity(pos):
         """
         Calculate velocity using central difference and Butterworth filter
 
@@ -54,19 +83,19 @@ def detect_saccades(
 
         # Design and apply Butterworth filter
         # Cutoff frequency of 50 Hz is typical for eye movement data
-        sos = butter_lowpass(cutoff=50, fs=fs)
-        vel_filtered = sosfiltfilt(sos, vel)
+        # sos = butter_lowpass(cutoff=30, fs=fs)
+        # vel_filtered = sosfiltfilt(sos, vel)
 
-        return vel_filtered
+        return vel / (sample_window * deg)
 
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
         acc = np.gradient(vel)
         # Apply same Butterworth filter to acceleration
-        sos = butter_lowpass(cutoff=50, fs=fs)
-        acc_filtered = sosfiltfilt(sos, acc)
-
-        return acc_filtered
+        sos = butter_lowpass(cutoff=30, fs=fs)
+        # acc_filtered = sosfiltfilt(sos, acc)
+        return acc * fs
+        # return acc_filtered
 
     def detect_saccade_onset(velocity, acceleration):
         """
@@ -121,12 +150,15 @@ def detect_saccades(
         else:
             xPos = data[data.trial == iTrial].xpr.values
             yPos = data[data.trial == iTrial].ypr.values
-
+        xPosf = filter_pos(xPos)
+        yPosf = filter_pos(yPos)
         # Calculate velocities using Butterworth filter
-        xVel = calculate_velocity(xPos)
-        yVel = calculate_velocity(yPos)
-        euclidVel = np.sqrt(xVel**2 + yVel**2)
+        xVel = calculate_velocity(xPosf)
+        yVel = calculate_velocity(yPosf)
 
+        euclidVel = np.where(
+            np.isnan(xVel**2 + yVel**2), np.nan, np.sqrt(xVel**2 + yVel**2)
+        )
         # Calculate accelerations
         xAcc = calculate_acceleration(xVel)
         yAcc = calculate_acceleration(yVel)
@@ -161,17 +193,19 @@ def detect_saccades(
 
             # Calculate saccade properties
             peakVelocity = np.max(euclidVel[start:end])
-            mean_acceleration = np.mean(euclidAcc[start:end])
+            acceleration = np.mean(euclidAcc[start:end])
 
             # Position change during saccade
             x_displacement = xPos[end] - xPos[start]
             y_displacement = yPos[end] - yPos[start]
-            # amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
+            amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
 
-            acceleration=np.sqrt((xAcc[end]-xAcc[start])**2 + (yAcc[end]-yAcc[start])**2)
-            # Only include if amplitude is significant
+            # acceleration=np.sqrt((xAcc[end]-xAcc[start])**2 + (yAcc[end]-yAcc[start])**2)
+            # Only include if acceleration is significant
             if acceleration < min_acc:
-                print(f"Rejecting saccade: acceleration {amplitude:.1f} accel too low")
+                print(
+                    f"Rejecting saccade: acceleration {amplitude:.1f} acceleration too low"
+                )
                 continue
 
             valid_saccades += 1
@@ -184,9 +218,9 @@ def detect_saccades(
                     "start": start_time,
                     "end": end_time,
                     "duration": end_time - start_time,
-                    "amplitude": amplitude,
+                    "acceleration": acceleration,
                     "peak_velocity": peakVelocity,
-                    "mean_acceleration": mean_acceleration,
+                    "amplitude": amplitude,
                     "x_displacement": x_displacement,
                     "y_displacement": y_displacement,
                 }
@@ -208,12 +242,12 @@ filtered_df = pd.read_csv(
 condFiltered = filtered_df[
     (filtered_df["sub"] == 2)
     & (filtered_df["proba"] == 0.75)
-    & (filtered_df["trial"] == 50)
+    & (filtered_df["trial"] == 200)
 ]
 condFiltered
 # %%
 saccades = detect_saccades(
-    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=200
+    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=5000
 )
 # %%
 saccades
@@ -260,7 +294,7 @@ for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
         # & (filtered_df["time"] <= 600)
     ]
     saccades = detect_saccades(
-        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_amplitude=5
+        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=5
     )
     for t in cond.trial.unique():
         saccTrial = saccades[saccades["trial"] == t]

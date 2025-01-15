@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, sosfiltfilt
 import pandas as pd
 from joblib import Parallel, delayed
 import time
@@ -7,9 +7,10 @@ import os
 
 
 def detect_saccades_no_plot(
-    data, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=200):
+    data, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=1000
+):
     """
-    Detect saccades using Butterworth-filtered velocity and fixed threshold (no plotting version)
+    Detect saccades using Butterworth-filtered velocity and fixed threshold
 
     Parameters:
     -----------
@@ -29,15 +30,57 @@ def detect_saccades_no_plot(
     trials = data.trial.unique()
     saccades = []
 
-    def butter_lowpass(cutoff, fs=1000, order=2):
+    def butter_lowpass(cutoff, fs, order=2):
         """Design Butterworth lowpass filter"""
         nyq = 0.5 * fs
         normal_cutoff = cutoff / nyq
-        b, a = butter(order, normal_cutoff, btype="low", analog=False)
-        return b, a
+        sos = butter(order, normal_cutoff, output="sos")
+        return sos
 
-    def calculate_velocity(pos, fs=1000):
-        """Calculate velocity using central difference and Butterworth filter"""
+    def filter_pos(pos, fs=1000, cutoff=30):
+
+        # First interpolate across NaN values
+        valid_indices = ~np.isnan(pos)
+
+        # Get all indices
+        all_indices = np.arange(len(pos))
+
+        # Interpolate only if we have some valid data
+        if np.any(valid_indices):
+            # Use linear interpolation
+            interpolated_data = np.interp(
+                all_indices, all_indices[valid_indices], pos[valid_indices]
+            )
+
+            # Apply butterworth filter
+            nyquist = fs * 0.5
+            normalized_cutoff = cutoff / nyquist
+            sos = butter(2, normalized_cutoff, btype="low", output="sos")
+
+            # Apply filter
+            filtered_data = sosfiltfilt(sos, interpolated_data)
+
+            # Put NaN values back in their original positions
+            # This is important if you want to exclude these periods from analysis
+            final_data = filtered_data.copy()
+            final_data[~valid_indices] = np.nan
+
+            return final_data
+        else:
+            return np.full_like(pos, np.nan)
+
+    def calculate_velocity(pos):
+        """
+        Calculate velocity using central difference and Butterworth filter
+
+        Parameters:
+        -----------
+        pos : array
+            Position data
+        fs : float
+            Sampling frequency in Hz
+        """
+        # Calculate raw velocity using central difference
         vel = np.gradient(pos)
         # b, a = butter_lowpass(cutoff=30, fs=fs)
         # vel_filtered = filtfilt(b, a, vel)
@@ -52,44 +95,66 @@ def detect_saccades_no_plot(
         return acc/(sample_window)
 
     def detect_saccade_onset(velocity):
-        """Detect saccade onset using fixed velocity threshold"""
+        """
+        Detect saccade onset using fixed velocity threshold
+        Returns indices where saccades likely begin and end
+        """
+        # Find potential saccade points using fixed threshold
         candidates = velocity > velocity_threshold
+
+        # Group consecutive True values
         changes = np.diff(candidates.astype(int))
         starts = np.where(changes == 1)[0] + 1
         ends = np.where(changes == -1)[0] + 1
 
+        # Ensure we have paired starts and ends
         if len(starts) == 0 or len(ends) == 0:
+            print("No saccades detected in this trial")
             return [], []
         if starts[0] > ends[0]:
             ends = ends[1:]
         if len(starts) > len(ends):
             starts = starts[:-1]
 
+        print(f"Found {len(starts)} potential saccades")
         return starts, ends
 
     for iTrial in trials:
+        print(f"\nProcessing trial {iTrial}")
+
+        # Get position data
         if mono:
             xPos = data[data.trial == iTrial].xp.values
             yPos = data[data.trial == iTrial].yp.values
         else:
             xPos = data[data.trial == iTrial].xpr.values
             yPos = data[data.trial == iTrial].ypr.values
+        xPosf = filter_pos(xPos)
+        yPosf = filter_pos(yPos)
+        # Calculate velocities using Butterworth filter
+        xVel = calculate_velocity(xPosf)
+        yVel = calculate_velocity(yPosf)
 
-        xVel = calculate_velocity(xPos)
-        yVel = calculate_velocity(yPos)
-        euclidVel = np.sqrt(xVel**2 + yVel**2)
-
+        euclidVel = np.where(
+            np.isnan(xVel**2 + yVel**2), np.nan, np.sqrt(xVel**2 + yVel**2)
+        )
+        # Calculate accelerations
         xAcc = calculate_acceleration(xVel)
         yAcc = calculate_acceleration(yVel)
         euclidAcc = np.sqrt(xAcc**2 + yAcc**2)
 
+        # Detect saccades using fixed threshold
         starts, ends = detect_saccade_onset(euclidVel)
 
+        # Process detected saccades
+        valid_saccades = 0
         for start, end in zip(starts, ends):
+            # Minimum duration check
             duration_ms = (end - start) * sample_window * 1000
             if duration_ms < min_duration_ms:
                 continue
 
+            # Calculate saccade properties
             peakVelocity = np.max(euclidVel[start:end])
             acceleration = np.mean(euclidAcc[start:end])
             print("acceleration is ",acceleration)
@@ -99,6 +164,7 @@ def detect_saccades_no_plot(
             if acceleration < min_acc:
                 continue
 
+            valid_saccades += 1
             start_time = data[data.trial == iTrial].time.values[start]
             end_time = data[data.trial == iTrial].time.values[end]
 
@@ -108,7 +174,7 @@ def detect_saccades_no_plot(
                     "start": start_time,
                     "end": end_time,
                     "duration": end_time - start_time,
-                    "amplitude": amplitude,
+                    "acceleration": acceleration,
                     "peak_velocity": peakVelocity,
                     "mean_acceleration": acceleration,
                     "x_displacement": x_displacement,
@@ -116,7 +182,8 @@ def detect_saccades_no_plot(
                 }
             )
 
-    return pd.DataFrame(saccades)
+    saccades_df = pd.DataFrame(saccades)
+    return saccades_df
 
 
 def process_subject_probability(df, sub, proba):
