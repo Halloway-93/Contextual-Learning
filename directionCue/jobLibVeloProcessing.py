@@ -97,7 +97,7 @@ def detect_saccades(
         Calculate velocity using central difference and Butterworth filter
 
         Parameters:
-        -----------
+        -----------jobl
         pos : array
             Position data
         fs : float
@@ -821,7 +821,7 @@ def processAllRawData(path, fileName, newFileName, fixOff=-200, endOftrial=600):
     df = pd.read_csv(os.path.join(path, fileName))
 
     # Getting the region of interest
-    df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
+    # df = df[(df.time >= fixOff) & (df.time <= endOftrial)]
     if "cr.info" in df.columns:
         df.drop(columns=["cr.info"], inplace=True)
 

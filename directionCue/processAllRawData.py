@@ -450,8 +450,6 @@ def process_raw_data(data):
 
     # Extract messages from eyelink
     MSG = data["msg"]
-    # tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
-    # t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
     Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
     # Reset time based on 'Zero' time
     for t in Zero.trial.unique():
