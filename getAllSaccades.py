@@ -176,7 +176,7 @@ def detect_saccades_no_plot(
                     "duration": end_time - start_time,
                     "acceleration": acceleration,
                     "peak_velocity": peakVelocity,
-                    "mean_acceleration": acceleration,
+                    "amplitude": amplitude,
                     "x_displacement": x_displacement,
                     "y_displacement": y_displacement,
                 }
@@ -188,12 +188,7 @@ def detect_saccades_no_plot(
 
 def process_subject_probability(df, sub, proba):
     """Process a single subject-probability combination"""
-    cond = df[
-        (df["sub"] == sub)
-        & (df["proba"] == proba)
-        # & (df["time"] >= -200)
-        # & (df["time"] <= 600)
-    ]
+    cond = df[(df["sub"] == sub) & (df["proba"] == proba)]
 
     saccades = detect_saccades_no_plot(
         cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=200
