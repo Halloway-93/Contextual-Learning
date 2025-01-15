@@ -92,12 +92,12 @@ def detect_saccades(
         """Calculate acceleration using Butterworth-filtered derivative"""
         acc = np.gradient(vel)
         # Apply same Butterworth filter to acceleration
-        sos = butter_lowpass(cutoff=30, fs=fs)
+        # sos = butter_lowpass(cutoff=30, fs=fs)
         # acc_filtered = sosfiltfilt(sos, acc)
         return acc * fs
         # return acc_filtered
 
-    def detect_saccade_onset(velocity, acceleration):
+    def detect_saccade_onset(velocity):
         """
         Detect saccade onset using fixed velocity threshold
         Returns indices where saccades likely begin and end
@@ -180,7 +180,7 @@ def detect_saccades(
         plt.show()
 
         # Detect saccades using fixed threshold
-        starts, ends = detect_saccade_onset(euclidVel, euclidAcc)
+        starts, ends = detect_saccade_onset(euclidVel)
 
         # Process detected saccades
         valid_saccades = 0
@@ -236,21 +236,27 @@ def detect_saccades(
 # %%
 
 filtered_df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/JobLibProcessing.csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allRawData.csv"
 )
+# %%
+messages = pd.read_csv(
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/allMessages.csv"
+)
+# %%
+messages
 # %%
 condFiltered = filtered_df[
-    (filtered_df["sub"] == 2)
-    & (filtered_df["proba"] == 0.75)
-    & (filtered_df["trial"] == 200)
+    (filtered_df["sub"] == 1)
+    & (filtered_df["proba"] == 0.25)
+    # & (filtered_df["trial"] == 200)
 ]
-condFiltered
+condFiltered.trial.unique()
 # %%
 saccades = detect_saccades(
-    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=5000
+    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=5, min_acc=1000
 )
 # %%
-saccades
+saccades["acceleration"]
 # %%
 starts = saccades["start"]
 ends = saccades["end"]
@@ -294,7 +300,7 @@ for proba in filtered_df[filtered_df["sub"] == 3]["proba"].unique():
         # & (filtered_df["time"] <= 600)
     ]
     saccades = detect_saccades(
-        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=5
+        cond, mono=True, velocity_threshold=20, min_duration_ms=5, min_acc=1000
     )
     for t in cond.trial.unique():
         saccTrial = saccades[saccades["trial"] == t]
