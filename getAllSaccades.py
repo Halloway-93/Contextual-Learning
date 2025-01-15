@@ -39,16 +39,17 @@ def detect_saccades_no_plot(
     def calculate_velocity(pos, fs=1000):
         """Calculate velocity using central difference and Butterworth filter"""
         vel = np.gradient(pos)
-        b, a = butter_lowpass(cutoff=30, fs=fs)
-        vel_filtered = filtfilt(b, a, vel)
-        return vel_filtered
+        # b, a = butter_lowpass(cutoff=30, fs=fs)
+        # vel_filtered = filtfilt(b, a, vel)
+        return vel/(deg*sample_window)
+        # return vel_filtered
 
     def calculate_acceleration(vel, fs=1000):
         """Calculate acceleration using Butterworth-filtered derivative"""
         acc = np.gradient(vel)
-        b, a = butter_lowpass(cutoff=30, fs=fs)
+        # b, a = butter_lowpass(cutoff=30, fs=fs)
         # acc_filtered = filtfilt(b, a, acc)
-        return acc
+        return acc/(sample_window)
 
     def detect_saccade_onset(velocity):
         """Detect saccade onset using fixed velocity threshold"""
@@ -91,10 +92,10 @@ def detect_saccades_no_plot(
 
             peakVelocity = np.max(euclidVel[start:end])
             acceleration = np.mean(euclidAcc[start:end])
-
-            # x_displacement = xPos[end] - xPos[start]
-            # y_displacement = yPos[end] - yPos[start]
-            # amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
+            print("acceleration is ",acceleration)
+            x_displacement = xPos[end] - xPos[start]
+            y_displacement = yPos[end] - yPos[start]
+            amplitude = np.sqrt(x_displacement**2 + y_displacement**2)
             if acceleration < min_acc:
                 continue
 
@@ -109,7 +110,7 @@ def detect_saccades_no_plot(
                     "duration": end_time - start_time,
                     "amplitude": amplitude,
                     "peak_velocity": peakVelocity,
-                    "mean_acceleration": mean_acceleration,
+                    "mean_acceleration": acceleration,
                     "x_displacement": x_displacement,
                     "y_displacement": y_displacement,
                 }
@@ -129,7 +130,7 @@ def process_subject_probability(df, sub, proba):
 
     saccades = detect_saccades_no_plot(
         cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=200)
-    )
+    
 
     # Add subject and probability information to the saccades DataFrame
     saccades["subject"] = sub
