@@ -440,39 +440,56 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
 def getMessages(data):
     """
     Create a new DataFrame from timing events in MSG data.
-
     Parameters:
     MSG (pd.DataFrame): DataFrame containing message/event timing information
-
     Returns:
     pd.DataFrame: New DataFrame with all timing information
     """
-
     # Extract messages from eyelink
     MSG = data["msg"]
-    # Extract all timing events
+
     # Get zero reference time (TargetOnSet)
     zero_time = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]].set_index("trial")
-    timing_data = {
-        "cue_selection_time": MSG.loc[MSG.text == "cue_selection", ["trial", "time"]],
-        "arrow_chosen_time": MSG.loc[MSG.text == "arrow_chosen", ["trial", "time"]],
-        "fixation_onset_time": MSG.loc[MSG.text == "FixOn", ["trial", "time"]],
-        "fixation_offset_time": MSG.loc[MSG.text == "FixOff", ["trial", "time"]],
-        "target_offset_time": MSG.loc[MSG.text == "TargetOffSet", ["trial", "time"]],
+
+    # Define timing events to extract
+    event_types = {
+        "cue_selection_time": "cue_selection",
+        "arrow_chosen_time": "arrow_chosen",
+        "fixation_onset_time": "FixOn",
+        "fixation_offset_time": "FixOff",
+        "target_offset_time": "TargetOffSet",
     }
 
-    # Start with the trial numbers as the base DataFrame
+    # Create base DataFrame with trial numbers
     trials = pd.DataFrame({"trial": MSG["trial"].unique()})
 
-    # Add each timing column, adjusted for zero time
-    for col_name, data in timing_data.items():
-        # Merge timing data
-        trials = trials.merge(data, on="trial", how="left").rename(
-            columns={"time": col_name}
-        )
+    # Debug prints for verification
+    print("Zero time values:")
+    print(zero_time.time.values)
 
-        # Adjust relative to zero time
-        trials[col_name] = trials[col_name] - zero_time["time"]
+    # Process each timing event
+    for col_name, event_text in event_types.items():
+        # Extract timing data for this event
+        event_data = MSG.loc[MSG.text == event_text, ["trial", "time"]]
+
+        # Debug prints for each event
+        print(f"\n{col_name} raw values:")
+        print(event_data["time"].values)
+
+        # Calculate time difference from zero time for debugging
+        event_data_indexed = event_data.set_index("trial")
+        time_diff = event_data_indexed["time"] - zero_time["time"]
+        print(f"\n{col_name} time differences:")
+        print(time_diff.values)
+
+        # Merge with trials DataFrame
+        trials = trials.merge(event_data, on="trial", how="left")
+        trials = trials.rename(columns={"time": col_name})
+
+        # Calculate relative timing
+        trials[col_name] = (
+            trials[col_name] - trials.merge(zero_time, on="trial", how="left")["time"]
+        )
 
     # Calculate reaction time
     trials["reaction_time"] = trials["arrow_chosen_time"] - trials["cue_selection_time"]
