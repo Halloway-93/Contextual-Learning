@@ -437,70 +437,54 @@ def read_asc(fname, samples=True, events=True, parse_all=False):
     return out
 
 
-def process_raw_data(data):
+def getMessages(data):
     """
-    Preprocess the data.
-    Getting rid of the blinks. Cutting 50ms before and after the blinks.
-    """
-    # Extract relevant data from the DataFrame
-    df = data["raw"]
-    mono = data["info"]["mono"]
+    Create a new DataFrame from timing events in MSG data.
 
-    df = df.apply(pd.to_numeric, errors="coerce")
+    Parameters:
+    MSG (pd.DataFrame): DataFrame containing message/event timing information
+
+    Returns:
+    pd.DataFrame: New DataFrame with all timing information
+    """
 
     # Extract messages from eyelink
     MSG = data["msg"]
-    Zero = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]]
-    # Reset time based on 'Zero' time
-    for t in Zero.trial.unique():
-        df.loc[df["trial"] == t, "time"] = (
-            df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
+    # Extract all timing events
+    # Get zero reference time (TargetOnSet)
+    zero_time = MSG.loc[MSG.text == "TargetOnSet", ["trial", "time"]].set_index("trial")
+    timing_data = {
+        "cue_selection_time": MSG.loc[MSG.text == "cue_selection", ["trial", "time"]],
+        "arrow_chosen_time": MSG.loc[MSG.text == "arrow_chosen", ["trial", "time"]],
+        "fixation_onset_time": MSG.loc[MSG.text == "FixOn", ["trial", "time"]],
+        "fixation_offset_time": MSG.loc[MSG.text == "FixOff", ["trial", "time"]],
+        "target_offset_time": MSG.loc[MSG.text == "TargetOffSet", ["trial", "time"]],
+    }
+
+    # Start with the trial numbers as the base DataFrame
+    trials = pd.DataFrame({"trial": MSG["trial"].unique()})
+
+    # Add each timing column, adjusted for zero time
+    for col_name, data in timing_data.items():
+        # Merge timing data
+        trials = trials.merge(data, on="trial", how="left").rename(
+            columns={"time": col_name}
         )
-    # tON.loc[:, "time"] = tON.time.values - Zero.time.values
-    # t0.loc[:, "time"] = t0.time.values - Zero.time.values
 
-    # Extract the blinks
-    blinks = data["blinks"]
-    if len(blinks) > 0:
-        # Reset blinks time
-        for t in blinks["trial"].unique():
-            blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
-                blinks.loc[blinks.trial == t, ["stime", "etime"]].values
-                - Zero.loc[Zero.trial == t, "time"].values
-            )
+        # Adjust relative to zero time
+        trials[col_name] = trials[col_name] - zero_time["time"]
 
-        # Preocessing the blinks.
-        for t in blinks["trial"].unique():
-            start = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "stime"]
-            end = blinks.loc[(blinks.trial == t) & (blinks.eye == "R"), "etime"]
+    # Calculate reaction time
+    trials["reaction_time"] = trials["arrow_chosen_time"] - trials["cue_selection_time"]
 
-            for i in range(len(start)):
-                if not mono:
-                    df.loc[
-                        (df.trial == t)
-                        & (df.time >= start.iloc[i] - 50)
-                        & (df.time <= end.iloc[i] + 50),
-                        "xpr",
-                    ] = np.nan
-                else:
-                    df.loc[
-                        (df.trial == t)
-                        & (df.time >= start.iloc[i] - 50)
-                        & (df.time <= end.iloc[i] + 50),
-                        "xp",
-                    ] = np.nan
-
-    return df
-
-
-# Assuming read_asc and process_raw_data are defined elsewhere
+    return trials
 
 
 def read_file(filepath):
     if filepath.suffix == ".asc":
         print(f"Read data from {filepath}")
         data = read_asc(filepath)
-        return process_raw_data(data)
+        return getMessages(data)
     elif filepath.suffix == ".json":
         print(f"Read data from {filepath}")
         with open(filepath, "r") as f:
@@ -517,7 +501,7 @@ def process_metadata(df, metadata):
     return df
 
 
-def process_all_raw_data(data_dir, filename="allRawData.csv"):
+def process_all_messages(data_dir, filename="allMessages.csv"):
     all_raw_data = []
     data_dir_path = Path(data_dir)
 
@@ -526,7 +510,7 @@ def process_all_raw_data(data_dir, filename="allRawData.csv"):
             if filepath.suffix == ".asc":
                 df = read_file(filepath)
                 all_raw_data.append(df)
-            elif filepath.suffix == ".json":
+            elif filepath.suffix == ".json" and filepath.name != "slopes.json":
                 metadata = read_file(filepath)
                 if all_raw_data:
                     all_raw_data[-1] = process_metadata(all_raw_data[-1], metadata)
@@ -535,37 +519,5 @@ def process_all_raw_data(data_dir, filename="allRawData.csv"):
     big_df.to_csv(os.path.join(data_dir, filename), index=False)
 
 
-# Running the code on the server
-dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
-# dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
-process_all_raw_data(dirPath1)
-# Running the code on the server
-dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/"
-# dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_imposeDirection"
-process_all_raw_data(dirPath1)
-# %%
-# data = read_file(
-#     Path(
-#         "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-001/session-01/sub-001_ses-01_proba-25.asc"
-#     )
-# )
-# # %%
-# data = data[(data.trial == 85) & (data.time >= -200)]
-# data
-# # %%
-# import matplotlib.pyplot as plt
-#
-# # %%
-# plt.plot(data.time, data.xp)
-# plt.show()
-# # %%
-# data = read_asc(
-#     "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-001/session-01/sub-001_ses-01_proba-25.asc"
-# )
-# # %%
-# df = data["raw"]
-# df
-# # %%
-# df = df.apply(pd.to_numeric, errors="coerce")
-# # %%
-# df['trial'].unique()
+dirPath1 = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
+process_all_messages(dirPath1)
