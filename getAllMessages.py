@@ -473,14 +473,14 @@ def getMessages(data):
         event_data = MSG.loc[MSG.text == event_text, ["trial", "time"]]
 
         # Debug prints for each event
-        print(f"\n{col_name} raw values:")
-        print(event_data["time"].values)
+        # print(f"\n{col_name} raw values:")
+        # print(event_data["time"].values)
 
         # Calculate time difference from zero time for debugging
-        event_data_indexed = event_data.set_index("trial")
-        time_diff = event_data_indexed["time"] - zero_time["time"]
-        print(f"\n{col_name} time differences:")
-        print(time_diff.values)
+        # event_data_indexed = event_data.set_index("trial")
+        # time_diff = event_data_indexed["time"] - zero_time["time"]
+        # print(f"\n{col_name} time differences:")
+        # print(time_diff.values)
 
         # Merge with trials DataFrame
         trials = trials.merge(event_data, on="trial", how="left")
