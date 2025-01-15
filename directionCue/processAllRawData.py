@@ -456,8 +456,6 @@ def process_raw_data(data):
         df.loc[df["trial"] == t, "time"] = (
             df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
         )
-    # tON.loc[:, "time"] = tON.time.values - Zero.time.values
-    # t0.loc[:, "time"] = t0.time.values - Zero.time.values
 
     # Extract the blinks
     blinks = data["blinks"]

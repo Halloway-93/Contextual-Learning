@@ -24,10 +24,9 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 jlData.columns
 # %%
 
-# %%
 exampleJL = jlData[
-    (jlData["sub"] == 5)
-    & (jlData["proba"] == 1)
+    (jlData["sub"] == 1)
+    & (jlData["proba"] == 0.25)
     & (jlData["trial"] == 193)
     #   & (jlData["time"] <= 100)
 ].copy()
