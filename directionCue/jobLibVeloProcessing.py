@@ -29,7 +29,6 @@ def detect_asp_onset(velocity, threshold=2.0):  # deg/s
 
 
 def detect_saccades(
-
     data, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=1000
 ):
     """

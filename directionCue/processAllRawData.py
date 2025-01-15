@@ -540,34 +540,34 @@ def process_all_raw_data(data_dir, filename="allRawData.csv"):
 # Running the code on the server
 dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection"
 # dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_voluntaryDirection"
-# process_all_raw_data(dirPath1)
+process_all_raw_data(dirPath1)
 # Running the code on the server
-# dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/"
+dirPath1 = "/envau/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/"
 # dirPath1 = "/scratch/houeld/contextuaLearning/directionCue/results_imposeDirection"
-# process_all_raw_data(dirPath1)
+process_all_raw_data(dirPath1)
 # %%
-data = read_file(
-    Path(
-        "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-001/session-01/sub-001_ses-01_proba-25.asc"
-    )
-)
-# %%
-data = data[(data.trial == 85) & (data.time >= -200)]
-data
-# %%
-import matplotlib.pyplot as plt
-
-# %%
-plt.plot(data.time, data.xp)
-plt.show()
-# %%
-data = read_asc(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-001/session-01/sub-001_ses-01_proba-25.asc"
-)
-# %%
-df = data["raw"]
-df
-# %%
-df = df.apply(pd.to_numeric, errors="coerce")
-# %%
-df['trial'].unique()
+# data = read_file(
+#     Path(
+#         "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-001/session-01/sub-001_ses-01_proba-25.asc"
+#     )
+# )
+# # %%
+# data = data[(data.trial == 85) & (data.time >= -200)]
+# data
+# # %%
+# import matplotlib.pyplot as plt
+#
+# # %%
+# plt.plot(data.time, data.xp)
+# plt.show()
+# # %%
+# data = read_asc(
+#     "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_voluntaryDirection/sub-001/session-01/sub-001_ses-01_proba-25.asc"
+# )
+# # %%
+# df = data["raw"]
+# df
+# # %%
+# df = df.apply(pd.to_numeric, errors="coerce")
+# # %%
+# df['trial'].unique()
