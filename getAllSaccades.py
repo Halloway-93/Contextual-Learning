@@ -191,7 +191,7 @@ def process_subject_probability(df, sub, proba):
     cond = df[(df["sub"] == sub) & (df["proba"] == proba)]
 
     saccades = detect_saccades_no_plot(
-        cond, mono=True, velocity_threshold=20, min_duration_ms=3, min_acc=200
+        cond, mono=True, velocity_threshold=20, min_duration_ms=5, min_acc=1000
     )
 
     # Add subject and probability information to the saccades DataFrame
