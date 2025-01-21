@@ -246,9 +246,9 @@ messages = pd.read_csv(
 messages
 # %%
 condFiltered = filtered_df[
-    (filtered_df["sub"] == 1)
+    (filtered_df["sub"] == 3)
     & (filtered_df["proba"] == 0.25)
-    # & (filtered_df["trial"] == 200)
+    & (filtered_df["trial"] == 200)
 ]
 condFiltered.trial.unique()
 # %%
