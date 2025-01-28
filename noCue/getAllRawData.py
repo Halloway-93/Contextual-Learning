@@ -554,7 +554,7 @@ def preprocess_data_file(filename, removeSaccades=True):
     t0 = MSG.loc[MSG.text == "StimulusOff", ["trial", "time"]]
     Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
     End = MSG.loc[MSG.text == "TargetOff", ["trial", "time"]]
-    print(len(MSG[MSG.text=="TargetOn"]))
+    print(len(MSG[MSG.text == "TargetOn"]))
     # Reset time based on 'Zero' time
     for t in Zero.trial.unique():
         df.loc[df["trial"] == t, "time"] = (
@@ -574,13 +574,12 @@ def preprocess_data_file(filename, removeSaccades=True):
 
     # Reset blinks time
     for t in blinks["trial"].unique():
-        print('Trial id:',t)
+        print("Trial id:", t)
         print("TargetOn:", Zero.loc[Zero.trial == t, "time"].values)
-            
+
         blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
             blinks.loc[blinks.trial == t, ["stime", "etime"]].values
             - Zero.loc[Zero.trial == t, "time"].values
-
         )
     # Preocessing the blinks.
     for t in blinks["trial"].unique():
@@ -751,14 +750,18 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
                 # ]
                 if "xp" in df.columns:
                     velo = [
-                        np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
+                        np.gradient(df[df["trial"] == t]["xp"])
+                        * sampling_freq
+                        / degToPix
                         for t in df.trial.unique()
                     ]
 
                 else:
 
                     velo = [
-                        np.gradient(df[df["trial"] == t]["xpr"]) * sampling_freq / degToPix
+                        np.gradient(df[df["trial"] == t]["xpr"])
+                        * sampling_freq
+                        / degToPix
                         for t in df.trial.unique()
                     ]
                 # Concatenate the list of arrays into a single array

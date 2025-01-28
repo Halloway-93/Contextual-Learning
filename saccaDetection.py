@@ -247,13 +247,13 @@ messages
 # %%
 condFiltered = filtered_df[
     (filtered_df["sub"] == 3)
-    & (filtered_df["proba"] == 0.25)
+    # & (filtered_df["proba"] == 0.25)
     & (filtered_df["trial"] == 200)
 ]
-condFiltered.trial.unique()
+condFiltered
 # %%
 saccades = detect_saccades(
-    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=5, min_acc=1000
+    condFiltered, mono=True, velocity_threshold=20, min_duration_ms=10, min_acc=1000
 )
 # %%
 saccades["acceleration"]

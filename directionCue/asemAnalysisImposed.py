@@ -62,7 +62,7 @@ jobLibData = "JobLibProcessing.csv"
 
 
 # %%
-pathFig = "/Users/mango/PhD/Contextual-Learning/directionCue/figures/imposeDirection"
+pathFig = "/Users/mango/Contextual-Learning/directionCue/figures/imposeDirection"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/directionCue/results_imposeDirection/allEvents.csv"
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
@@ -71,7 +71,7 @@ df = pd.read_csv(
 
 # %%
 
-df = df[(df["sub"] != 10) & (df["sub"] != 11)]
+# df = df[(df["sub"] != 10) & (df["sub"] != 11)]
 if "arrow" not in df.columns:
     df["arrow"] = df["chosen_arrow"].values
 print(df)
@@ -802,10 +802,10 @@ print(f"Statistic: {stat}, p-value: {p}")
 # %%
 x = dd["meanVelo"]
 ax = pg.qqplot(x, dist="norm")
-# plt.show()
-# s%%
+plt.show()
+# %%
 sns.histplot(data=df, x="meanVelo", alpha=0.5)
-# plt.show()
+plt.show()
 # %%
 sns.histplot(data=df, x="meanVelo", hue="arrow", bins=20, alpha=0.5)
 # plt.show()
@@ -849,11 +849,11 @@ fig = plt.figure()
 figManager = plt.get_current_fig_manager()
 figManager.full_screen_toggle()
 sns.pointplot(
-    data=dd,
+    data=df,
     x="proba",
     y="meanVelo",
     capsize=0.1,
-    errorbar="se",
+    errorbar="ci",
     hue="arrow",
     hue_order=["down", "up"],
 )
@@ -973,12 +973,12 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="arrow",
-    hue_order=dd["arrow"].unique(),
+    hue_order=df["arrow"].unique(),
     data=df,
     errorbar="ci",
     palette=[downarrowsPalette[1], uparrowsPalette[1]],
 )
-plt.title("Anticipatory Velocity across  probabilites", fontsize=30)
+plt.title("ASEM across 3 different probabilites", fontsize=30)
 plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
@@ -986,7 +986,8 @@ plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
 plt.savefig(pathFig + "/meanVeloarrows.svg")
-# plt.show()
+plt.show()
+# %%
 
 df_prime = df[
     [

@@ -145,7 +145,7 @@ for sub in balance["sub"].unique():
     plt.show()
 # %%
 dd = (
-    df.groupby(["sub", "arrow", "proba"])[["meanVelo", "posOffSet"]]
+    df.groupby(["sub", "arrow", "proba", "TD_prev"])[["meanVelo", "posOffSet"]]
     .mean()
     .reset_index()
 )
@@ -309,7 +309,6 @@ plt.yticks(fontsize=20)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.savefig(pathFig + "/individualsDOWNFullProba.svg")
 plt.show()
-# %%
 
 model = smf.mixedlm(
     "meanVelo~C( arrow )",
@@ -1089,7 +1088,7 @@ sns.pointplot(
     hue="arrow",
     hue_order=["down", "up"],
 )
-_ = plt.title("ASEM across porbabilities", fontsize="30")
+_ = plt.title("ASEM Across 3 Different Probabilities", fontsize="30")
 plt.legend(fontsize=20)
 plt.xlabel("P(Right|UP)", fontsize=30)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
@@ -1210,7 +1209,7 @@ sns.barplot(
     errorbar="ci",
     palette=[downarrowsPalette[1], uparrowsPalette[1]],
 )
-plt.title("Anticipatory Velocity across  probabilites", fontsize=30)
+plt.title("ASEM across 3 different porbabilities", fontsize=30)
 plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)

@@ -14,7 +14,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
 path = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/"
-pathFig = "/Users/mango/PhD/Contextual-Learning/ColorCue/figures/imposedColor/"
+pathFig = "/Users/mango/Contextual-Learning/ColorCue/figures/imposedColor"
 jobLibData = "jobLibProcessingCC.csv"
 allEventsFile = "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/imposedColorData/allEvents.csv"
 
@@ -107,7 +107,7 @@ df[(df["TD_prev"].isna())]
 df = df[~(df["TD_prev"].isna())]
 
 # %%
-df["TD_prev"] = df["TD_prev"].apply(lambda x: "left" if x == -1 else "right")
+df["TD_prev"] = df["TD_prev"].apply(lambda x: "right" if x == 1 else "left")
 # %%
 # df.dropna(subset=["meanVelo"], inplace=True)
 # df = df[(df.meanVelo <= 15) & (df.meanVelo >= -15)]
@@ -116,7 +116,7 @@ df
 colors = ["green", "red"]
 # %%
 dd = (
-    df.groupby(["sub", "color", "proba"])[["meanVelo", "posOffSet"]]
+    df.groupby(["sub", "color", "proba","TD_prev"])[["meanVelo", "posOffSet"]]
     .mean()
     .reset_index()
 )

@@ -1,3 +1,4 @@
+import os
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 import scikit_posthocs as sp
@@ -13,23 +14,75 @@ from statsmodels.formula.api import ols
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
+path = "/Volumes/work/brainets/oueld.h/attentionalTask/data/"
+pathFig = "/Users/mango/PhD/Contextual-Learning/attentionTask/figures/"
+jobLibData = "jobLibProcessingCC.csv"
+allEventsFile = "/Volumes/work/brainets/oueld.h/attentionalTask/data/allEvents.csv"
+
+
+# %%
+jlData = pd.read_csv(os.path.join(path, jobLibData))
+
+# %%
+jlData
+# %%
+exampleJL = jlData[
+    (jlData["sub"] == 4) & (jlData["proba"] == 75) & (jlData["trial"] == 183)
+]
+exampleJL
+# %%
+# Plotting one example
+for t in exampleJL.trial.unique():
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].filtVelo,
+        alpha=0.5,
+    )
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].velo,
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Filtered Velocity in deg/s", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+# %%
+for t in exampleJL.trial.unique():
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].xp,
+        alpha=0.5,
+    )
+    plt.plot(
+        exampleJL[exampleJL["trial"] == t].time,
+        exampleJL[exampleJL["trial"] == t].filtPos,
+        alpha=0.5,
+    )
+    plt.xlabel("Time in ms", fontsize=20)
+    plt.ylabel("Eye Position", fontsize=20)
+    plt.title(f"Filtered Velocity of trial {t} ", fontsize=30)
+    plt.show()
+
+
+# %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
 # %%
 allEventsFile = "/Volumes/work/brainets/oueld.h/attentionalTask/data/allEvents.csv"
-pathFig = "/Volumes/work/brainets/oueld.h/attentionalTask/data/figures/"
+pathFig = "/Users/mango/Contextual-Learning/attentionTask/figures/"
 # %%
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
     "/Volumes/work/brainets/oueld.h/attentionalTask/data/processedResultsWindow(80,120).csv"
 )
 # %%
-badTrials = df[(df["meanVelo"] < -11) | (df["meanVelo"] > 11)]
+badTrials = df[(df["meanVelo"] < -8) | (df["meanVelo"] > 8)]
 badTrials
 # %%
-df[df["sub"] != 13]
+df = df[df["sub"] != 13]
 # %%
-df = df[(df["meanVelo"] <= 11) & (df["meanVelo"] >= -11)]
+df = df[(df["meanVelo"] <= 8) & (df["meanVelo"] >= -8)]
 df["meanVelo"].max()
 # %%
 sns.histplot(data=df, x="meanVelo")
@@ -66,13 +119,6 @@ dd
 # %%
 np.abs(dd.meanVelo.values).max()
 # %%
-# %%
-# df[(df.meanVelo > 15) | (df.meanVelo < -15)]
-# %%
-# Normalizing the data
-# dd["meanVeloNorm"] = (dd["meanVelo"] - dd["meanVelo"].mean()) / dd["meanVelo"].std()
-# %%
-# Statisitcal test
 
 
 # model = sm.OLS.from_formula("meanVelo~ C(proba)*C(color) ", data=dd)
@@ -543,7 +589,7 @@ print(f"D'Agostino's K^2 test p-value: {normaltest_result.pvalue:.4f}")
 model = smf.mixedlm(
     "meanVelo~ C(color)",
     data=df[df.proba == 25],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 25]["sub"],
 ).fit()
 model.summary()
@@ -574,7 +620,7 @@ model.summary()
 model = smf.mixedlm(
     "meanVelo~ C(color)",
     data=df[df.proba == 75],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 75]["sub"],
 ).fit()
 model.summary()
@@ -588,6 +634,7 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="color",
+    hue_order=colors,
     errorbar="ci",
     palette=colors,
     data=df,
@@ -595,9 +642,9 @@ sns.barplot(
 plt.legend(fontsize=20)
 plt.title("ASEM across 3 different probabilites", fontsize=30)
 plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
-plt.xticks(fontsize=20)
-plt.yticks(fontsize=20)
-plt.ylim(-1, 1)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.savefig(pathFig + "/meanVeloColors.svg")
@@ -864,9 +911,11 @@ colorsGreen = list(cmapGreen(np.linspace(0, 1, 4)))
 # %%
 redColorsPalette = ["#e83865", "#cc3131"]
 greenColorsPalette = ["#8cd790", "#285943"]
-colorsPalette = ["#285943", "#cc3131", "#e83865", "#8cd790"]
+colorsPalette = ["#285943", "#cc3131", "#8cd790", "#e83865"]
 # %%
 df_prime["interaction"].unique()
+# %%
+hue_order = [("right", "green"), ("right", "red"), ("left", "green"), ("left", "red")]
 # %%
 # Create a figure and axis
 fig = plt.figure()
@@ -880,7 +929,7 @@ sns.barplot(
     y="posOffSet",
     palette=colorsPalette,
     hue="interaction",
-    hue_order=df_prime["interaction"].unique(),
+    hue_order=hue_order,
     data=df[df.color == "red"],
 )
 plt.legend(fontsize=20)
@@ -903,7 +952,7 @@ sns.barplot(
     y="meanVelo",
     palette=colorsPalette,
     hue="interaction",
-    hue_order=df_prime["interaction"].unique(),
+    hue_order=hue_order,
     data=df_prime[df_prime.color == "red"],
 )
 plt.title(
@@ -951,13 +1000,13 @@ sns.barplot(
     y="meanVelo",
     palette=colorsPalette,
     hue="interaction",
-    hue_order=df_prime["interaction"].unique(),
+    hue_order=hue_order,
     data=df_prime[df_prime.color == "green"],
 )
 plt.legend(fontsize=20)
 plt.xticks(fontsize=20)
 plt.yticks(fontsize=20)
-# plt.ylim(-1, 1)
+plt.ylim(-1, 1)
 plt.title(
     "ASEM:Color Green\n Interaction of Previous Target Direction & Color Chosen",
     fontsize=30,
@@ -975,17 +1024,17 @@ df.dropna(subset=["color_prev"], inplace=True)
 model = smf.mixedlm(
     "meanVelo~  C(color,Treatment('red'))*C(TD_prev)",
     data=df[df.proba == 25],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 25]["sub"],
-).fit(method="lbfgs")
+).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
-    "meanVelo~  C(color,Treatment('red')) * C(interaction)",
+    "meanVelo~  C(color,Treatment('red')) * C(TD_prev)",
     data=df[df.proba == 75],
-    re_formula="~color",
+    # re_formula="~color",
     groups=df[df.proba == 75]["sub"],
-).fit(method="lbfgs")
+).fit()
 model.summary()
 # %%
 model = smf.mixedlm(
@@ -993,7 +1042,7 @@ model = smf.mixedlm(
     data=df[df.proba == 50],
     # re_formula="~color",
     groups=df[df.proba == 50]["sub"],
-).fit(method=["lbfgs"])
+).fit()
 model.summary()
 # %%
 # %%
