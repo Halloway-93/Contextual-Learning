@@ -55,17 +55,17 @@ def main():
     arff_file = args.csv_file.rsplit('.', 1)[0] + '.arff'
 
     # Hardcoded metadata values
-    # width_px = 1920
-    # height_px = 1080
-    # width_mm = 700.00
-    # height_mm = 396.00
-    # distance_mm = 570.00
+    width_px = 1920
+    height_px = 1080
+    width_mm = 700.00
+    height_mm = 396.00
+    distance_mm = 570.00
 
-    width_px = 1024
-    height_px = 768
-    width_mm = 447.0
-    height_mm = 335.00
-    distance_mm = 600.00
+    # width_px = 1024
+    # height_px = 768
+    # width_mm = 447.0
+    # height_mm = 335.00
+    # distance_mm = 600.00
     csv_to_arff(
         args.csv_file,
         arff_file,
