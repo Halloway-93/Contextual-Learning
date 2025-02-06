@@ -116,7 +116,7 @@ df
 colors = ["green", "red"]
 # %%
 dd = (
-    df.groupby(["sub", "color", "proba","TD_prev"])[["meanVelo", "posOffSet"]]
+    df.groupby(["sub", "color", "proba", "TD_prev"])[["meanVelo", "posOffSet"]]
     .mean()
     .reset_index()
 )
@@ -669,14 +669,14 @@ sns.barplot(
     data=df,
 )
 plt.legend(fontsize=20)
-plt.title("ASEM across 3 different probabilites", fontsize=30)
+plt.title("ASEM Across 3 Different Probabilities", fontsize=30)
 plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
-plt.savefig(pathFig + "/meanVeloColors.svg")
+plt.savefig(pathFig + "/meanVeloColors.svg", transparent=True)
 plt.show()
 
 # %%
@@ -799,13 +799,13 @@ sns.barplot(
     data=df[df.color == "red"],
 )
 plt.legend(fontsize=20)
-plt.title("Anticipatory Velocity Given Previous TD: Color Red ", fontsize=30)
+plt.title("ASEM Given Previous TD: Color Red ", fontsize=30)
 plt.xlabel("P(Right|RED)", fontsize=30)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylim(-0.75, 0.75)
-plt.savefig(pathFig + "/meanVeloRedTD.svg")
+plt.savefig(pathFig + "/meanVeloRedTD.svg", transparent=True)
 plt.show()
 # %%
 fig = plt.figure()

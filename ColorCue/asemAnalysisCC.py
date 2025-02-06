@@ -72,7 +72,7 @@ allEventsFile = (
 )
 allEvents = pd.read_csv(allEventsFile)
 df = pd.read_csv(
-    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(80,120).csv"
+    "/Volumes/work/brainets/oueld.h/contextuaLearning/ColorCue/data/processedResultsWindow(-50,50).csv"
 )
 # %%
 badTrials = df[(df["meanVelo"] <= -8) | (df["meanVelo"] >= 8)]
@@ -704,14 +704,14 @@ sns.barplot(
     hue_order=colors,
     data=df,
 )
-plt.title("ASEM across 3 different probabilites", fontsize=30)
+plt.title("ASEM Across 3 Different Probabilities", fontsize=30)
 plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
-plt.savefig(pathFig + "/meanVeloColors.svg")
+plt.savefig(pathFig + "/meanVeloColors.svg", transparent=True)
 plt.show()
 
 # %%
@@ -872,7 +872,7 @@ sns.barplot(
     data=df[df.color == "green"],
 )
 plt.legend(fontsize=20)
-plt.title("Anticipatory Velocity Given Previous TD: Color Green ", fontsize=30)
+plt.title("ASEM Given Previous TD: Color Green ", fontsize=30)
 plt.xlabel("P(Left|GREEN)", fontsize=20)
 plt.ylabel("Position Offset", fontsize=20)
 plt.savefig(pathFig + "/posOffSetGreenTD.png")
@@ -895,7 +895,7 @@ plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylim(-0.75, 0.75)
-plt.savefig(pathFig + "/meanVeloGreen.svg")
+plt.savefig(pathFig + "/meanVeloGreen.svg", transparent=True)
 plt.show()
 # %%
 fig = plt.figure()
@@ -911,13 +911,13 @@ sns.barplot(
     data=df[df.color == "green"],
 )
 plt.legend(fontsize=20)
-plt.title("Anticipatory Velocity Given Previous TD: Color Green ", fontsize=30)
+plt.title("ASEM Given Previous TD: Color Green ", fontsize=30)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.xlabel("P(Left|GREEN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylim(-1, 1)
-plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.savefig(pathFig + "/meanVeloGreenTD.svg", transparent=True)
 plt.show()
 # %%
 df["interaction"] = list(zip(df["TD_prev"], df["color_prev"]))
