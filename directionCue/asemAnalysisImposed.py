@@ -71,7 +71,7 @@ df = pd.read_csv(
 
 # %%
 
-# df = df[(df["sub"] != 10) & (df["sub"] != 11)]
+df = df[(df["sub"] != 10) & (df["sub"] != 11)]
 if "arrow" not in df.columns:
     df["arrow"] = df["chosen_arrow"].values
 print(df)
@@ -104,7 +104,7 @@ df = df[(df["meanVelo"] <= 8) & (df["meanVelo"] >= -8)]
 df[df["meanVelo"] == df["meanVelo"].max()]
 # %%
 sns.histplot(data=df, x="meanVelo")
-# plt.show()
+plt.show()
 # %%
 balance = df.groupby(["arrow", "sub", "proba"])["trial"].count().reset_index()
 balance
@@ -372,8 +372,8 @@ plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 ylim = (-1.5, 1.5)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrowsFullProba.svg")
-# plt.show()
+plt.savefig(pathFig + "/meanVeloarrowsFullProba.svg", transparent=True)
+plt.show()
 # %%
 df_prime = df[
     [
@@ -973,19 +973,19 @@ sns.barplot(
     x="proba",
     y="meanVelo",
     hue="arrow",
-    hue_order=df["arrow"].unique(),
+    hue_order=dd["arrow"].unique(),
     data=df,
     errorbar="ci",
     palette=[downarrowsPalette[1], uparrowsPalette[1]],
 )
-plt.title("ASEM across 3 different probabilites", fontsize=30)
-plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
+plt.title("ASEM Across 3 Different Probabilities", fontsize=30)
+plt.xlabel("P(Right|UP)=P(Left|DOWN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrows.svg")
+plt.savefig(pathFig + "/meanVeloarrows.svg", transparent=True)
 plt.show()
 # %%
 

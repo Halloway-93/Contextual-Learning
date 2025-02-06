@@ -640,14 +640,14 @@ sns.barplot(
     data=df,
 )
 plt.legend(fontsize=20)
-plt.title("ASEM across 3 different probabilites", fontsize=30)
+plt.title("ASEM Across 3 Different Probabilities", fontsize=30)
 plt.xlabel("P(Right|RED)=P(Left|GREEN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
-plt.savefig(pathFig + "/meanVeloColors.svg")
+plt.savefig(pathFig + "/meanVeloColors.svg", transparent=True)
 plt.show()
 
 # %%

@@ -23,7 +23,6 @@ jlData = pd.read_csv(os.path.join(path, jobLibData))
 # %%
 jlData.columns
 # %%
-
 exampleJL = jlData[
     (jlData["sub"] == 1)
     & (jlData["proba"] == 0.25)
@@ -389,14 +388,14 @@ sns.barplot(
     errorbar="ci",
     palette=[downarrowsPalette[1], uparrowsPalette[1]],
 )
-plt.title("Anticipatory Velocity across  probabilites", fontsize=30)
-plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
+plt.title("ASEM Across 5 Probabilities", fontsize=30)
+plt.xlabel("P(Right|UP)=P(Left|DOWN)", fontsize=30)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 ylim = (-1.5, 1.5)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrowsFullProba.svg")
+plt.savefig(pathFig + "/meanVeloarrowsFullProba.svg", transparent=True)
 plt.show()
 # %%
 df_prime = df[
@@ -1209,14 +1208,14 @@ sns.barplot(
     errorbar="ci",
     palette=[downarrowsPalette[1], uparrowsPalette[1]],
 )
-plt.title("ASEM across 3 different porbabilities", fontsize=30)
-plt.xlabel("P(Right|up)=P(Left|down)", fontsize=30)
+plt.title("ASEM Across 3 Different Probabilities", fontsize=30)
+plt.xlabel("P(Right|UP)=P(Left|DOWN)", fontsize=30)
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
 plt.ylabel("ASEM (deg/s)", fontsize=30)
 plt.ylim(-0.75, 0.75)
 plt.legend(fontsize=20)
-plt.savefig(pathFig + "/meanVeloarrows.svg")
+plt.savefig(pathFig + "/meanVeloarrows.svg",transparent=True)
 plt.show()
 
 df_prime = df[
@@ -2076,4 +2075,298 @@ print(model.summary())
 model = sm.OLS.from_formula("adaptation_up~ adaptation_down ", result).fit()
 
 print(model.summary())
+# %%
+df.columns
+# %%
+df.groupby(["sub", "proba", "arrow", "up_arrow_position", "TD_prev"])[
+    "meanVelo"
+].mean().reset_index()
+# %%
+# Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
+mean_velo = df.groupby(["sub", "proba", "arrow"])["meanVelo"].mean().reset_index()
+
+# Pivot the table to have 'proba' as columns
+pivot_table = mean_velo.pivot_table(
+    index=["sub", "proba"], columns="arrow", values="meanVelo"
+).reset_index()
+
+# Calculate the adaptation
+pivot_table["adaptation"] = (
+    np.abs(pivot_table["down"]) + np.abs(pivot_table["up"])
+) / 2
+
+print(pivot_table)
+# %%
+sns.scatterplot(
+    data=pivot_table, x="up", y="down", hue="proba", palette="viridis", s=50
+)
+plt.axhline(y=0, color="k", linestyle="--")  # Horizontal line at y=0
+plt.axvline(x=0, color="k", linestyle="--")  # Vertical line at x=0
+plt.show()
+# %%
+sns.boxplot(
+    data=pivot_table,
+    x="proba",
+    y="adaptation",
+)
+plt.show()
+# %%
+sns.boxplot(
+    data=pivot_table,
+    x="proba",
+    y="down",
+)
+plt.show()
+# %%
+sns.boxplot(
+    data=pivot_table,
+    x="proba",
+    y="up",
+)
+plt.show()
+# %%
+# Create the plot with connected dots for each participant
+plt.figure(figsize=(8, 6))
+sns.scatterplot(
+    data=pivot_table,
+    x="up",
+    y="down",
+    hue="proba",
+    palette="viridis",
+    style="proba",
+markers = ["o", "s", "D", "^", "v"],
+    s=50
+)
+# Connect dots for each participant
+for sub in pivot_table["sub"].unique():
+    subset = pivot_table[pivot_table["sub"] == sub]
+    plt.plot(subset["up"], subset["down"], color="gray", alpha=0.5, linestyle="--")
+# Add plot formatting
+plt.axhline(0, color="black", linestyle="--")
+plt.axvline(0, color="black", linestyle="--")
+plt.title(f"Participants adaptaion across probabilites")
+plt.xlabel("up")
+plt.ylabel("down")
+plt.ylim(-2.5, 2.5)
+plt.xlim(-2.5, 2.5)
+plt.legend(title="proba")
+plt.tight_layout()
+plt.show()
+plt.show()
+# %%
+# Connect dots for each participant
+for sub in pivot_table["sub"].unique():
+    subset = pivot_table[pivot_table["sub"] == sub]
+    plt.plot(subset["up"], subset["down"], color="gray", alpha=0.5, linestyle="--")
+    sns.scatterplot(
+        data=pivot_table[pivot_table["sub"] == sub],
+        x="up",
+        y="down",
+        hue="proba",
+        palette="viridis",
+        style="proba",
+        markers=["o", "s", "D"],
+    )
+    # Add plot formatting
+    plt.axhline(0, color="black", linestyle="--")
+    plt.axvline(0, color="black", linestyle="--")
+    plt.title(f"Participant:{sub}")
+    plt.xlabel("up")
+    plt.ylabel("down")
+    plt.legend(title="proba")
+    plt.tight_layout()
+    plt.show()
+# %%
+# Group by 'sub', 'proba', and 'color' and calculate the mean of 'meanVelo'
+mean_velo = df.groupby(["sub", "proba", "interaction"])["meanVelo"].mean().reset_index()
+print(mean_velo)
+mean_velo["interaction"] = mean_velo["interaction"].astype("str")
+# %%
+# Pivot the table to have 'proba' as columns
+pivot_table = mean_velo.pivot_table(
+    index=["sub", "proba"], columns="interaction", values="meanVelo"
+).reset_index()
+
+# Calculate the adaptation
+# pivot_table["adaptation"] = (
+#     np.abs(pivot_table["green"]) + np.abs(pivot_table["red"])
+# ) / 2
+
+print(pivot_table)
+pivot_table = pd.DataFrame(pivot_table)
+pivot_table.columns
+# %%
+pivot_table.columns[2]
+# %%
+# pivot_table.rename(
+#     columns={
+#         ('left', 'green'): "left_green",
+#         ('left', 'red'): "left_red",
+#         ('right', 'green'): "right_green",
+#         ('right', 'red'): "right_red",
+#     },
+#     inplace=True,
+# )
+#
+# pivot_table.columns
+# %%
+sns.scatterplot(
+    data=pivot_table, x="('right', 'up')", y="('right', 'down')", hue="proba"
+)
+# Or alternatively
+plt.axhline(y=0, color="k", linestyle="--")  # Horizontal line at y=0
+plt.axvline(x=0, color="k", linestyle="--")  # Vertical line at x=0
+plt.xlim(-2.5, 2.5)
+plt.ylim(-2.5, 2.5)
+plt.show()
+# a %%
+sns.pointplot(
+    data=pivot_table,
+    x="proba",
+    y="adaptation",
+)
+plt.show()
+
+# %%
+sns.scatterplot(
+    data=pivot_table, x="('left', 'red')", y="('left', 'green')", hue="proba"
+)
+# Or alternatively
+plt.axhline(y=0, color="k", linestyle="--")  # Horizontal line at y=0
+plt.axvline(x=0, color="k", linestyle="--")  # Vertical line at x=0
+plt.xlim(-2.5, 2.5)
+plt.ylim(-2.5, 2.5)
+plt.show()
+# a %%
+sns.pointplot(
+    data=pivot_table,
+    x="proba",
+    y="adaptation",
+)
+plt.show()
+
+# %%
+# Looking at the interaction between the position and the choice of the color
+
+plt.hist(
+    df.groupby(["sub", "proba", "color", "trial_color_UP"])["meanVelo"]
+    .count()
+    .reset_index(name="count")["count"]
+)
+plt.show()
+# %%
+df_inter = (
+    df.groupby(["sub", "proba", "color", "trial_color_UP", "TD_prev"])["meanVelo"]
+    .mean()
+    .reset_index()
+)
+
+# %%
+df_inter["interaction"] = list(zip(df_inter["color"], df_inter["trial_color_UP"]))
+df_inter["interaction"] = df_inter["interaction"].astype("str")
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interaction",
+    palette=greenColorsPalette,
+    data=df_inter[df_inter.color == "green"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interaction",
+    palette=redColorsPalette,
+    data=df_inter[df_inter.color == "red"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: RED", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+
+# %%
+
+df["interColPos"] = list(zip(df["color"], df["trial_color_UP"]))
+df["interColPos"] = df["interColPos"].astype("str")
+
+# %%
+
+for s in df["sub"].unique():
+    dfs = df[df["sub"] == s]
+    sns.histplot(data=dfs, x="interColPos")
+    plt.show()
+
+
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interColPos",
+    palette=greenColorsPalette,
+    data=df[df.color == "green"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
+# %%
+for s in df["sub"].unique():
+    dfs = df[df["sub"] == s]
+    sns.histplot(data=dfs, x="interColPos")
+    plt.show()
+
+
+# %%
+fig = plt.figure()
+# Toggle full screen mode
+figManager = plt.get_current_fig_manager()
+figManager.full_screen_toggle()
+sns.barplot(
+    x="proba",
+    y="meanVelo",
+    hue="interColPos",
+    palette=redColorsPalette,
+    data=df[df.color == "red"],
+)
+plt.legend(fontsize=20)
+plt.title("Anticipatory Velocity Given the Color Position: Green ", fontsize=30)
+plt.ylabel("ASEM (deg/s)", fontsize=30)
+plt.xlabel("P(Left|GREEN)", fontsize=30)
+plt.xticks(fontsize=25)
+plt.yticks(fontsize=25)
+plt.ylim(-1, 1)
+# plt.savefig(pathFig + "/meanVeloGreenTD.svg")
+plt.show()
 # %%
