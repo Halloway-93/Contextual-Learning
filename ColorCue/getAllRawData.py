@@ -550,17 +550,14 @@ def preprocess_data_file(filename, removeSaccades=True):
 
     # Extract messages from eyelink
     MSG = data["msg"]
-    tON = MSG.loc[MSG.text == "FixOn", ["trial", "time"]]
-    t0 = MSG.loc[MSG.text == "FixOff", ["trial", "time"]]
     Zero = MSG.loc[MSG.text == "TargetOn", ["trial", "time"]]
 
+    print(Zero)
     # Reset time based on 'Zero' time
     for t in Zero.trial.unique():
         df.loc[df["trial"] == t, "time"] = (
             df.loc[df["trial"] == t, "time"] - Zero.loc[Zero.trial == t, "time"].values
         )
-    tON.loc[:, "time"] = tON.time.values - Zero.time.values
-    t0.loc[:, "time"] = t0.time.values - Zero.time.values
 
     # Extract the blinks
     blinks = data["blinks"]
@@ -568,6 +565,7 @@ def preprocess_data_file(filename, removeSaccades=True):
 
     # Reset blinks time
     for t in blinks["trial"].unique():
+        print (t)
         blinks.loc[blinks.trial == t, ["stime", "etime"]] = (
             blinks.loc[blinks.trial == t, ["stime", "etime"]].values
             - Zero.loc[Zero.trial == t, "time"].values
@@ -705,7 +703,6 @@ def process_eye_movement(eye_position, sampling_freq=1000, cutoff_freq=30):
 
     return pd.DataFrame(dict({"filtPos": filtered_pos, "filtVelo": velocity}))
 
-
 # %%
 def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
     """
@@ -728,12 +725,6 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
                 df["sub"] = sub
                 # Adding the filtered postition and the filtered velocity.
 
-                # filtered_data = [
-                #     process_eye_movement(
-                #         df[df["trial"] == t]["xp"], sampling_freq=1000, cutoff_freq=30
-                #     )
-                #     for t in df.trial.unique()
-                # ]
                 velo = [
                     np.gradient(df[df["trial"] == t]["xp"]) * sampling_freq / degToPix
                     for t in df.trial.unique()
@@ -754,19 +745,8 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
 
                 allDFs.append(df)
 
-            # if filename.endswith(".tsv"):
-            #     filepath = os.path.join(root, filename)
-            #     print(f"Read data from {filepath}")
-            #     events = pd.read_csv(filepath, sep="\t")
-            #     allEvents.append(events)
 
     bigDF = pd.concat(allDFs, axis=0, ignore_index=True)
-    # print(len(bigDF))
-    # bigEvents = pd.concat(allEvents, axis=0, ignore_index=True)
-    # print(len(bigEvents))
-    # Merge DataFrames based on 'proba'
-    # merged_data = pd.concat([bigEvents, bigDF], axis=1)
-    # print(len(merged_data))
 
     bigDF.to_csv(os.path.join(data_dir, "allRawData.csv"), index=False)
     return bigDF
@@ -780,5 +760,5 @@ def getAllRawData(data_dir, sampling_freq=1000, degToPix=27.28):
 # getAllRawData(path1)
 # getAllRawData(path2)
 # Attentional Task
-# path3='/envau/work/brainets/oueld.h/attentionalTask/data'
-# getAllRawData(path3)
+path3='/envau/work/brainets/oueld.h/attentionalTask/data/'
+getAllRawData(path3)
